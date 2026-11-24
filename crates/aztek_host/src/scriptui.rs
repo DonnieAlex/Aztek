@@ -358,7 +358,7 @@ pub fn cat_of(kind: &str) -> Cat {
         "window" | "workspaceControl" | "dockControl" | "mainWindow" | "progressWindow" => Cat::Window,
         "menu" | "popupMenu" | "optionMenu" | "optionMenuGrp" => Cat::Menu,
         "menuItem" => Cat::MenuItem,
-        "radioCollection" | "radioMenuItemCollection" | "toolCollection" => Cat::Collection,
+        "radioCollection" | "radioMenuItemCollection" | "toolCollection" | "iconTextRadioCollection" => Cat::Collection,
         k if k.ends_with("Layout") || k == "scriptedPanel" => Cat::Layout,
         _ => Cat::Control,
     }
@@ -371,7 +371,9 @@ pub(crate) const SOUND_FLAGS: &str = "sound:s:a soundSource:ss:a displaySound:ds
 /// timeControl's own, beside SOUND_FLAGS; the range, key display and snapping flags are the scene's.
 pub(crate) const TIME_CONTROL_FLAGS: &str = "animCurveNames:acn:b animLayerFilterOptions:alf:a currentFrameColor:cfc:a foregroundColor:fgc:a globalTime:gt:b mainListConnection:mlc:a tickSpan:tsp:a forceRefresh:fr:b forceRedraw:fd:b";
 const WINDOW: &str = "title:t:a widthHeight:wh:a sizeable:s:b minimizeButton:mnb:b maximizeButton:mxb:b resizeToFitChildren:rtf:b menuBar:mb:b menuBarVisible:mbv:b titleBar:tb:b titleBarMenu:tbm:b toolbox:tlb:b topEdge:te:a leftEdge:le:a topLeftCorner:tlc:a retain:ret:b closeCommand:cc:a minimizeCommand:mnc:a restoreCommand:rc:a iconName:in:a iconify:i:b interactivePlacement:ip:b frontWindow:fw:b numberOfWindows:nw:b mainWindow:mw:b nestedDockingEnabled:nde:b dockCorner:dc:a2 dockStation:ds:b dockingLayout:dl:a state:st:a menuArray:ma:b mainMenuBar:mm:b menuBarCornerWidget:mcw:a2 menuBarResize:mbr:b menuIndex:mi:a2 numberOfMenus:nm:b";
-const BUTTON_ICON: &str = "style:st:a image:i:a image1:i1:a image2:i2:a image3:i3:a label:l:a command:c:a doubleClickCommand:dcc:a sourceType:stp:a imageOverlayLabel:iol:a flat:fla:b disabledImage:di:a align:al:a marginWidth:mw:a marginHeight:mh:a font:fn:a labelOffset:lo:a rotation:rot:a selectionImage:si:a highlightImage:hi:a overlayLabelColor:olc:a overlayLabelBackColor:olb:a scaleIcon:sic:b commandRepeatable:rpt:b ltVersion:lt:a version:ver:a useAlpha:ua:b flexibleWidthType:fwt:a flexibleWidthValue:fwv:a";
+const BUTTON_ICON: &str = "style:st:a image:i:a image1:i1:a image2:i2:a image3:i3:a label:l:a command:c:a doubleClickCommand:dcc:a sourceType:stp:a imageOverlayLabel:iol:a flat:fla:b disabledImage:di:a align:al:a marginWidth:mw:a marginHeight:mh:a font:fn:a labelOffset:lo:a rotation:rot:a selectionImage:si:a highlightImage:hi:a overlayLabelColor:olc:a overlayLabelBackColor:olb:a scaleIcon:sic:b commandRepeatable:rpt:b ltVersion:lt:a version:ver:a useAlpha:ua:b flexibleWidthType:fwt:a flexibleWidthValue:fwv:a flipX:fx:b flipY:fy:b handleNodeDropCallback:hnd:a labelEditingCallback:lec:a";
+/// What iconTextCheckBox, iconTextRadioButton and iconTextStaticLabel share: the picture, its label and how both are drawn.
+const ICON_LOOK: &str = "style:st:a image:i:a image1:i1:a image2:i2:a image3:i3:a label:l:a font:fn:a align:al:a disabledImage:di:a flipX:fx:b flipY:fy:b imageOverlayLabel:iol:a labelOffset:lo:a marginHeight:mh:a marginWidth:mw:a overlayLabelBackColor:olb:a overlayLabelColor:olc:a rotation:rot:a runTimeCommand:rtc:a useAlpha:ua:b version:ver:a";
 const SHELF_BUTTON: &str = "style:st:a image:i:a image1:i1:a image2:i2:a image3:i3:a label:l:a command:c:a doubleClickCommand:dcc:a sourceType:stp:a imageOverlayLabel:iol:a flat:fla:b disabledImage:di:a align:al:a marginWidth:mw:a marginHeight:mh:a font:fn:a labelOffset:lo:a rotation:rot:a selectionImage:si:a highlightImage:hi:a overlayLabelColor:olc:a overlayLabelBackColor:olb:a scaleIcon:sic:b commandRepeatable:rpt:b ltVersion:lt:a version:ver:a useAlpha:ua:b flexibleWidthType:fwt:a flexibleWidthValue:fwv:a enableCommandRepeat:ecr:b flipX:fx:b flipY:fy:b handleNodeDropCallback:hnd:a labelEditingCallback:lec:a menuItem:mi:a2 menuItemPython:mip:a1 menuItemWithOptionBox:mio:a3 noDefaultPopup:ndp:b";
 const SLIDER: &str = "value:v:a minValue:min:a maxValue:max:a step:s:a horizontal:hr:b changeCommand:cc:a dragCommand:dc:a";
 pub(crate) const SLIDER_GRP: &str = "label:l:a field:f:b value:v:a minValue:min:a maxValue:max:a fieldMinValue:fmn:a fieldMaxValue:fmx:a sliderStep:ss:a step:s:a fieldStep:fs:a extraLabel:el:a changeCommand:cc:a dragCommand:dc:a";
@@ -380,6 +382,10 @@ pub(crate) const FIELD_GRP: &str = "label:l:a numberOfFields:nf:a value:v:a valu
 /// colorSliderGrp's flags; colorSliderButtonGrp adds a button and a symbol button to them.
 const COLOR_GRP: &str = "label:l:a rgbValue:rgb:a hsvValue:hsv:a alphaValue:alp:a forceDragRefresh:fdr:b changeCommand:cc:a dragCommand:dc:a useDisplaySpace:uds:b useVpColorPicker:vcp:b";
 const MENU: &str = "label:l:a tearOff:to:b allowOptionBoxes:aob:b deleteAllItems:dai:b itemArray:ia:b numberOfItems:ni:b postMenuCommand:pmc:a postMenuCommandOnce:pmo:b familyImage:fi:a mnemonic:mn:a ltVersion:lt:a version:ver:a scrollable:srb:b helpMenu:hm:b";
+
+/// An iconTextScrollList's rows as the shell draws them, in pixels, and its width when it is given none.
+const LIST_ROW: f64 = 18.0;
+const LIST_WIDTH: f64 = 100.0;
 
 /// (command, flags). `long:short:type`, type b a switch, a any value, aN N values per use.
 const KINDS: &[(&str, &str)] = &[
@@ -399,8 +405,10 @@ const KINDS: &[(&str, &str)] = &[
     ("button", "label:l:a align:al:a command:c:a recomputeSize:rs:b actOnPress:aop:b actionIsSubstitute:ais:b"),
     ("iconTextButton", BUTTON_ICON),
     ("shelfButton", SHELF_BUTTON),
-    ("iconTextCheckBox", "style:st:a image:i:a image1:i1:a label:l:a value:v:b onCommand:onc:a offCommand:ofc:a changeCommand:cc:a flat:fla:b font:fn:a align:al:a"),
-    ("iconTextRadioButton", "style:st:a image:i:a image1:i1:a label:l:a select:sl:b collection:cl:a onCommand:onc:a offCommand:ofc:a changeCommand:cc:a flat:fla:b font:fn:a align:al:a"),
+    ("iconTextCheckBox", "value:v:b onCommand:onc:a offCommand:ofc:a changeCommand:cc:a flat:fla:b highlightImage:hi:a selectionImage:si:a selectionHighlightImage:shi:a"),
+    ("iconTextRadioButton", "select:sl:b collection:cl:a onCommand:onc:a offCommand:ofc:a changeCommand:cc:a flat:fla:b highlightImage:hi:a selectionImage:si:a selectionHighlightImage:shi:a"),
+    ("iconTextStaticLabel", ""),
+    ("iconTextScrollList", "allowMultiSelection:ams:b append:a:a1 changeCommand:cc:a deselectAll:da:b doubleClickCommand:dcc:a dragFeedbackVisible:dfv:b dropRectCallback:drc:a editIndexed:ei:a editable:ed:b itemAt:ia:a2 itemTextColor:itc:a4 numberOfIcons:nic:b numberOfRows:nr:b removeAll:ra:b selectCommand:sc:a selectIndexedItem:sii:a1 selectItem:si:a1 visualRectAt:vra:a2"),
     ("symbolButton", "image:i:a command:c:a"),
     ("symbolCheckBox", "image:i:a onImage:oni:a offImage:ofi:a disableOnImage:dni:a disableOffImage:dfi:a innerMargin:im:b version:ver:a value:v:b onCommand:onc:a offCommand:ofc:a changeCommand:cc:a"),
     ("text", "label:l:a align:al:a font:fn:a recomputeSize:rs:b wordWrap:ww:b hyperlink:hl:b dropRectCallback:drc:a"),
@@ -650,6 +658,12 @@ fn apply(m: &mut Model, id: Id, flags: &Map<String, Value>) -> Result<Map<String
         }
         apply_one(m, id, &kind, key, raw, &mut changed)?;
     }
+    if kind == "iconTextRadioCollection" {
+        if let Some(raw) = flags.get("select").filter(|v| !v.is_null()) {
+            let quiet = flags.get("disableCommands").is_some_and(truth);
+            collection_pick(m, id, &text(raw), quiet)?;
+        }
+    }
     // attrNavigationControlGrp's right-click menu: the keyable items unless -noKeyableMenu, Ignore with -ignore.
     if nav && (flags.contains_key("ignore") || flags.contains_key("noKeyableMenu") || !m.get(id).is_some_and(|c| c.props.contains_key("__navMenu"))) {
         if let Some(c) = m.controls.get_mut(&id) {
@@ -767,7 +781,18 @@ fn apply_one(m: &mut Model, id: Id, kind: &str, key: &str, raw: &Value, changed:
             set(m, id, "vertical", json!(!truth(raw)), changed);
             set(m, id, key, json!(truth(raw)), changed);
         }
-        ("textScrollList", _) => list_flag(m, id, key, raw, changed)?,
+        ("textScrollList" | "iconTextScrollList", _) => list_flag(m, id, key, raw, changed)?,
+        // The icon controls' overlay colours, margins and picture turn.
+        ("iconTextCheckBox" | "iconTextRadioButton" | "iconTextStaticLabel", "overlayLabelColor" | "overlayLabelBackColor") => {
+            let n = if key == "overlayLabelColor" { 3 } else { 4 };
+            if vals.len() != n {
+                return Err(format!("{kind}: -{key} takes {n} values."));
+            }
+            set(m, id, key, json!(vals.iter().map(|v| number(v).clamp(0.0, 1.0)).collect::<Vec<_>>()), changed);
+        }
+        ("iconTextCheckBox" | "iconTextRadioButton" | "iconTextStaticLabel", "marginWidth" | "marginHeight") => set(m, id, key, json!((number(raw) as i64).max(0)), changed),
+        ("iconTextCheckBox" | "iconTextRadioButton" | "iconTextStaticLabel", "labelOffset") => set(m, id, key, json!(number(raw) as i64), changed),
+        ("iconTextCheckBox" | "iconTextRadioButton" | "iconTextStaticLabel", "rotation") => set(m, id, key, json!(number(raw)), changed),
         // -menuIndex menu index: the menu moves to that place (from 0) among the bar's menus.
         ("window" | "menuBarLayout", "menuIndex") => {
             for ch in vals.chunks(2) {
@@ -987,7 +1012,7 @@ fn apply_one(m: &mut Model, id: Id, kind: &str, key: &str, raw: &Value, changed:
             set(m, id, key, Value::Array(pairs), changed);
         }
         // Every item of the collection unselected.
-        ("toolCollection" | "radioCollection", "clear") => {
+        ("toolCollection" | "radioCollection" | "iconTextRadioCollection", "clear") => {
             if truth(raw) {
                 for k in collection_members(m, id) {
                     if let Some(c) = m.controls.get_mut(&k) {
@@ -997,6 +1022,8 @@ fn apply_one(m: &mut Model, id: Id, kind: &str, key: &str, raw: &Value, changed:
                 }
             }
         }
+        // Picked in apply, which also sees -disableCommands.
+        ("iconTextRadioCollection", "select" | "disableCommands") => {}
         ("radioCollection" | "toolCollection", "select") => {
             let name = text(raw);
             let kids = collection_members(m, id);
@@ -1477,6 +1504,40 @@ fn list_flag(m: &mut Model, id: Id, key: &str, raw: &Value, changed: &mut Map<St
                 tags.clear();
                 sel.clear();
                 off.clear();
+                set(m, id, "itemColors", json!([]), changed);
+            }
+        }
+        // iconTextScrollList -itemTextColor index r g b: the text colour of an item (from 1).
+        "itemTextColor" => {
+            let mut colors: Vec<Value> = m.get(id).and_then(|c| c.props.get("itemColors")).and_then(Value::as_array).cloned().unwrap_or_default();
+            for ch in vals.chunks(4) {
+                let [i, r, g, b] = ch else { return Err("iconTextScrollList: -itemTextColor takes an index and three colour values.".into()) };
+                let i = number(i) as i64 - 1;
+                if i < 0 || i as usize >= items.len() {
+                    return Err(format!("iconTextScrollList: no item {}.", i + 1));
+                }
+                colors.retain(|c| c[0].as_i64() != Some(i));
+                colors.push(json!([i, number(r).clamp(0.0, 1.0), number(g).clamp(0.0, 1.0), number(b).clamp(0.0, 1.0)]));
+            }
+            set(m, id, "itemColors", Value::Array(colors), changed);
+            touched = false;
+        }
+        // iconTextScrollList -editIndexed: the item (from 1) the shell opens for editing.
+        "editIndexed" => {
+            let i = number(raw) as i64;
+            if i < 1 || i as usize > items.len() {
+                return Err(format!("iconTextScrollList: no item {i}."));
+            }
+            set(m, id, "editIndexed", json!(i), changed);
+            touched = false;
+        }
+        // From the shell: an item's text edited in place, as its row from 0 and the new text.
+        "__editedItem" => {
+            if let [i, t, ..] = vals.as_slice() {
+                let i = number(i) as usize;
+                if i < items.len() {
+                    items[i] = text(t);
+                }
             }
         }
         "selectItem" => {
@@ -1659,6 +1720,41 @@ fn share_exclusive(m: &mut Model, id: Id) {
     }
 }
 
+/// iconTextRadioCollection -select: the named button on and the one that was on off, each running its -changeCommand
+/// (with 1 or 0) and its -onCommand or -offCommand, unless `quiet` (-disableCommands). NONE turns them all off.
+fn collection_pick(m: &mut Model, coll: Id, name: &str, quiet: bool) -> Result<(), String> {
+    let kids = collection_members(m, coll);
+    let target = if name == "NONE" {
+        None
+    } else {
+        Some(kids.iter().copied().find(|k| m.get(*k).is_some_and(|c| c.name == name || c.path == name)).ok_or_else(|| format!("Object '{name}' not found."))?)
+    };
+    let mut due = Vec::new();
+    for k in kids {
+        let Some(c) = m.controls.get_mut(&k) else { continue };
+        let was = c.props.get("select").is_some_and(truth);
+        let now = Some(k) == target;
+        if was == now {
+            continue;
+        }
+        c.props.insert("select".into(), json!(now));
+        op(json!({"op": "edit", "path": c.path, "props": {"select": now}}));
+        if !quiet {
+            for flag in ["changeCommand", if now { "onCommand" } else { "offCommand" }] {
+                if let Some(cb) = c.props.get(flag) {
+                    // The button turned off runs first.
+                    due.push((now, cb.clone(), vec![json!(now)]));
+                }
+            }
+        }
+    }
+    due.sort_by_key(|d| d.0);
+    for (_, cb, args) in due {
+        run_soon(cb, args);
+    }
+    Ok(())
+}
+
 fn radio_exclusive(m: &mut Model, id: Id) {
     let Some(coll) = m.get(id).and_then(|c| c.props.get("collection")).and_then(Value::as_str).map(str::to_string) else { return };
     let others: Vec<Id> = m.controls.iter().filter(|(k, c)| **k != id && c.props.get("collection").and_then(Value::as_str) == Some(coll.as_str())).map(|(k, _)| *k).collect();
@@ -1683,6 +1779,11 @@ fn default_value(c: &Control, key: &str) -> Value {
     }
     match (c.kind.as_str(), key) {
         ("window" | "workspaceControl" | "dockControl" | "progressWindow", "visible") => json!(false),
+        ("iconTextButton" | "iconTextCheckBox" | "iconTextRadioButton" | "iconTextStaticLabel", "flipX" | "flipY") => json!(false),
+        (k, key) if matches!(k, "iconTextCheckBox" | "iconTextRadioButton" | "iconTextStaticLabel") && icon_default(key).is_some() => icon_default(key).unwrap(),
+        ("iconTextRadioCollection", "global") => json!(false),
+        ("iconTextScrollList", "dragFeedbackVisible") => json!(true),
+        ("iconTextScrollList", "editable") => json!(false),
         (_, "enable" | "visible" | "manage" | "editable" | "sizeable" | "minimizeButton" | "maximizeButton" | "titleBar" | "titleBarMenu" | "enableKeyboardFocus" | "enableButton") => json!(true),
         ("floatSliderGrp" | "intSliderGrp" | "colorIndexSliderGrp" | "floatSliderButtonGrp", "minValue") => zero(&c.kind),
         ("floatSliderGrp" | "intSliderGrp" | "floatSliderButtonGrp", "maxValue") => ten(&c.kind),
@@ -1789,6 +1890,23 @@ fn default_value(c: &Control, key: &str) -> Value {
         (_, "collapse" | "collapsable" | "adjustableColumn" | "isCancelled" | "isInterruptable" | "active" | "allowMultiSelection" | "floating") => json!(false),
         _ => Value::Null,
     }
+}
+
+/// The documented defaults of iconTextCheckBox, iconTextRadioButton and iconTextStaticLabel.
+fn icon_default(key: &str) -> Option<Value> {
+    Some(match key {
+        "marginWidth" | "marginHeight" => json!(1),
+        "labelOffset" => json!(0),
+        "overlayLabelColor" => json!([0.8, 0.8, 0.8]),
+        "overlayLabelBackColor" => json!([0.0, 0.0, 0.0, 0.5]),
+        "useAlpha" => json!(true),
+        "flat" => json!(false),
+        "align" => json!("center"),
+        "style" => json!("textOnly"),
+        "rotation" => json!(0.0),
+        "image1" | "image2" | "image3" | "disabledImage" | "highlightImage" | "selectionImage" | "selectionHighlightImage" | "imageOverlayLabel" | "version" | "font" => json!(""),
+        _ => return None,
+    })
 }
 
 fn zero(k: &str) -> Value {
@@ -1903,8 +2021,8 @@ fn query(m: &Model, id: Id, key: &str) -> Value {
             let v: Vec<String> = c.children.iter().filter_map(|k| m.get(*k)).filter(|k| k.kind == "menuItem").map(|k| if key == "itemListLong" { k.path.clone() } else { k.name.clone() }).collect();
             no_list(v)
         }
-        "numberOfItems" if c.kind != "textScrollList" => json!(c.children.iter().filter(|k| m.get(**k).is_some_and(|x| x.kind == "menuItem")).count()),
-        "select" if c.kind == "radioCollection" || c.kind == "toolCollection" => {
+        "numberOfItems" if c.kind != "textScrollList" && c.kind != "iconTextScrollList" => json!(c.children.iter().filter(|k| m.get(**k).is_some_and(|x| x.kind == "menuItem")).count()),
+        "select" if c.kind == "radioCollection" || c.kind == "toolCollection" || c.kind == "iconTextRadioCollection" => {
             let kids = collection_members(m, id);
             json!(kids.iter().find_map(|k| m.get(*k).filter(|x| x.props.get("select").is_some_and(truth)).map(|x| x.name.clone())).unwrap_or_else(|| "NONE".to_string()))
         }
@@ -1956,7 +2074,7 @@ fn query(m: &Model, id: Id, key: &str) -> Value {
         "allItemsUniqueTags" => no_list(c.props.get("tags").and_then(Value::as_array).map(|a| a.iter().map(text).collect()).unwrap_or_default()),
         "numberOfItems" => json!(c.props.get("items").and_then(Value::as_array).map_or(0, Vec::len)),
         "numberOfSelectedItems" => json!(c.props.get("selected").and_then(Value::as_array).map_or(0, Vec::len)),
-        "selectItem" | "selectIndexedItem" | "selectUniqueTagItem" if c.kind == "textScrollList" => {
+        "selectItem" | "selectIndexedItem" | "selectUniqueTagItem" if c.kind == "textScrollList" || c.kind == "iconTextScrollList" => {
             let items: Vec<String> = c.props.get("items").and_then(Value::as_array).map(|a| a.iter().map(text).collect()).unwrap_or_default();
             let tags: Vec<String> = c.props.get("tags").and_then(Value::as_array).map(|a| a.iter().map(text).collect()).unwrap_or_default();
             let sel: Vec<usize> = c.props.get("selected").and_then(Value::as_array).map(|a| a.iter().map(|v| number(v) as usize).collect()).unwrap_or_default();
@@ -1970,6 +2088,32 @@ fn query(m: &Model, id: Id, key: &str) -> Value {
                         json!(sel.iter().map(|i| i + 1).collect::<Vec<_>>())
                     }
                 }
+            }
+        }
+        "numberOfRows" | "numberOfIcons" | "itemAt" | "visualRectAt" if c.kind == "iconTextScrollList" => {
+            let items: Vec<String> = c.props.get("items").and_then(Value::as_array).map(|a| a.iter().map(text).collect()).unwrap_or_default();
+            let height = c.props.get("height").map(number).filter(|h| *h > 0.0);
+            let width = c.props.get("width").map(number).filter(|w| *w > 0.0).unwrap_or(LIST_WIDTH);
+            let at = c.props.get("__at").map(flat).unwrap_or_default();
+            let row_at = || -> Option<usize> {
+                let [x, y, ..] = at.as_slice() else { return None };
+                let (x, y) = (number(x), number(y));
+                if x < 0.0 || y < 0.0 || x >= width || height.is_some_and(|h| y >= h) {
+                    return None;
+                }
+                Some((y / LIST_ROW) as usize).filter(|r| *r < items.len())
+            };
+            match key {
+                "numberOfRows" => json!(match height {
+                    Some(h) => ((h / LIST_ROW) as usize).max(1),
+                    None => items.len(),
+                }),
+                "numberOfIcons" => json!(items.len()),
+                "itemAt" => json!(row_at().map(|r| items[r].clone()).unwrap_or_default()),
+                _ => match row_at() {
+                    Some(r) => json!([0, (r as f64 * LIST_ROW) as i64, width as i64, LIST_ROW as i64]),
+                    None => json!([]),
+                },
             }
         }
         "attachForm" | "attachControl" | "attachPosition" | "attachNone" | "attachOppositeForm" | "attachOppositeControl" => {
@@ -2017,6 +2161,14 @@ fn run_query(cmd: &str, a: &Args) -> CmdResult {
         for k in a.flags.keys() {
             if !matches!(k.as_str(), "query" | "queried") && !asked.contains(k) {
                 asked.push(k.clone());
+            }
+        }
+        // The point an iconTextScrollList is asked about.
+        for k in ["itemAt", "visualRectAt"] {
+            if let Some(at) = a.get(k).filter(|v| !v.is_null() && !v.is_boolean()).cloned() {
+                if let Some(c) = a.pos_str(0).and_then(|n| m.find(n)).and_then(|i| m.controls.get_mut(&i)) {
+                    c.props.insert("__at".to_string(), at);
+                }
             }
         }
         // Which cell is asked about is not itself the question.
@@ -2082,7 +2234,7 @@ fn parent_for(m: &Model, cmd: &str, a: &Args) -> Result<Option<Id>, String> {
     }
     match cat_of(cmd) {
         Cat::Window => Ok(None),
-        Cat::Collection => Ok(m.parent),
+        Cat::Collection => Ok(if a.bool("global") { None } else { m.parent }),
         Cat::MenuItem => m.menu.map(Some).ok_or_else(|| "No menu found.".to_string()),
         Cat::Menu if cmd == "menu" => {
             // Menus go on the current menu bar layout, or the bar of the window being built.
@@ -2180,6 +2332,29 @@ pub(crate) fn create_as(kind: &str, base: &str, a: &Args) -> CmdResult {
         for (k, v) in &a.flags {
             flags.insert(k.clone(), v.clone());
         }
+        // -runTimeCommand: what the named command has fills in the label, annotation, image, command and version not given.
+        if let Some(rtc) = flags.get("runTimeCommand").map(text).filter(|t| !t.is_empty()) {
+            let Some(e) = crate::ui_cmds::run_time_entry(&rtc) else {
+                m.delete(id);
+                return Err(format!("{cmd}: no runTimeCommand named {rtc}."));
+            };
+            // A check box or radio button has no -command: its -changeCommand takes the command.
+            let command_flag = if matches!(cmd, "iconTextCheckBox" | "iconTextRadioButton") { "changeCommand" } else { "command" };
+            for (from, to) in [("label", "label"), ("annotation", "annotation"), ("image", "image"), ("version", "version"), ("command", command_flag)] {
+                if flags.get(to).is_some_and(|v| !v.is_null()) || (to == "image" && flags.get("image1").is_some_and(|v| !v.is_null())) {
+                    continue;
+                }
+                if cmd == "iconTextStaticLabel" && from == "command" {
+                    continue;
+                }
+                let v = text(&e[from]);
+                if v.is_empty() {
+                    continue;
+                }
+                let v = if from == "command" && e["language"].as_str() == Some("python") { json!({ "__pysrc__": v }) } else { json!(v) };
+                flags.insert(to.to_string(), v);
+            }
+        }
         if matches!(cmd, "radioButton" | "iconTextRadioButton" | "toolButton") && !flags.contains_key("collection") {
             if let Some(c) = m.collection.and_then(|c| m.get(c)) {
                 flags.insert("collection".into(), json!(c.path));
@@ -2203,7 +2378,7 @@ pub(crate) fn create_as(kind: &str, base: &str, a: &Args) -> CmdResult {
                 return Err(e);
             }
         };
-        if cmd == "radioButton" && flags.get("select").is_some_and(truth) {
+        if matches!(cmd, "radioButton" | "iconTextRadioButton") && flags.get("select").is_some_and(truth) {
             radio_exclusive(m, id);
         }
         if cmd == "scriptTable" {
@@ -3343,6 +3518,7 @@ pub fn register(s: &mut Session) {
             "floatFieldGrp" => add_flags(c, FIELD_GRP),
             "floatSliderGrp" | "floatSliderButtonGrp" => add_flags(c, SLIDER_GRP),
             "colorSliderButtonGrp" => add_flags(c, COLOR_GRP),
+            "iconTextCheckBox" | "iconTextRadioButton" | "iconTextStaticLabel" => add_flags(c, ICON_LOOK),
             _ => c,
         };
         if is_group(name) || *name == "rowLayout" || *name == "keyframeStats" {
@@ -3380,6 +3556,7 @@ pub fn register(s: &mut Session) {
 
     for (name, spec) in [
         ("toolCollection", "clear:cl:b select:sl:a collectionItemArray:cia:b numberOfCollectionItems:nci:b global:gl:b parent:p:a exists:ex:b query:q:b edit:e:b queried::a defineTemplate:dt:a useTemplate:ut:a"),
+        ("iconTextRadioCollection", "select:sl:a disableCommands:dcm:b collectionItemArray:cia:b numberOfCollectionItems:nci:b global:gl:b parent:p:a exists:ex:b query:q:b edit:e:b queried::a defineTemplate:dt:a useTemplate:ut:a"),
         ("radioCollection", "select:sl:a collectionItemArray:cia:b numberOfCollectionItems:nci:b global:gl:b parent:p:a exists:ex:b query:q:b edit:e:b queried::a defineTemplate:dt:a useTemplate:ut:a"),
         ("radioMenuItemCollection", "select:sl:a collectionItemArray:cia:b numberOfCollectionItems:nci:b global:gl:b parent:p:a exists:ex:b query:q:b edit:e:b queried::a defineTemplate:dt:a useTemplate:ut:a"),
     ] {

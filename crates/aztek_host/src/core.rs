@@ -99,6 +99,7 @@ impl Core {
         register_ui_commands(&mut c.s);
         aztek_scene::scripted::set_post_create_hook(crate::native_plugin::run_post_create);
         crate::ui_cmds::register(&mut c.s);
+        crate::hotbox::register(&mut c.s);
         crate::autosave::register(&mut c.s);
         crate::archive::register(&mut c.s);
         crate::scriptui::register(&mut c.s);

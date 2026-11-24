@@ -1281,13 +1281,40 @@ void MainWindow::build_menu_set(const QString& set) {
     if (hotbox_) hotbox_->deleteLater();
     common.append(help);
     sets.last().second.prepend(light);
+    // hotBox's polygons and surfaces rows are these of the Modeling row's menus.
+    for (QMenu* m : sets.first().second) {
+        const QString t = QString(m->title()).remove('&');
+        if (t == "Mesh" || t == "Edit Mesh" || t == "Mesh Tools" || t == "Mesh Display" || t == "UV") m->setProperty("azHotboxGroup", "polygons");
+        else if (t == "Curves" || t == "Surfaces") m->setProperty("azHotboxGroup", "surfaces");
+    }
     hotbox_ = new Hotbox(common, sets, recents, this);
     hotbox_->set_zones([this](int zone, QPoint origin) { return hotbox_zone(zone, origin); });
     connect(hotbox_, &Hotbox::spaceReleased, this, [this](bool tap) {
         held_.remove(Qt::Key_Space);
         space_held_ = false;
+        exec_quiet("hotBox", QJsonObject{{"release", true}});
         if (tap) panels_->toggle();
     });
+    connect(hotbox_, &Hotbox::used, this, [] { ask("aztekHotBox", QJsonObject{{"used", true}}); });
+    // Hotbox Controls rows go to hotBox, so they hold for the next pop and scripts see them.
+    connect(hotbox_, &Hotbox::rowToggled, this, [](const QString& row, bool on) {
+        exec_quiet("hotBox", QJsonObject{{row == "pane" ? QString("PaneToggleMenus") : row + "ToggleMenus", on}});
+    });
+}
+
+void MainWindow::show_hotbox(QPoint global, bool hold) {
+    if (!hotbox_) return;
+    const QJsonObject st = ask("aztekHotBox").toObject();
+    const QJsonObject on = st["rows"].toObject();
+    QHash<QString, bool> rows;
+    for (auto it = on.begin(); it != on.end(); ++it) rows[it.key()] = it.value().toBool(true);
+    hotbox_->set_look(st["style"].toString("dh"), st["transparency"].toInt(25), st["rmbPopups"].toBool(true),
+                      set_menus_.mid(7, std::max(0, int(set_menus_.size()) - 8)));
+    hotbox_->set_rows_shown(rows);
+    hotbox_->set_hold(hold);
+    ModelPanel* panel = panels_ ? panels_->panel_at(global) : nullptr;
+    hotbox_->popup(global, panel ? panel->panel_menu_actions() : QList<QAction*>());
+    ask("aztekHotBox", QJsonObject{{"shown", QJsonArray{global.x(), global.y()}}});
 }
 
 // ---------------------------------------------------------------------------------------------------------------------

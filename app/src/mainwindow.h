@@ -196,6 +196,9 @@ private:
     void tool_marking_menu(QPoint global, const QString& hold);
     void selection_marking_menu(QPoint global);
     QList<MarkItem> hotbox_zone(int zone, QPoint origin);
+    // Pops the hotbox at a screen place with hotBox's rows and look; `hold` keeps it up past the key's release. The
+    // Space key and hotBox from a script both come here.
+    void show_hotbox(QPoint global, bool hold);
     void object_marking_items(const QString& hit, QPoint global, QList<MarkItem>& items);
     void apply_workspace(const QString& name);
     // The reference's workspaces (#134): which docks, editors, shelf, menu set and bars each shows.

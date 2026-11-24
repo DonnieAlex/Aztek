@@ -79,6 +79,7 @@
 #include <QTabWidget>
 #include <QTemporaryDir>
 #include <QTimer>
+#include <QTransform>
 #include <QToolButton>
 #include <QValidator>
 #include <QVariantAnimation>
@@ -636,7 +637,7 @@ void ScriptUi::create(const QJsonObject& op) {
     } else if (k == "menuItem") {
         build_menu_item(it, parent, props);
         return;
-    } else if (k == "radioCollection" || k == "radioMenuItemCollection") {
+    } else if (k == "radioCollection" || k == "radioMenuItemCollection" || k == "iconTextRadioCollection") {
         return;
     } else if (k.endsWith("Layout") || k == "scriptedPanel") {
         build_layout(it, props);
@@ -2310,6 +2311,13 @@ void ScriptUi::build_control(Item* it, const QJsonObject& props) {
             fire(path, QJsonObject{{"select", on}}, QJsonArray{"changeCommand", on ? "onCommand" : "offCommand"}, QJsonArray{on});
         });
         it->w = b;
+    } else if (k == "iconTextStaticLabel") {
+        // A picture and text that does nothing when clicked.
+        auto* b = new QToolButton();
+        b->setText(amp(label));
+        b->setFocusPolicy(Qt::NoFocus);
+        b->setAutoRaise(true);
+        it->w = b;
     } else if (k == "text") {
         auto* l = new QLabel(label);
         it->w = l;
@@ -2467,9 +2475,19 @@ void ScriptUi::build_control(Item* it, const QJsonObject& props) {
         f->setFrameShape(style == "none" ? QFrame::NoFrame : horizontal ? QFrame::HLine : QFrame::VLine);
         f->setFrameShadow(QFrame::Sunken);
         it->w = f;
-    } else if (k == "textScrollList") {
+    } else if (k == "textScrollList" || k == "iconTextScrollList") {
         auto* l = new QListWidget();
         l->setUniformItemSizes(true);
+        if (k == "iconTextScrollList") {
+            // An item's text edited in place (-editable): the new text goes back, then -changeCommand runs.
+            connect(l, &QListWidget::itemChanged, this, [this, path, l](QListWidgetItem* i) {
+                fire(path, QJsonObject{{"__editedItem", QJsonArray{l->row(i), i->text()}}}, QJsonArray{"changeCommand"}, QJsonArray());
+            });
+            connect(l, &QListWidget::itemDoubleClicked, this, [this, path, l](QListWidgetItem* i) {
+                Item* me = items_.value(path);
+                if (me && as_bool(me->prop("editable")) && (i->flags() & Qt::ItemIsEnabled)) l->editItem(i);
+            });
+        }
         connect(l, &QListWidget::itemSelectionChanged, this, [this, path, l] {
             QJsonArray sel;
             for (int i = 0; i < l->count(); ++i)
@@ -3320,7 +3338,7 @@ void ScriptUi::apply_control(Item* it, const QJsonObject& props) {
             strip->update();
         }
     }
-    if (k == "button" || k == "iconTextButton" || k == "shelfButton" || k == "iconTextCheckBox" || k == "iconTextRadioButton") {
+    if (k == "button" || k == "iconTextButton" || k == "shelfButton" || k == "iconTextCheckBox" || k == "iconTextRadioButton" || k == "iconTextStaticLabel") {
         if (props.contains("label")) {
             if (auto* b = qobject_cast<QAbstractButton*>(w)) b->setText(amp(props["label"].toString()));
         }
@@ -3553,26 +3571,21 @@ void ScriptUi::apply_control(Item* it, const QJsonObject& props) {
             }
         }
     }
-    if (k == "iconTextButton" || k == "symbolButton" || k == "shelfButton" || k == "iconTextCheckBox" || k == "symbolCheckBox" || k == "iconTextRadioButton") {
+    if (k == "iconTextButton" || k == "symbolButton" || k == "shelfButton" || k == "iconTextCheckBox" || k == "symbolCheckBox" || k == "iconTextRadioButton" || k == "iconTextStaticLabel") {
         auto* b = qobject_cast<QToolButton*>(w);
         if (b) {
-            QString image = az::find_image(props.contains("image") ? props["image"].toString() : props.contains("image1") ? props["image1"].toString() : QString());
-            // A shelf button's -flipX and -flipY mirror its picture.
-            bool flip = k == "shelfButton" && (as_bool(it->prop("flipX")) || as_bool(it->prop("flipY")));
-            if (flip && image.isEmpty()) image = az::find_image(it->prop("image").toString().isEmpty() ? it->prop("image1").toString() : it->prop("image").toString());
-            if (!image.isEmpty()) {
-                if (flip) {
-                    QImage img(image);
-                    b->setIcon(QIcon(QPixmap::fromImage(img.mirrored(as_bool(it->prop("flipX")), as_bool(it->prop("flipY"))))));
-                } else {
+            if (k != "symbolButton" && k != "symbolCheckBox") icon_look(it, b, props);
+            else {
+                QString image = az::find_image(props.contains("image") ? props["image"].toString() : QString());
+                if (!image.isEmpty()) {
                     b->setIcon(QIcon(image));
+                    b->setIconSize(QSize(32, 32));
                 }
-                b->setIconSize(QSize(32, 32));
             }
             if (k == "symbolCheckBox") symbol_check_image(it);
-            if (k == "shelfButton") shelf_button_extras(it, props);
+            if (k == "shelfButton" || k == "iconTextButton") shelf_button_extras(it, props);
             QString style = it->prop("style").toString(k == "symbolButton" || k == "symbolCheckBox" ? "iconOnly" : "textOnly");
-            b->setToolButtonStyle(style == "iconOnly" ? Qt::ToolButtonIconOnly : style == "iconAndTextVertical" ? Qt::ToolButtonTextUnderIcon : style == "iconAndTextHorizontal" ? Qt::ToolButtonTextBesideIcon : Qt::ToolButtonTextOnly);
+            b->setToolButtonStyle(style == "iconOnly" ? Qt::ToolButtonIconOnly : style == "iconAndTextVertical" || style == "iconAndTextCentered" ? Qt::ToolButtonTextUnderIcon : style == "iconAndTextHorizontal" ? Qt::ToolButtonTextBesideIcon : Qt::ToolButtonTextOnly);
             if (props.contains("value")) {
                 QSignalBlocker block(b);
                 b->setChecked(as_bool(props["value"]));
@@ -3677,7 +3690,7 @@ void ScriptUi::apply_control(Item* it, const QJsonObject& props) {
             auto* c = static_cast<QComboBox*>(it->parts["combo"]);
             c->setMaxVisibleItems(std::max(1, int(as_number(props["maxVisibleItems"]))));
         }
-    } else if (k == "textScrollList") {
+    } else if (k == "textScrollList" || k == "iconTextScrollList") {
         auto* l = static_cast<QListWidget*>(w);
         QSignalBlocker block(l);
         if (props.contains("allowMultiSelection")) l->setSelectionMode(as_bool(props["allowMultiSelection"]) ? QAbstractItemView::ExtendedSelection : QAbstractItemView::SingleSelection);
@@ -3709,6 +3722,27 @@ void ScriptUi::apply_control(Item* it, const QJsonObject& props) {
         }
         if (props.contains("showIndexedItem"))
             if (auto* i = l->item(int(as_number(props["showIndexedItem"])) - 1)) l->scrollToItem(i);
+        if (k == "iconTextScrollList") {
+            // -itemTextColor: rows given their own text colour; -editable: rows open for editing; -editIndexed: one
+            // opened now.
+            const bool editable = as_bool(it->prop("editable"));
+            for (int r = 0; r < l->count(); ++r) {
+                QListWidgetItem* i = l->item(r);
+                if (i->flags() & Qt::ItemIsEnabled) i->setFlags(editable ? i->flags() | Qt::ItemIsEditable : i->flags() & ~Qt::ItemIsEditable);
+                i->setData(Qt::ForegroundRole, QVariant());
+            }
+            for (const QJsonValue& v : it->prop("itemColors").toArray()) {
+                QJsonArray c = v.toArray();
+                if (c.size() < 4) continue;
+                if (auto* i = l->item(c[0].toInt())) i->setForeground(QColor::fromRgbF(float(c[1].toDouble()), float(c[2].toDouble()), float(c[3].toDouble())));
+            }
+            if (props.contains("editIndexed"))
+                if (auto* i = l->item(int(as_number(props["editIndexed"])) - 1)) {
+                    i->setFlags(i->flags() | Qt::ItemIsEditable);
+                    l->scrollToItem(i);
+                    l->editItem(i);
+                }
+        }
     } else if (k == "progressBar") {
         auto* b = static_cast<QProgressBar*>(w);
         b->setRange(int(as_number(it->prop("minValue"), 0)), int(as_number(it->prop("maxValue"), 100)));
@@ -4042,6 +4076,106 @@ void ScriptUi::edit(Item* it, const QJsonObject& props) {
     }
     if (k == "optionMenu" || k == "optionMenuGrp") rebuild_option_menu(it);
     apply_common(it, props);
+}
+
+// The picture of an icon control: -image, or whichever of -image1 to -image3 is nearest the control's height; -flipX and
+// -flipY mirror it, -rotation turns it (radians), -useAlpha off lays it on the button's colour, -imageOverlayLabel is drawn
+// on it in -overlayLabelColor over -overlayLabelBackColor. -highlightImage, -selectionImage, -selectionHighlightImage and
+// -disabledImage are the icon's hover, on, on and hover, and disabled states. -marginWidth and -marginHeight pad it,
+// -font sets the label's font and -flat draws it flat.
+void ScriptUi::icon_look(Item* it, QToolButton* b, const QJsonObject& props) {
+    static const char* keys[] = {"image", "image1", "image2", "image3", "flipX", "flipY", "rotation", "useAlpha", "imageOverlayLabel", "overlayLabelColor", "overlayLabelBackColor",
+                                 "highlightImage", "selectionImage", "selectionHighlightImage", "disabledImage", "height", "style"};
+    bool changed = false;
+    for (const char* key : keys) changed |= props.contains(key);
+    const QString& k = it->kind;
+    if (changed) {
+        const bool fx = as_bool(it->prop("flipX")), fy = as_bool(it->prop("flipY"));
+        const double rot = as_number(it->prop("rotation"));
+        const bool alpha = as_bool(it->prop("useAlpha"), true);
+        const QString overlay = it->prop("imageOverlayLabel").toString().left(6);
+        QJsonArray fore = flat(it->prop("overlayLabelColor")), back = flat(it->prop("overlayLabelBackColor"));
+        QColor fc = fore.size() >= 3 ? QColor::fromRgbF(float(fore[0].toDouble()), float(fore[1].toDouble()), float(fore[2].toDouble())) : QColor::fromRgbF(0.8f, 0.8f, 0.8f);
+        QColor bc = back.size() >= 4 ? QColor::fromRgbF(float(back[0].toDouble()), float(back[1].toDouble()), float(back[2].toDouble()), float(back[3].toDouble())) : QColor(0, 0, 0, 128);
+        auto pic = [&](const QString& name) -> QPixmap {
+            QString file = az::find_image(name);
+            if (file.isEmpty()) return QPixmap();
+            QImage img(file);
+            if (img.isNull()) return QPixmap();
+            if (fx || fy) img = img.mirrored(fx, fy);
+            if (rot != 0.0) img = img.transformed(QTransform().rotateRadians(rot), Qt::SmoothTransformation);
+            if (!alpha) {
+                QImage solid(img.size(), QImage::Format_RGB32);
+                solid.fill(b->palette().color(QPalette::Button));
+                QPainter p(&solid);
+                p.drawImage(0, 0, img);
+                img = solid;
+            }
+            if (!overlay.isEmpty()) {
+                img = img.convertToFormat(QImage::Format_ARGB32_Premultiplied);
+                QPainter p(&img);
+                QFont f = b->font();
+                f.setPixelSize(std::max(7, img.height() / 3));
+                p.setFont(f);
+                QRect r = p.fontMetrics().boundingRect(overlay).adjusted(-1, 0, 1, 0);
+                r.moveBottomLeft(QPoint(0, img.height() - 1));
+                p.fillRect(r, bc);
+                p.setPen(fc);
+                p.drawText(r, Qt::AlignCenter, overlay);
+            }
+            return QPixmap::fromImage(img);
+        };
+        // The one of image1 to image3 nearest the height it is drawn at.
+        const int want = int(as_number(it->prop("height"), 32));
+        QString name = it->prop("image").toString();
+        if (name.isEmpty()) {
+            int best = -1;
+            for (const char* key : {"image1", "image2", "image3"}) {
+                const QString n = it->prop(key).toString();
+                QString file = n.isEmpty() ? QString() : az::find_image(n);
+                if (file.isEmpty()) continue;
+                const int d = std::abs(QImage(file).height() - want);
+                if (best < 0 || d < best) best = d, name = n;
+            }
+        }
+        QPixmap main = pic(name);
+        if (!main.isNull()) {
+            QIcon icon;
+            icon.addPixmap(main, QIcon::Normal, QIcon::Off);
+            auto add = [&](const char* key, QIcon::Mode mode, QIcon::State state) {
+                QPixmap px = pic(it->prop(key).toString());
+                if (!px.isNull()) icon.addPixmap(px, mode, state);
+            };
+            add("highlightImage", QIcon::Active, QIcon::Off);
+            add("selectionImage", QIcon::Normal, QIcon::On);
+            add("selectionHighlightImage", QIcon::Active, QIcon::On);
+            add("disabledImage", QIcon::Disabled, QIcon::Off);
+            add("disabledImage", QIcon::Disabled, QIcon::On);
+            b->setIcon(icon);
+            // Icon only: the picture fills the control.
+            const bool only = it->prop("style").toString() == "iconOnly";
+            const int side = only && it->props.contains("height") ? std::max(8, want - 2 * int(as_number(it->prop("marginHeight"), 1))) : 32;
+            b->setIconSize(QSize(side, side));
+        }
+    }
+    if (k != "shelfButton" && (props.contains("marginWidth") || props.contains("marginHeight") || props.contains("flat") || it->kind == "iconTextStaticLabel")) {
+        const int mw = int(as_number(it->prop("marginWidth"), 1)), mh = int(as_number(it->prop("marginHeight"), 1));
+        QString css = QString("QToolButton { padding: %1px %2px; }").arg(mh).arg(mw);
+        // A static label never looks pressed or raised.
+        if (k == "iconTextStaticLabel") css += " QToolButton, QToolButton:hover, QToolButton:pressed { border: none; background: transparent; }";
+        b->setStyleSheet(css);
+        if (props.contains("flat")) b->setAutoRaise(as_bool(props["flat"]));
+    }
+    if (props.contains("font")) {
+        QString fn = props["font"].toString();
+        QFont f = QApplication::font();
+        f.setBold(fn.contains("bold", Qt::CaseInsensitive));
+        f.setItalic(fn.contains("oblique", Qt::CaseInsensitive));
+        if (fn.contains("fixedWidth", Qt::CaseInsensitive)) f = QFontDatabase::systemFont(QFontDatabase::FixedFont);
+        if (fn.startsWith("small")) f.setPointSizeF(f.pointSizeF() * 0.85);
+        if (fn.startsWith("tiny")) f.setPointSizeF(f.pointSizeF() * 0.75);
+        b->setFont(f);
+    }
 }
 
 // A symbol check box's picture for its state: -onImage or -offImage, and -disableOnImage or -disableOffImage when it is

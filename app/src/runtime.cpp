@@ -496,15 +496,13 @@ void MainWindow::build_runtime() {
     r("HotBoxPress", "Menus", "Hold for the hotbox, tap for one or four views", [this] {
         space_held_ = true;
         // At once, as the reference's: a quick tap with nothing picked still toggles the view.
-        if (hotbox_ && !hotbox_->isVisible()) {
-            const QPoint origin = QCursor::pos();
-            hotbox_->popup(origin, panels_->panel_at(origin)->panel_menu_actions());
-        }
+        if (hotbox_ && !hotbox_->isVisible()) show_hotbox(QCursor::pos(), false);
     });
     r("HotBoxRelease", "Menus", "Hold for the hotbox, tap for one or four views", [this] {
         space_held_ = false;
         QWidget* popup = QApplication::activePopupWidget();
-        if (hotbox_ && hotbox_->isVisible() && !(popup && popup->inherits("QMenu"))) hotbox_->finish();
+        // finish() reports the release to hotBox and toggles the view on a tap; one popped with -noKeyPress stays up.
+        if (hotbox_ && hotbox_->isVisible() && !hotbox_->holding() && !(popup && popup->inherits("QMenu"))) hotbox_->finish();
     });
     // Holding a tool key with a left press in a view opens that tool's marking menu; K and I work a drag in the view.
     auto held_key = [this](const char* name, const char* id) {
@@ -975,6 +973,20 @@ void MainWindow::handle_ui_request(const QString& r) {
         QTimer::singleShot(0, this, [this, code] {
             if (close()) QCoreApplication::exit(code);
         });
+    } else if (name == "hotBox") {
+        // hotBox from a script: show at -position or the cursor, hide on -release, -updateMenus builds the rows again.
+        if (payload.startsWith("show|")) {
+            QJsonObject o = parse(payload.mid(5)).toObject();
+            QJsonArray at = o["position"].toArray();
+            QPoint global = at.size() == 2 ? QPoint(at[0].toInt(), at[1].toInt()) : QCursor::pos();
+            if (hotbox_ && hotbox_->isVisible()) hotbox_->hide();
+            show_hotbox(global, o["noKeyPress"].toBool());
+        } else if (payload == "hide") {
+            if (hotbox_ && hotbox_->isVisible()) hotbox_->hide();
+        } else if (payload == "update") {
+            // The menus and the hotbox's rows made again, once the request is done.
+            QTimer::singleShot(0, this, [this] { build_menu_set(menu_set_); });
+        }
     } else if (name == "scriptEditorClear") {
         // scriptEditorInfo -clearHistory: the history pane, and what was kept for it before it opened.
         log_before_editor_ = QJsonArray();

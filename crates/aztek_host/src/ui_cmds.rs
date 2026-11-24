@@ -241,6 +241,15 @@ fn hud_control(kind: &'static str, a: &aztek_ops::Args) -> aztek_ops::CmdResult 
             *v = crate::scriptui::callback_value(v);
         }
     }
+    // The font sizes are small or large.
+    for (k, v) in &flags {
+        if k.ends_with("FontSize") {
+            let t = v.as_str().unwrap_or("");
+            if !a.bool("query") && t != "small" && t != "large" {
+                fail!("{kind}: -{k} is small or large, not {v}.");
+            }
+        }
+    }
     if a.bool("query") {
         let Some(n) = name else { fail!("{kind}: name it.") };
         let q = a.get("queried").and_then(Value::as_array).and_then(|q| q.first()).and_then(Value::as_str).map(str::to_string).or_else(|| flags.keys().next().cloned());
@@ -252,6 +261,7 @@ fn hud_control(kind: &'static str, a: &aztek_ops::Args) -> aztek_ops::CmdResult 
                 "section" | "block" => json!(0),
                 "minValue" | "value" => json!(0.0),
                 "maxValue" => json!(100.0),
+                k if k.ends_with("FontSize") => json!("small"),
                 _ => Value::Null,
             }))
         });
@@ -802,7 +812,7 @@ pub fn register(s: &mut Session) {
     const HUD_COMMON: &str = "section:s:a block:b:a blockSize:bs:a blockAlignment:ba:a padding:p:a visible:vis:b allowOverlap:ao:b";
     const HUD_BUTTON: &str = "label:l:a labelFontSize:lfs:a buttonWidth:bw:a buttonShape:bsh:a pressCommand:pc:a releaseCommand:rc:a";
     const HUD_SLIDER: &str = "label:l:a labelFontSize:lfs:a labelWidth:lw:a type:t:a value:v:a minValue:min:a maxValue:max:a valueAlignment:va:a valueFontSize:vfs:a valueWidth:vw:a sliderLength:sl:a sliderIncrement:si:a decimalPrecision:dp:a internalPadding:ip:a showFrame:sf:b dragCommand:dc:a pressCommand:pc:a releaseCommand:rc:a";
-    const HUD_SLIDER_BUTTON: &str = "sliderLabel:sl:a sliderLabelFontSize:slf:a sliderLabelWidth:slw:a type:t:a value:v:a minValue:min:a maxValue:max:a valueAlignment:va:a valueFontSize:vfs:a valueWidth:vw:a sliderLength:sln:a sliderIncrement:si:a decimalPrecision:dp:a internalPadding:ip:a sliderDragCommand:sdc:a sliderPressCommand:spc:a sliderReleaseCommand:src:a buttonLabel:bl:a buttonLabelFontSize:blf:a buttonWidth:bw:a buttonShape:bsh:a buttonPressCommand:bpc:a buttonReleaseCommand:brc:a";
+    const HUD_SLIDER_BUTTON: &str = "sliderLabel:sl:a sliderLabelFontSize:sfs:a sliderLabelWidth:slw:a type:t:a value:v:a minValue:min:a maxValue:max:a valueAlignment:va:a valueFontSize:vfs:a valueWidth:vw:a sliderLength:sln:a sliderIncrement:si:a decimalPrecision:dp:a internalPadding:ip:a sliderDragCommand:sdc:a sliderPressCommand:spc:a sliderReleaseCommand:src:a buttonLabel:bl:a buttonLabelFontSize:bfs:a buttonWidth:bw:a buttonShape:bsh:a buttonPressCommand:bpc:a buttonReleaseCommand:brc:a";
     for (kind, spec) in [("hudButton", HUD_BUTTON), ("hudSlider", HUD_SLIDER), ("hudSliderButton", HUD_SLIDER_BUTTON)] {
         let mut c = Cmd::new(kind, "A control in the heads up display: -section, -block, its label, value and commands. headsUpDisplay -rem removes it.", move |_s, a| hud_control(kind, a)).positional("name").undoable(false);
         c = crate::scriptui::add_flags(c, spec);
@@ -1074,6 +1084,11 @@ pub fn register(s: &mut Session) {
 
 }
 
+
+/// A runTimeCommand's fields (command, annotation, label, image, version, language and the rest), for controls made from one.
+pub(crate) fn run_time_entry(name: &str) -> Option<Value> {
+    with_ui(|u| u.run_time.get(name).cloned())
+}
 
 /// runTimeCommand: named commands that run a script, the factory ones the shell has and those scripts make.
 fn run_time_command() -> Cmd {

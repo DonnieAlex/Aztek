@@ -75,6 +75,10 @@ struct HudPart {
     value: f64,
     int: bool,
     precision: usize,
+    /// The label's and the value's text sizes: -labelFontSize, -sliderLabelFontSize, -buttonLabelFontSize and
+    /// -valueFontSize, small or large.
+    text_size: f64,
+    value_size: f64,
 }
 
 /// Which of the view's renderers draws the scene. The Renderer menu chooses it; both read the same scene and lights.
@@ -575,13 +579,17 @@ impl View {
             let block = num(&c, "block", 0.0);
             let kind = txt(&c, "kind");
             let label = if kind == "hudSliderButton" { txt(&c, "sliderLabel") } else { txt(&c, "label") };
+            let large = |k: &str| if txt(&c, k) == "large" { size * 1.3 } else { size };
+            let label_size = large(if kind == "hudSliderButton" { "sliderLabelFontSize" } else { "labelFontSize" });
+            let button_size = large(if kind == "hudSliderButton" { "buttonLabelFontSize" } else { "labelFontSize" });
+            let value_size = large("valueFontSize");
             let has_slider = kind != "hudButton";
             let has_button = kind != "hudSlider";
             let button_text = if kind == "hudButton" { label.clone() } else { txt(&c, "buttonLabel") };
             let button_w = num(&c, "buttonWidth", 0.0).max(0.0) * s;
-            let button_w = if button_w > 0.0 { button_w } else { text::width(&button_text, size) + 12.0 * s };
+            let button_w = if button_w > 0.0 { button_w } else { text::width(&button_text, button_size) + 12.0 * s };
             let track = if kind == "hudSliderButton" { num(&c, "sliderLength", 80.0) } else { num(&c, "sliderLength", 100.0) } * s;
-            let label_w = if has_slider { text::width(&label, size) + 6.0 * s } else { 0.0 };
+            let label_w = if has_slider { text::width(&label, label_size) + 6.0 * s } else { 0.0 };
             let total = label_w + if has_slider { track + 52.0 * s } else { 0.0 } + if has_button { button_w + 4.0 * s } else { 0.0 };
             let x0 = match section % 5 {
                 0 | 1 => 10.0 * s,
@@ -592,12 +600,12 @@ impl View {
             let mut x = x0;
             if has_slider {
                 let at = DVec2::new(x + label_w, y - 5.0 * s);
-                out.push(HudPart { name: name.clone(), slider: true, lo: at, hi: at + DVec2::new(track, 12.0 * s), text: label.clone(), text_at: DVec2::new(x, y), min: num(&c, "minValue", 0.0), max: num(&c, "maxValue", 100.0), value: num(&c, "value", 0.0), int: txt(&c, "type") == "int", precision: num(&c, "decimalPrecision", 2.0) as usize });
+                out.push(HudPart { name: name.clone(), slider: true, lo: at, hi: at + DVec2::new(track, 12.0 * s), text: label.clone(), text_at: DVec2::new(x, y), min: num(&c, "minValue", 0.0), max: num(&c, "maxValue", 100.0), value: num(&c, "value", 0.0), int: txt(&c, "type") == "int", precision: num(&c, "decimalPrecision", 2.0) as usize, text_size: label_size, value_size });
                 x += label_w + track + 52.0 * s;
             }
             if has_button {
                 let at = DVec2::new(x, y - 7.0 * s);
-                out.push(HudPart { name: name.clone(), slider: false, lo: at, hi: at + DVec2::new(button_w, 14.0 * s), text: button_text, text_at: DVec2::new(x + 6.0 * s, y), min: 0.0, max: 0.0, value: 0.0, int: false, precision: 0 });
+                out.push(HudPart { name: name.clone(), slider: false, lo: at, hi: at + DVec2::new(button_w, 14.0 * s), text: button_text, text_at: DVec2::new(x + 6.0 * s, y), min: 0.0, max: 0.0, value: 0.0, int: false, precision: 0, text_size: button_size, value_size: size });
             }
         }
         out
@@ -1033,7 +1041,7 @@ impl View {
         // What scripts put there: buttons as boxes, sliders as a track and a handle, drawn in lines like the rest.
         for p in &hud_parts {
             let (white, dim) = ([230, 230, 230, 255], [150, 150, 150, 255]);
-            text::label(&p.text, p.text_at, size, c8(white), &mut tris);
+            text::label(&p.text, p.text_at, p.text_size, c8(white), &mut tris);
             if p.slider {
                 let mid = (p.lo.y + p.hi.y) * 0.5;
                 seg(DVec2::new(p.lo.x, mid), DVec2::new(p.hi.x, mid), dim);
@@ -1046,7 +1054,7 @@ impl View {
                 seg(c, d, white);
                 seg(d, a, white);
                 let value = if p.int { format!("{}", p.value.round() as i64) } else { format!("{:.*}", p.precision, p.value) };
-                text::label(&value, DVec2::new(p.hi.x + 6.0 * s, p.text_at.y), size, c8(white), &mut tris);
+                text::label(&value, DVec2::new(p.hi.x + 6.0 * s, p.text_at.y), p.value_size, c8(white), &mut tris);
             } else {
                 let (a, b, c, d) = (p.lo, DVec2::new(p.hi.x, p.lo.y), p.hi, DVec2::new(p.lo.x, p.hi.y));
                 seg(a, b, white);

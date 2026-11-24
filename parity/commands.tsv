@@ -417,7 +417,7 @@ hide	done	auto
 hikGlobals	done	auto
 hilite	done	auto
 hitTest	done	auto
-hotBox	missing	
+hotBox	done	auto
 hotkey	done	auto
 hotkeyCheck	done	auto
 hotkeyCtx	done	auto
@@ -435,9 +435,9 @@ hyperShade	done	auto
 iconTextButton	done	auto
 iconTextCheckBox	done	auto
 iconTextRadioButton	done	auto
-iconTextRadioCollection	missing	
-iconTextScrollList	missing	
-iconTextStaticLabel	missing	
+iconTextRadioCollection	done	auto
+iconTextScrollList	done	auto
+iconTextStaticLabel	done	auto
 ikHandle	done	auto
 ikHandleCtx	done	auto
 ikHandleDisplayScale	done	auto
