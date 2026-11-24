@@ -175,6 +175,7 @@ protected:
     bool eventFilter(QObject* o, QEvent* e) override;
 private:
     QTabWidget* tabs_;
+    QLabel* empty_ = nullptr;
     QString current_tab_;
     QString last_focus_;
     QString pinned_;

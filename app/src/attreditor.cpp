@@ -2185,6 +2185,11 @@ AttributeEditor::AttributeEditor(QWidget* parent, const QString& pinned) : Panel
     tabs_->setDocumentMode(false);
     tabs_->setUsesScrollButtons(true);
     lay->addWidget(tabs_, 1);
+    empty_ = new QLabel("Select an object in the scene to view and edit its attributes", this);
+    empty_->setObjectName("aeEmpty");
+    empty_->setAlignment(Qt::AlignCenter);
+    empty_->hide();
+    lay->addWidget(empty_, 1);
     connect(tabs_, &QTabWidget::currentChanged, this, [this](int i) {
         if (i >= 0) current_tab_ = tabs_->tabText(i);
     });
@@ -2649,6 +2654,14 @@ void AttributeEditor::refresh() {
     if (select < 0) select = focus_index;
     tabs_->setCurrentIndex(select);
     tabs_->blockSignals(false);
+    // Nothing selected: the reference's own message in the panel.
+    if (tabs_->count() == 0) {
+        tabs_->hide();
+        empty_->show();
+    } else {
+        empty_->hide();
+        tabs_->show();
+    }
     if (auto* sa = tabs_->currentWidget() ? tabs_->currentWidget()->findChild<QScrollArea*>() : nullptr) {
         QScrollBar* bar = sa->verticalScrollBar();
         // After the layout has given the page its height.
