@@ -18,6 +18,8 @@ class QLabel;
 class QToolButton;
 class QMenu;
 class QCheckBox;
+class QSlider;
+class QDoubleSpinBox;
 
 namespace az {
 
@@ -105,12 +107,14 @@ public:
 protected:
     void refresh() override;
 private:
-    void add_channels(QVBoxLayout* lay, const QJsonArray& channels);
-    void add_nodes(QVBoxLayout* lay, const QString& heading, const QJsonArray& nodes);
+    void add_channels(QVBoxLayout* lay, const QJsonArray& channels, int label_width = 0);
+    void add_nodes(QVBoxLayout* lay, const QString& heading, const QJsonArray& nodes, int label_width = 0);
     QScrollArea* scroll_;
     QWidget* body_ = nullptr;
     QSet<QString> open_inputs_;
     QString name_;
+    // The reference's three buttons above the channels: manipulators, slider speed, hyperbolic.
+    QToolButton *manip_button_ = nullptr, *speed_button_ = nullptr, *hyperbolic_button_ = nullptr;
     // The settings channelBox gave this box (labelWidth, fieldWidth...).
     QJsonObject options_;
 };
@@ -135,6 +139,7 @@ protected:
 private:
     QWidget* make_row(const QJsonObject& layer);
     QString current() const;
+    void update_weight();
     void create(bool from_selected, bool override_mode);
     void zero_key();
     void key_weight(const QString& layer);
@@ -144,6 +149,15 @@ private:
     void build_options_menu(QMenu* m);
     void build_show_menu(QMenu* m);
     QTreeWidget* list_ = nullptr;
+    // The reference's weight controls under the tree, for the current layer.
+    QSlider* weight_slider_ = nullptr;
+    QDoubleSpinBox* weight_spin_ = nullptr;
+    // A weight dragged or typed, held in the controls until the layer or time changes or K records it.
+    QString weight_pending_layer_;
+    double weight_pending_value_ = -1.0;
+    double weight_pending_time_ = 0.0;
+    // The top of the stack: its ghost button is hidden, as the reference's.
+    QString top_layer_;
     bool updating_ = false;
     bool only_affected_ = false;
 };
