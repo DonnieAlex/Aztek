@@ -12,6 +12,7 @@
 #include "editors.h"
 #include "uveditor.h"
 
+#include <functional>
 #include <QAction>
 #include <QActionGroup>
 #include <QApplication>
@@ -1790,6 +1791,33 @@ private:
     }
 };
 
+// commandLine's input half: Return runs the line, the keypad's Enter runs it and the -enterCommand, the arrows walk the
+// history the core keeps.
+class CommandLineEdit : public QLineEdit {
+public:
+    std::function<void(const QString&, bool)> run;
+    std::function<QStringList()> history;
+    int back = -1;
+
+protected:
+    void keyPressEvent(QKeyEvent* e) override {
+        if (e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter) {
+            back = -1;
+            if (run) run(text(), e->key() == Qt::Key_Enter);
+            return;
+        }
+        if ((e->key() == Qt::Key_Up || e->key() == Qt::Key_Down) && history) {
+            QStringList h = history();
+            if (h.isEmpty()) return;
+            if (e->key() == Qt::Key_Up) back = back < 0 ? int(h.size()) - 1 : std::max(0, back - 1);
+            else if (back >= 0) back = back + 1 < int(h.size()) ? back + 1 : -1;
+            setText(back < 0 ? QString() : h[back]);
+            return;
+        }
+        QLineEdit::keyPressEvent(e);
+    }
+};
+
 } // namespace
 
 void ScriptUi::build_control(Item* it, const QJsonObject& props) {
@@ -1844,6 +1872,35 @@ void ScriptUi::build_control(Item* it, const QJsonObject& props) {
         });
         connect(e, &QLineEdit::returnPressed, this, [this, path, e] { fire(path, QJsonObject{{"text", e->text()}}, QJsonArray{"enterCommand"}, QJsonArray{e->text()}); });
         it->w = e;
+    } else if (k == "commandLine") {
+        auto* box = new QWidget();
+        auto* h = new QHBoxLayout(box);
+        h->setContentsMargins(0, 0, 0, 0);
+        h->setSpacing(2);
+        auto* in = new CommandLineEdit();
+        auto* out = new QLineEdit();
+        out->setReadOnly(true);
+        h->addWidget(in, 1);
+        h->addWidget(out, 1);
+        it->parts["input"] = in;
+        it->parts["output"] = out;
+        in->history = [this, path] {
+            QStringList l;
+            auto* i = items_.value(path);
+            if (!i) return l;
+            QJsonValue v = i->prop("__history");
+            if (v.isString()) l << v.toString();
+            for (const QJsonValue& x : v.toArray()) l << x.toString();
+            return l;
+        };
+        in->run = [this, path, in](const QString& line, bool keypad) {
+            fire(path, QJsonObject{{"__input", line}}, QJsonArray{"__cmdLineRun"}, QJsonArray{line});
+            if (keypad) fire(path, QJsonObject(), QJsonArray{"enterCommand"}, QJsonArray());
+            auto* i = items_.value(path);
+            if (i && !as_bool(i->prop("holdFocus"))) in->clearFocus();
+        };
+        connect(in, &QLineEdit::textEdited, this, [this, path](const QString& t) { fire(path, QJsonObject{{"__input", t}}, QJsonArray{"command"}, QJsonArray{t}); });
+        it->w = box;
     } else if (k == "cmdScrollFieldExecuter" || k == "cmdScrollFieldReporter" || k == "cmdShell") {
         auto* f = new CmdField(k);
         f->path = path;
@@ -2481,7 +2538,7 @@ void ScriptUi::build_group(Item* it, const QJsonObject& props) {
                 connect(sb, &QToolButton::clicked, this, [this, path](bool) { fire(path, QJsonObject(), QJsonArray{"symbolButtonCommand"}, QJsonArray()); });
             }
         }
-    } else if (k == "colorSliderGrp") {
+    } else if (k == "colorSliderGrp" || k == "colorSliderButtonGrp") {
         auto* swatch = new QPushButton(box);
         swatch->setFixedSize(40, 20);
         g->addWidget(swatch, 0, col++);
@@ -2517,6 +2574,19 @@ void ScriptUi::build_group(Item* it, const QJsonObject& props) {
             fire(path, ch, QJsonArray{"dragCommand"}, QJsonArray());
         });
         connect(s, &QSlider::sliderReleased, this, [this, path] { fire(path, QJsonObject(), QJsonArray{"changeCommand"}, QJsonArray()); });
+        if (k == "colorSliderButtonGrp") {
+            // Columns 4 and 5: a button (a texture map, in the rendering windows) and the symbol button that edits it once there.
+            auto* b = new QPushButton(amp(props["buttonLabel"].toString()), box);
+            g->addWidget(b, 0, col++);
+            it->parts["button"] = b;
+            connect(b, &QPushButton::clicked, this, [this, path](bool) { fire(path, QJsonObject(), QJsonArray{"buttonCommand"}, QJsonArray()); });
+            auto* sb = new QToolButton(box);
+            sb->setAutoRaise(true);
+            g->addWidget(sb, 0, col++);
+            it->parts["symbol"] = sb;
+            sb->setVisible(as_bool(props["symbolButtonDisplay"]));
+            connect(sb, &QToolButton::clicked, this, [this, path](bool) { fire(path, QJsonObject(), QJsonArray{"symbolButtonCommand"}, QJsonArray()); });
+        }
         // -alphaValue shows a second slider, for the colour's alpha.
         auto* alpha = new QSlider(Qt::Horizontal, box);
         alpha->setRange(0, SLIDER_STEPS);
@@ -2527,9 +2597,89 @@ void ScriptUi::build_group(Item* it, const QJsonObject& props) {
         connect(alpha, &QSlider::sliderMoved, this, [this, path](int pos) {
             auto* i = items_.value(path);
             if (!i) return;
-            QJsonObject ch{{"alphaValue", double(pos) / SLIDER_STEPS}};
+            // The core takes -alphaValue only beside the colour, as a script's call.
+            QJsonObject ch{{"alphaValue", double(pos) / SLIDER_STEPS}, {"rgbValue", i->prop("rgbValue").isArray() ? i->prop("rgbValue") : QJsonValue(QJsonArray{0.0, 0.0, 0.0})}};
             i->props.insert("alphaValue", ch["alphaValue"]);
             fire(path, ch, QJsonArray{"dragCommand"}, QJsonArray());
+        });
+        connect(alpha, &QSlider::sliderReleased, this, [this, path] { fire(path, QJsonObject(), QJsonArray{"changeCommand"}, QJsonArray()); });
+    } else if (k == "colorInputWidgetGrp") {
+        // A swatch that opens the colour dialog, the colour model, and three sliders with fields for its channels.
+        auto* swatch = new QPushButton(box);
+        swatch->setFixedSize(40, 20);
+        g->addWidget(swatch, 0, col++);
+        it->parts["swatch"] = swatch;
+        auto* mode = new QComboBox(box);
+        mode->addItems({"RGB", "HSV"});
+        g->addWidget(mode, 0, col++);
+        it->parts["mode"] = mode;
+        auto* chans = new QWidget(box);
+        auto* cg = new QGridLayout(chans);
+        cg->setContentsMargins(0, 0, 0, 0);
+        cg->setVerticalSpacing(1);
+        g->addWidget(chans, 0, col++);
+        g->setColumnStretch(col - 1, 1);
+        // The colour from the sliders, in the mode shown, sent as a script's -rgbValue or -hsvValue would be.
+        auto send = [this, path](bool done) {
+            auto* i = items_.value(path);
+            if (!i) return;
+            auto* m = static_cast<QComboBox*>(i->parts["mode"]);
+            bool hsv = m->currentIndex() == 1;
+            QJsonArray v;
+            for (int n = 0; n < 3; ++n) v.append(static_cast<QDoubleSpinBox*>(i->parts["field" + QString::number(n)])->value());
+            QJsonObject ch{{hsv ? "hsvValue" : "rgbValue", v}};
+            if (i->props.contains("alphaValue")) ch.insert("alphaValue", i->prop("alphaValue"));
+            fire(path, ch, done ? QJsonArray{"changeCommand"} : QJsonArray(), QJsonArray());
+        };
+        for (int n = 0; n < 3; ++n) {
+            auto* l = new QLabel(QString("RGB").at(n), chans);
+            auto* f = new QDoubleSpinBox(chans);
+            f->setDecimals(3);
+            f->setRange(0, 1);
+            f->setSingleStep(0.01);
+            auto* s = new QSlider(Qt::Horizontal, chans);
+            s->setRange(0, SLIDER_STEPS);
+            cg->addWidget(l, n, 0);
+            cg->addWidget(f, n, 1);
+            cg->addWidget(s, n, 2);
+            cg->setColumnStretch(2, 1);
+            it->parts["chanLabel" + QString::number(n)] = l;
+            it->parts["field" + QString::number(n)] = f;
+            it->parts["slider" + QString::number(n)] = s;
+            connect(s, &QSlider::sliderMoved, this, [f](int pos) {
+                QSignalBlocker block(f);
+                f->setValue(f->minimum() + (f->maximum() - f->minimum()) * pos / SLIDER_STEPS);
+            });
+            connect(s, &QSlider::sliderMoved, this, [send](int) { send(false); });
+            connect(s, &QSlider::sliderReleased, this, [send] { send(true); });
+            connect(f, &QDoubleSpinBox::editingFinished, this, [send] { send(true); });
+        }
+        connect(mode, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this, path](int) {
+            if (auto* i = items_.value(path)) apply_control(i, QJsonObject{{"rgbValue", i->prop("rgbValue")}});
+        });
+        connect(swatch, &QPushButton::clicked, this, [this, path] {
+            auto* i = items_.value(path);
+            if (!i) return;
+            QColor now = color_of(i->prop("rgbValue"));
+            QColor c = QColorDialog::getColor(now.isValid() ? now : QColor(0, 0, 0), i->w->window(), "Colour");
+            if (!c.isValid()) return;
+            QJsonObject ch{{"rgbValue", QJsonArray{c.redF(), c.greenF(), c.blueF()}}};
+            if (i->props.contains("alphaValue")) ch.insert("alphaValue", i->prop("alphaValue"));
+            fire(path, ch, QJsonArray{"changeCommand"}, QJsonArray());
+        });
+        // -alphaValue shows a slider for the alpha.
+        auto* alpha = new QSlider(Qt::Horizontal, box);
+        alpha->setRange(0, SLIDER_STEPS);
+        alpha->setToolTip("Alpha");
+        alpha->setVisible(props.contains("alphaValue"));
+        g->addWidget(alpha, 0, col++);
+        it->parts["alpha"] = alpha;
+        connect(alpha, &QSlider::sliderMoved, this, [this, path](int pos) {
+            auto* i = items_.value(path);
+            if (!i) return;
+            i->props.insert("alphaValue", double(pos) / SLIDER_STEPS);
+            QJsonObject ch{{"alphaValue", double(pos) / SLIDER_STEPS}, {"rgbValue", i->prop("rgbValue").isArray() ? i->prop("rgbValue") : QJsonValue(QJsonArray{0.0, 0.0, 0.0})}};
+            fire(path, ch, QJsonArray(), QJsonArray());
         });
         connect(alpha, &QSlider::sliderReleased, this, [this, path] { fire(path, QJsonObject(), QJsonArray{"changeCommand"}, QJsonArray()); });
     } else if (k == "checkBoxGrp") {
@@ -3006,6 +3156,15 @@ void ScriptUi::apply_control(Item* it, const QJsonObject& props) {
         if (props.contains("camera")) static_cast<ViewportWidget*>(w)->set("camera", "\"" + props["camera"].toString() + "\"");
     }
 
+    if (k == "commandLine") {
+        auto* in = qobject_cast<QLineEdit*>(it->parts.value("input"));
+        auto* out = qobject_cast<QLineEdit*>(it->parts.value("output"));
+        if (in && props.contains("__input") && in->text() != props["__input"].toString()) in->setText(props["__input"].toString());
+        if (out && props.contains("__output")) out->setText(props["__output"].toString());
+        if (in && props.contains("inputAnnotation")) in->setToolTip(props["inputAnnotation"].toString());
+        if (out && props.contains("outputAnnotation")) out->setToolTip(props["outputAnnotation"].toString());
+    }
+
     // Group parts.
     if (auto* label = qobject_cast<QLabel*>(it->parts.value("label"))) {
         if (k.endsWith("Grp") && props.contains("label")) label->setText(props["label"].toString());
@@ -3062,13 +3221,43 @@ void ScriptUi::apply_control(Item* it, const QJsonObject& props) {
             if (props.contains("value")) set_number(f, props["value"]);
             else if (props.contains("minValue") || props.contains("maxValue")) set_number(f, v);
         }
-    } else if (k == "colorSliderGrp") {
+    } else if (k == "colorSliderGrp" || k == "colorSliderButtonGrp") {
         QColor c = color_of(it->prop("rgbValue"));
         if (!c.isValid()) c = QColor(0, 0, 0);
         it->parts["swatch"]->setStyleSheet(QString("background-color: %1; border: 1px solid #222;").arg(c.name()));
         auto* s = static_cast<QSlider*>(it->parts["slider"]);
         QSignalBlocker block(s);
         s->setValue(int(c.valueF() * SLIDER_STEPS));
+        if (auto* alpha = qobject_cast<QSlider*>(it->parts.value("alpha")); alpha && it->props.contains("alphaValue")) {
+            QSignalBlocker block_alpha(alpha);
+            alpha->setVisible(true);
+            alpha->setValue(int(as_number(it->prop("alphaValue"), 1.0) * SLIDER_STEPS));
+        }
+        if (auto* b = qobject_cast<QPushButton*>(it->parts.value("button")); b && props.contains("buttonLabel")) b->setText(amp(props["buttonLabel"].toString()));
+        if (auto* sb = qobject_cast<QToolButton*>(it->parts.value("symbol"))) {
+            if (props.contains("symbolButtonDisplay")) sb->setVisible(as_bool(props["symbolButtonDisplay"]));
+            if (props.contains("image")) {
+                QString image = az::find_image(props["image"].toString());
+                sb->setIcon(image.isEmpty() ? QIcon() : QIcon(image));
+                if (image.isEmpty()) sb->setText("...");
+            }
+        }
+    } else if (k == "colorInputWidgetGrp") {
+        QColor c = color_of(it->prop("rgbValue"));
+        if (!c.isValid()) c = QColor(0, 0, 0);
+        it->parts["swatch"]->setStyleSheet(QString("background-color: %1; border: 1px solid #222;").arg(c.name()));
+        bool hsv = static_cast<QComboBox*>(it->parts["mode"])->currentIndex() == 1;
+        QJsonArray v = it->prop(hsv ? "hsvValue" : "rgbValue").toArray();
+        for (int n = 0; n < 3; ++n) {
+            auto* f = static_cast<QDoubleSpinBox*>(it->parts["field" + QString::number(n)]);
+            auto* s = static_cast<QSlider*>(it->parts["slider" + QString::number(n)]);
+            static_cast<QLabel*>(it->parts["chanLabel" + QString::number(n)])->setText(QString(hsv ? "HSV" : "RGB").at(n));
+            QSignalBlocker bf(f), bs(s);
+            f->setRange(0, hsv && n == 0 ? 360 : 1);
+            double x = n < v.size() ? v[n].toDouble() : 0.0;
+            f->setValue(x);
+            s->setValue(f->maximum() > 0 ? int(x / f->maximum() * SLIDER_STEPS) : 0);
+        }
         if (auto* alpha = qobject_cast<QSlider*>(it->parts.value("alpha")); alpha && it->props.contains("alphaValue")) {
             QSignalBlocker block_alpha(alpha);
             alpha->setVisible(true);

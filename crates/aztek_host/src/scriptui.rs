@@ -377,6 +377,8 @@ const SLIDER: &str = "value:v:a minValue:min:a maxValue:max:a step:s:a horizonta
 pub(crate) const SLIDER_GRP: &str = "label:l:a field:f:b value:v:a minValue:min:a maxValue:max:a fieldMinValue:fmn:a fieldMaxValue:fmx:a sliderStep:ss:a step:s:a fieldStep:fs:a extraLabel:el:a changeCommand:cc:a dragCommand:dc:a";
 const FIELD: &str = "value:v:a minValue:min:a maxValue:max:a step:s:a changeCommand:cc:a dragCommand:dc:a enterCommand:ec:a receiveFocusCommand:rfc:a editable:ed:b";
 pub(crate) const FIELD_GRP: &str = "label:l:a numberOfFields:nf:a value:v:a value1:v1:a value2:v2:a value3:v3:a value4:v4:a extraLabel:el:a changeCommand:cc:a changeCommand1:cc1:a changeCommand2:cc2:a changeCommand3:cc3:a changeCommand4:cc4:a dragCommand:dc:a dragCommand1:dc1:a dragCommand2:dc2:a dragCommand3:dc3:a dragCommand4:dc4:a enable1:en1:b enable2:en2:b enable3:en3:b enable4:en4:b";
+/// colorSliderGrp's flags; colorSliderButtonGrp adds a button and a symbol button to them.
+const COLOR_GRP: &str = "label:l:a rgbValue:rgb:a hsvValue:hsv:a alphaValue:alp:a forceDragRefresh:fdr:b changeCommand:cc:a dragCommand:dc:a useDisplaySpace:uds:b useVpColorPicker:vcp:b";
 const MENU: &str = "label:l:a tearOff:to:b allowOptionBoxes:aob:b deleteAllItems:dai:b itemArray:ia:b numberOfItems:ni:b postMenuCommand:pmc:a postMenuCommandOnce:pmo:b familyImage:fi:a mnemonic:mn:a ltVersion:lt:a version:ver:a scrollable:srb:b helpMenu:hm:b";
 
 /// (command, flags). `long:short:type`, type b a switch, a any value, aN N values per use.
@@ -427,7 +429,10 @@ const KINDS: &[(&str, &str)] = &[
     ("popupMenu", "button:b:a ctrlModifier:ctl:b altModifier:alt:b shiftModifier:sh:b markingMenu:mm:b allowOptionBoxes:aob:b deleteAllItems:dai:b itemArray:ia:b numberOfItems:ni:b postMenuCommand:pmc:a postMenuCommandOnce:pmo:b"),
     ("separator", "style:st:a horizontal:hr:b"),
     ("textScrollList", "append:a:a1 appendPosition:ap:a2 removeItem:ri:a1 removeIndexedItem:rii:a1 removeAll:ra:b selectItem:si:a1 selectIndexedItem:sii:a1 deselectAll:da:b deselectItem:di:a1 deselectIndexedItem:dii:a1 allowMultiSelection:ams:b numberOfRows:nr:a allItems:ai:b numberOfItems:ni:b numberOfSelectedItems:nsi:b showIndexedItem:shi:a selectCommand:sc:a doubleClickCommand:dcc:a deleteKeyCommand:dkc:a lineFont:lf:a2 font:fn:a allowAutomaticSelection:aas:b uniqueTag:utg:a1 selectUniqueTagItem:sut:a1 allItemsUniqueTags:ait:b emptyLabel:el:a enableAll:ea:b enableItem:ei:a2 enableIndexedItem:eii:a2 enableUniqueTagItem:eut:a2"),
-    ("colorSliderGrp", "label:l:a rgbValue:rgb:a hsvValue:hsv:a forceDragRefresh:fdr:b changeCommand:cc:a dragCommand:dc:a"),
+    ("colorSliderGrp", COLOR_GRP),
+    ("colorSliderButtonGrp", "buttonLabel:bl:a buttonCommand:bc:a symbolButtonCommand:sbc:a symbolButtonDisplay:sbd:b image:i:a"),
+    ("colorInputWidgetGrp", "label:l:a rgbValue:rgb:a hsvValue:hsv:a alphaValue:alp:a forceDragRefresh:fdr:b changeCommand:cc:a"),
+    ("commandLine", "command:c:a enterCommand:ec:a holdFocus:hf:b numberOfHistoryLines:nhl:a sourceType:st:a inputAnnotation:ian:a outputAnnotation:oan:a"),
     ("colorIndexSliderGrp", "label:l:a value:v:a minValue:min:a maxValue:max:a invisible:inv:a forceDragRefresh:fdr:b extraLabel:el:a changeCommand:cc:a dragCommand:dc:a"),
     ("progressBar", "progress:pr:a minValue:min:a maxValue:max:a step:s:a status:st:a isInterruptable:ii:b isCancelled:ic:b isMainProgressBar:imp:b beginProgress:bp:b endProgress:ep:b"),
     ("image", "image:i:a"),
@@ -525,6 +530,45 @@ fn is_group(kind: &str) -> bool {
     kind.ends_with("Grp")
 }
 
+/// The groups that hold a colour with -rgbValue, -hsvValue and -alphaValue.
+fn is_color_group(kind: &str) -> bool {
+    matches!(kind, "colorSliderGrp" | "colorSliderButtonGrp" | "colorInputWidgetGrp")
+}
+
+/// Hue in degrees (0 to 360), saturation and value 0 to 1, as the reference's -hsvValue.
+pub(crate) fn rgb_to_hsv([r, g, b]: [f64; 3]) -> [f64; 3] {
+    let max = r.max(g).max(b);
+    let min = r.min(g).min(b);
+    let d = max - min;
+    let h = if d <= 0.0 {
+        0.0
+    } else if max == r {
+        60.0 * ((g - b) / d).rem_euclid(6.0)
+    } else if max == g {
+        60.0 * ((b - r) / d + 2.0)
+    } else {
+        60.0 * ((r - g) / d + 4.0)
+    };
+    let s = if max <= 0.0 { 0.0 } else { d / max };
+    [h, s, max]
+}
+
+pub(crate) fn hsv_to_rgb([h, s, v]: [f64; 3]) -> [f64; 3] {
+    let h = h.rem_euclid(360.0) / 60.0;
+    let c = v * s;
+    let x = c * (1.0 - (h.rem_euclid(2.0) - 1.0).abs());
+    let (r, g, b) = match h as i64 {
+        0 => (c, x, 0.0),
+        1 => (x, c, 0.0),
+        2 => (0.0, c, x),
+        3 => (0.0, x, c),
+        4 => (x, 0.0, c),
+        _ => (c, 0.0, x),
+    };
+    let m = v - c;
+    [r + m, g + m, b + m]
+}
+
 // ---------------------------------------------------------------------------------------------------------------------
 // Applying flags
 
@@ -555,9 +599,14 @@ fn apply(m: &mut Model, id: Id, flags: &Map<String, Value>) -> Result<Map<String
         if META.contains(&key.as_str()) || raw.is_null() {
             continue;
         }
+        // -alphaValue counts only beside -rgbValue or -hsvValue in the same call.
+        if key == "alphaValue" && is_color_group(&kind) && !flags.get("rgbValue").is_some_and(|v| !v.is_null()) && !flags.get("hsvValue").is_some_and(|v| !v.is_null()) {
+            continue;
+        }
         if is_callback(key) || (nav && NAV_SCRIPTS.contains(&key.as_str())) {
-            // -sourceType beside a callback says which language its string is.
-            let cb = match (flags.get("sourceType").and_then(Value::as_str), raw) {
+            // -sourceType beside a callback says which language its string is; commandLine's is the line's language.
+            let lang = if kind == "commandLine" { None } else { flags.get("sourceType").and_then(Value::as_str) };
+            let cb = match (lang, raw) {
                 (Some("python"), Value::String(s)) => json!({ "__pysrc__": s }),
                 (Some("mel"), Value::String(_)) => raw.clone(),
                 _ => callback_value(raw),
@@ -648,6 +697,25 @@ fn set(m: &mut Model, id: Id, key: &str, v: Value, changed: &mut Map<String, Val
 fn apply_one(m: &mut Model, id: Id, kind: &str, key: &str, raw: &Value, changed: &mut Map<String, Value>) -> Result<(), String> {
     let vals = flat(raw);
     match (kind, key) {
+        // The colour groups hold one colour: either form sets it, and both answer -q.
+        (k, "rgbValue" | "hsvValue") if is_color_group(k) => {
+            if vals.len() < 3 {
+                return Err(format!("{kind}: -{key} takes three values."));
+            }
+            let three = [number(&vals[0]), number(&vals[1]), number(&vals[2])];
+            let (rgb, hsv) = if key == "rgbValue" { (three, rgb_to_hsv(three)) } else { (hsv_to_rgb(three), three) };
+            set(m, id, "rgbValue", json!(rgb), changed);
+            set(m, id, "hsvValue", json!(hsv), changed);
+        }
+        (k, "alphaValue") if is_color_group(k) => set(m, id, key, json!(number(raw).clamp(0.0, 1.0)), changed),
+        ("commandLine", "numberOfHistoryLines") => set(m, id, key, json!((number(raw) as i64).max(0)), changed),
+        ("commandLine", "sourceType") => {
+            let t = text(raw);
+            if t != "mel" && t != "python" {
+                return Err(format!("commandLine: -sourceType is \"mel\" or \"python\", not \"{t}\"."));
+            }
+            set(m, id, key, json!(t), changed);
+        }
         (_, "widthHeight") => {
             if vals.len() >= 2 {
                 set(m, id, "width", json!(number(&vals[0]) as i64), changed);
@@ -1659,7 +1727,14 @@ fn default_value(c: &Control, key: &str) -> Value {
         ("layerButton", "layerState") => json!("normal"),
         ("layerButton", "name") => json!(c.name),
         ("colorIndexSliderGrp", "maxValue") => json!(31),
-        ("colorSliderGrp", "alphaValue") => json!(1.0),
+        (k, "alphaValue") if is_color_group(k) => json!(1.0),
+        (k, "useDisplaySpace" | "forceDragRefresh") if is_color_group(k) => json!(false),
+        ("colorSliderButtonGrp", "symbolButtonDisplay") => json!(false),
+        ("colorSliderButtonGrp", "buttonLabel") => json!(""),
+        ("commandLine", "numberOfHistoryLines") => json!(50),
+        ("commandLine", "sourceType") => json!("mel"),
+        ("commandLine", "holdFocus") => json!(false),
+        ("commandLine", "inputAnnotation" | "outputAnnotation") => json!(""),
         (k, "minValue") if is_int_kind(k) || is_float_kind(k) => zero(k),
         (k, "maxValue") if k.ends_with("Slider") || k.ends_with("ScrollBar") => hundred(k),
         (k, "value" | "value1" | "value2" | "value3" | "value4" | "step") if is_int_kind(k) || is_float_kind(k) => zero(k),
@@ -2229,6 +2304,7 @@ fn after_create(cmd: &str, result: &CmdResult, a: &Args) {
 pub fn shell_event(ev: &Value) -> Vec<(Value, Vec<Value>)> {
     let field = crate::cmd_fields::before_shell_event(ev);
     let mut out = shell_event_model(ev);
+    out.extend(crate::command_line::shell_event(ev));
     if let Some(b) = field {
         out.extend(crate::cmd_fields::after_shell_event(b, ev));
     }
@@ -3245,6 +3321,7 @@ pub fn register(s: &mut Session) {
             "floatField" => add_flags(c, FIELD),
             "floatFieldGrp" => add_flags(c, FIELD_GRP),
             "floatSliderGrp" | "floatSliderButtonGrp" => add_flags(c, SLIDER_GRP),
+            "colorSliderButtonGrp" => add_flags(c, COLOR_GRP),
             _ => c,
         };
         if is_group(name) || *name == "rowLayout" || *name == "keyframeStats" {

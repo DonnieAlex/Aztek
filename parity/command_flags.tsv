@@ -6923,134 +6923,134 @@ colorIndexSliderGrp	visible	done	auto
 colorIndexSliderGrp	visibleChangeCommand	done	auto
 colorIndexSliderGrp	w	done	auto
 colorIndexSliderGrp	width	done	auto
-colorInputWidgetGrp	ad2	missing	
-colorInputWidgetGrp	ad3	missing	
-colorInputWidgetGrp	ad4	missing	
-colorInputWidgetGrp	ad5	missing	
-colorInputWidgetGrp	ad6	missing	
-colorInputWidgetGrp	adj	missing	
-colorInputWidgetGrp	adjustableColumn	missing	
-colorInputWidgetGrp	adjustableColumn2	missing	
-colorInputWidgetGrp	adjustableColumn3	missing	
-colorInputWidgetGrp	adjustableColumn4	missing	
-colorInputWidgetGrp	adjustableColumn5	missing	
-colorInputWidgetGrp	adjustableColumn6	missing	
-colorInputWidgetGrp	alp	missing	
-colorInputWidgetGrp	alphaValue	missing	
-colorInputWidgetGrp	ann	missing	
-colorInputWidgetGrp	annotation	missing	
-colorInputWidgetGrp	backgroundColor	missing	
-colorInputWidgetGrp	bgc	missing	
-colorInputWidgetGrp	cal	missing	
-colorInputWidgetGrp	cat	missing	
-colorInputWidgetGrp	cc	missing	
-colorInputWidgetGrp	changeCommand	missing	
-colorInputWidgetGrp	cl2	missing	
-colorInputWidgetGrp	cl3	missing	
-colorInputWidgetGrp	cl4	missing	
-colorInputWidgetGrp	cl5	missing	
-colorInputWidgetGrp	cl6	missing	
-colorInputWidgetGrp	co2	missing	
-colorInputWidgetGrp	co3	missing	
-colorInputWidgetGrp	co4	missing	
-colorInputWidgetGrp	co5	missing	
-colorInputWidgetGrp	co6	missing	
-colorInputWidgetGrp	columnAlign	missing	
-colorInputWidgetGrp	columnAlign2	missing	
-colorInputWidgetGrp	columnAlign3	missing	
-colorInputWidgetGrp	columnAlign4	missing	
-colorInputWidgetGrp	columnAlign5	missing	
-colorInputWidgetGrp	columnAlign6	missing	
-colorInputWidgetGrp	columnAttach	missing	
-colorInputWidgetGrp	columnAttach2	missing	
-colorInputWidgetGrp	columnAttach3	missing	
-colorInputWidgetGrp	columnAttach4	missing	
-colorInputWidgetGrp	columnAttach5	missing	
-colorInputWidgetGrp	columnAttach6	missing	
-colorInputWidgetGrp	columnOffset2	missing	
-colorInputWidgetGrp	columnOffset3	missing	
-colorInputWidgetGrp	columnOffset4	missing	
-colorInputWidgetGrp	columnOffset5	missing	
-colorInputWidgetGrp	columnOffset6	missing	
-colorInputWidgetGrp	columnWidth	missing	
-colorInputWidgetGrp	columnWidth1	missing	
-colorInputWidgetGrp	columnWidth2	missing	
-colorInputWidgetGrp	columnWidth3	missing	
-colorInputWidgetGrp	columnWidth4	missing	
-colorInputWidgetGrp	columnWidth5	missing	
-colorInputWidgetGrp	columnWidth6	missing	
-colorInputWidgetGrp	ct2	missing	
-colorInputWidgetGrp	ct3	missing	
-colorInputWidgetGrp	ct4	missing	
-colorInputWidgetGrp	ct5	missing	
-colorInputWidgetGrp	ct6	missing	
-colorInputWidgetGrp	cw	missing	
-colorInputWidgetGrp	cw1	missing	
-colorInputWidgetGrp	cw2	missing	
-colorInputWidgetGrp	cw3	missing	
-colorInputWidgetGrp	cw4	missing	
-colorInputWidgetGrp	cw5	missing	
-colorInputWidgetGrp	cw6	missing	
-colorInputWidgetGrp	defineTemplate	missing	
-colorInputWidgetGrp	dgc	missing	
-colorInputWidgetGrp	docTag	missing	
-colorInputWidgetGrp	dpc	missing	
-colorInputWidgetGrp	dragCallback	missing	
-colorInputWidgetGrp	dropCallback	missing	
-colorInputWidgetGrp	dt	missing	
-colorInputWidgetGrp	dtg	missing	
-colorInputWidgetGrp	e	missing	
-colorInputWidgetGrp	ebg	missing	
-colorInputWidgetGrp	edit	missing	
-colorInputWidgetGrp	ekf	missing	
-colorInputWidgetGrp	en	missing	
-colorInputWidgetGrp	enable	missing	
-colorInputWidgetGrp	enableBackground	missing	
-colorInputWidgetGrp	enableKeyboardFocus	missing	
-colorInputWidgetGrp	ex	missing	
-colorInputWidgetGrp	exists	missing	
-colorInputWidgetGrp	fdr	missing	
-colorInputWidgetGrp	forceDragRefresh	missing	
-colorInputWidgetGrp	fpn	missing	
-colorInputWidgetGrp	fullPathName	missing	
-colorInputWidgetGrp	h	missing	
-colorInputWidgetGrp	height	missing	
-colorInputWidgetGrp	highlightColor	missing	
-colorInputWidgetGrp	hlc	missing	
-colorInputWidgetGrp	hsv	missing	
-colorInputWidgetGrp	hsvValue	missing	
-colorInputWidgetGrp	io	missing	
-colorInputWidgetGrp	isObscured	missing	
-colorInputWidgetGrp	l	missing	
-colorInputWidgetGrp	label	missing	
-colorInputWidgetGrp	m	missing	
-colorInputWidgetGrp	manage	missing	
-colorInputWidgetGrp	nbg	missing	
-colorInputWidgetGrp	noBackground	missing	
-colorInputWidgetGrp	npm	missing	
-colorInputWidgetGrp	numberOfPopupMenus	missing	
-colorInputWidgetGrp	p	missing	
-colorInputWidgetGrp	parent	missing	
-colorInputWidgetGrp	pma	missing	
-colorInputWidgetGrp	po	missing	
-colorInputWidgetGrp	popupMenuArray	missing	
-colorInputWidgetGrp	preventOverride	missing	
-colorInputWidgetGrp	q	missing	
-colorInputWidgetGrp	query	missing	
-colorInputWidgetGrp	rat	missing	
-colorInputWidgetGrp	rgb	missing	
-colorInputWidgetGrp	rgbValue	missing	
-colorInputWidgetGrp	rowAttach	missing	
-colorInputWidgetGrp	sbm	missing	
-colorInputWidgetGrp	statusBarMessage	missing	
-colorInputWidgetGrp	useTemplate	missing	
-colorInputWidgetGrp	ut	missing	
-colorInputWidgetGrp	vcc	missing	
-colorInputWidgetGrp	vis	missing	
-colorInputWidgetGrp	visible	missing	
-colorInputWidgetGrp	visibleChangeCommand	missing	
-colorInputWidgetGrp	w	missing	
-colorInputWidgetGrp	width	missing	
+colorInputWidgetGrp	ad2	done	auto
+colorInputWidgetGrp	ad3	done	auto
+colorInputWidgetGrp	ad4	done	auto
+colorInputWidgetGrp	ad5	done	auto
+colorInputWidgetGrp	ad6	done	auto
+colorInputWidgetGrp	adj	done	auto
+colorInputWidgetGrp	adjustableColumn	done	auto
+colorInputWidgetGrp	adjustableColumn2	done	auto
+colorInputWidgetGrp	adjustableColumn3	done	auto
+colorInputWidgetGrp	adjustableColumn4	done	auto
+colorInputWidgetGrp	adjustableColumn5	done	auto
+colorInputWidgetGrp	adjustableColumn6	done	auto
+colorInputWidgetGrp	alp	done	auto
+colorInputWidgetGrp	alphaValue	done	auto
+colorInputWidgetGrp	ann	done	auto
+colorInputWidgetGrp	annotation	done	auto
+colorInputWidgetGrp	backgroundColor	done	auto
+colorInputWidgetGrp	bgc	done	auto
+colorInputWidgetGrp	cal	done	auto
+colorInputWidgetGrp	cat	done	auto
+colorInputWidgetGrp	cc	done	auto
+colorInputWidgetGrp	changeCommand	done	auto
+colorInputWidgetGrp	cl2	done	auto
+colorInputWidgetGrp	cl3	done	auto
+colorInputWidgetGrp	cl4	done	auto
+colorInputWidgetGrp	cl5	done	auto
+colorInputWidgetGrp	cl6	done	auto
+colorInputWidgetGrp	co2	done	auto
+colorInputWidgetGrp	co3	done	auto
+colorInputWidgetGrp	co4	done	auto
+colorInputWidgetGrp	co5	done	auto
+colorInputWidgetGrp	co6	done	auto
+colorInputWidgetGrp	columnAlign	done	auto
+colorInputWidgetGrp	columnAlign2	done	auto
+colorInputWidgetGrp	columnAlign3	done	auto
+colorInputWidgetGrp	columnAlign4	done	auto
+colorInputWidgetGrp	columnAlign5	done	auto
+colorInputWidgetGrp	columnAlign6	done	auto
+colorInputWidgetGrp	columnAttach	done	auto
+colorInputWidgetGrp	columnAttach2	done	auto
+colorInputWidgetGrp	columnAttach3	done	auto
+colorInputWidgetGrp	columnAttach4	done	auto
+colorInputWidgetGrp	columnAttach5	done	auto
+colorInputWidgetGrp	columnAttach6	done	auto
+colorInputWidgetGrp	columnOffset2	done	auto
+colorInputWidgetGrp	columnOffset3	done	auto
+colorInputWidgetGrp	columnOffset4	done	auto
+colorInputWidgetGrp	columnOffset5	done	auto
+colorInputWidgetGrp	columnOffset6	done	auto
+colorInputWidgetGrp	columnWidth	done	auto
+colorInputWidgetGrp	columnWidth1	done	auto
+colorInputWidgetGrp	columnWidth2	done	auto
+colorInputWidgetGrp	columnWidth3	done	auto
+colorInputWidgetGrp	columnWidth4	done	auto
+colorInputWidgetGrp	columnWidth5	done	auto
+colorInputWidgetGrp	columnWidth6	done	auto
+colorInputWidgetGrp	ct2	done	auto
+colorInputWidgetGrp	ct3	done	auto
+colorInputWidgetGrp	ct4	done	auto
+colorInputWidgetGrp	ct5	done	auto
+colorInputWidgetGrp	ct6	done	auto
+colorInputWidgetGrp	cw	done	auto
+colorInputWidgetGrp	cw1	done	auto
+colorInputWidgetGrp	cw2	done	auto
+colorInputWidgetGrp	cw3	done	auto
+colorInputWidgetGrp	cw4	done	auto
+colorInputWidgetGrp	cw5	done	auto
+colorInputWidgetGrp	cw6	done	auto
+colorInputWidgetGrp	defineTemplate	done	auto
+colorInputWidgetGrp	dgc	done	auto
+colorInputWidgetGrp	docTag	done	auto
+colorInputWidgetGrp	dpc	done	auto
+colorInputWidgetGrp	dragCallback	done	auto
+colorInputWidgetGrp	dropCallback	done	auto
+colorInputWidgetGrp	dt	done	auto
+colorInputWidgetGrp	dtg	done	auto
+colorInputWidgetGrp	e	done	auto
+colorInputWidgetGrp	ebg	done	auto
+colorInputWidgetGrp	edit	done	auto
+colorInputWidgetGrp	ekf	done	auto
+colorInputWidgetGrp	en	done	auto
+colorInputWidgetGrp	enable	done	auto
+colorInputWidgetGrp	enableBackground	done	auto
+colorInputWidgetGrp	enableKeyboardFocus	done	auto
+colorInputWidgetGrp	ex	done	auto
+colorInputWidgetGrp	exists	done	auto
+colorInputWidgetGrp	fdr	done	auto
+colorInputWidgetGrp	forceDragRefresh	done	auto
+colorInputWidgetGrp	fpn	done	auto
+colorInputWidgetGrp	fullPathName	done	auto
+colorInputWidgetGrp	h	done	auto
+colorInputWidgetGrp	height	done	auto
+colorInputWidgetGrp	highlightColor	done	auto
+colorInputWidgetGrp	hlc	done	auto
+colorInputWidgetGrp	hsv	done	auto
+colorInputWidgetGrp	hsvValue	done	auto
+colorInputWidgetGrp	io	done	auto
+colorInputWidgetGrp	isObscured	done	auto
+colorInputWidgetGrp	l	done	auto
+colorInputWidgetGrp	label	done	auto
+colorInputWidgetGrp	m	done	auto
+colorInputWidgetGrp	manage	done	auto
+colorInputWidgetGrp	nbg	done	auto
+colorInputWidgetGrp	noBackground	done	auto
+colorInputWidgetGrp	npm	done	auto
+colorInputWidgetGrp	numberOfPopupMenus	done	auto
+colorInputWidgetGrp	p	done	auto
+colorInputWidgetGrp	parent	done	auto
+colorInputWidgetGrp	pma	done	auto
+colorInputWidgetGrp	po	done	auto
+colorInputWidgetGrp	popupMenuArray	done	auto
+colorInputWidgetGrp	preventOverride	done	auto
+colorInputWidgetGrp	q	done	auto
+colorInputWidgetGrp	query	done	auto
+colorInputWidgetGrp	rat	done	auto
+colorInputWidgetGrp	rgb	done	auto
+colorInputWidgetGrp	rgbValue	done	auto
+colorInputWidgetGrp	rowAttach	done	auto
+colorInputWidgetGrp	sbm	done	auto
+colorInputWidgetGrp	statusBarMessage	done	auto
+colorInputWidgetGrp	useTemplate	done	auto
+colorInputWidgetGrp	ut	done	auto
+colorInputWidgetGrp	vcc	done	auto
+colorInputWidgetGrp	vis	done	auto
+colorInputWidgetGrp	visible	done	auto
+colorInputWidgetGrp	visibleChangeCommand	done	auto
+colorInputWidgetGrp	w	done	auto
+colorInputWidgetGrp	width	done	auto
 colorManagementCatalog	addTransform	missing	
 colorManagementCatalog	adt	missing	
 colorManagementCatalog	editUserTransformPath	missing	
@@ -7199,150 +7199,150 @@ colorManagementPrefs	vn	missing
 colorManagementPrefs	vns	missing	
 colorManagementPrefs	vtn	missing	
 colorManagementPrefs	vts	missing	
-colorSliderButtonGrp	ad2	missing	
-colorSliderButtonGrp	ad3	missing	
-colorSliderButtonGrp	ad4	missing	
-colorSliderButtonGrp	ad5	missing	
-colorSliderButtonGrp	ad6	missing	
-colorSliderButtonGrp	adj	missing	
-colorSliderButtonGrp	adjustableColumn	missing	
-colorSliderButtonGrp	adjustableColumn2	missing	
-colorSliderButtonGrp	adjustableColumn3	missing	
-colorSliderButtonGrp	adjustableColumn4	missing	
-colorSliderButtonGrp	adjustableColumn5	missing	
-colorSliderButtonGrp	adjustableColumn6	missing	
-colorSliderButtonGrp	alp	missing	
-colorSliderButtonGrp	alphaValue	missing	
-colorSliderButtonGrp	ann	missing	
-colorSliderButtonGrp	annotation	missing	
-colorSliderButtonGrp	backgroundColor	missing	
-colorSliderButtonGrp	bc	missing	
-colorSliderButtonGrp	bgc	missing	
-colorSliderButtonGrp	bl	missing	
-colorSliderButtonGrp	buttonCommand	missing	
-colorSliderButtonGrp	buttonLabel	missing	
-colorSliderButtonGrp	cal	missing	
-colorSliderButtonGrp	cat	missing	
-colorSliderButtonGrp	cc	missing	
-colorSliderButtonGrp	changeCommand	missing	
-colorSliderButtonGrp	cl2	missing	
-colorSliderButtonGrp	cl3	missing	
-colorSliderButtonGrp	cl4	missing	
-colorSliderButtonGrp	cl5	missing	
-colorSliderButtonGrp	cl6	missing	
-colorSliderButtonGrp	co2	missing	
-colorSliderButtonGrp	co3	missing	
-colorSliderButtonGrp	co4	missing	
-colorSliderButtonGrp	co5	missing	
-colorSliderButtonGrp	co6	missing	
-colorSliderButtonGrp	columnAlign	missing	
-colorSliderButtonGrp	columnAlign2	missing	
-colorSliderButtonGrp	columnAlign3	missing	
-colorSliderButtonGrp	columnAlign4	missing	
-colorSliderButtonGrp	columnAlign5	missing	
-colorSliderButtonGrp	columnAlign6	missing	
-colorSliderButtonGrp	columnAttach	missing	
-colorSliderButtonGrp	columnAttach2	missing	
-colorSliderButtonGrp	columnAttach3	missing	
-colorSliderButtonGrp	columnAttach4	missing	
-colorSliderButtonGrp	columnAttach5	missing	
-colorSliderButtonGrp	columnAttach6	missing	
-colorSliderButtonGrp	columnOffset2	missing	
-colorSliderButtonGrp	columnOffset3	missing	
-colorSliderButtonGrp	columnOffset4	missing	
-colorSliderButtonGrp	columnOffset5	missing	
-colorSliderButtonGrp	columnOffset6	missing	
-colorSliderButtonGrp	columnWidth	missing	
-colorSliderButtonGrp	columnWidth1	missing	
-colorSliderButtonGrp	columnWidth2	missing	
-colorSliderButtonGrp	columnWidth3	missing	
-colorSliderButtonGrp	columnWidth4	missing	
-colorSliderButtonGrp	columnWidth5	missing	
-colorSliderButtonGrp	columnWidth6	missing	
-colorSliderButtonGrp	ct2	missing	
-colorSliderButtonGrp	ct3	missing	
-colorSliderButtonGrp	ct4	missing	
-colorSliderButtonGrp	ct5	missing	
-colorSliderButtonGrp	ct6	missing	
-colorSliderButtonGrp	cw	missing	
-colorSliderButtonGrp	cw1	missing	
-colorSliderButtonGrp	cw2	missing	
-colorSliderButtonGrp	cw3	missing	
-colorSliderButtonGrp	cw4	missing	
-colorSliderButtonGrp	cw5	missing	
-colorSliderButtonGrp	cw6	missing	
-colorSliderButtonGrp	dc	missing	
-colorSliderButtonGrp	defineTemplate	missing	
-colorSliderButtonGrp	dgc	missing	
-colorSliderButtonGrp	docTag	missing	
-colorSliderButtonGrp	dpc	missing	
-colorSliderButtonGrp	dragCallback	missing	
-colorSliderButtonGrp	dragCommand	missing	
-colorSliderButtonGrp	dropCallback	missing	
-colorSliderButtonGrp	dt	missing	
-colorSliderButtonGrp	dtg	missing	
-colorSliderButtonGrp	e	missing	
-colorSliderButtonGrp	ebg	missing	
-colorSliderButtonGrp	edit	missing	
-colorSliderButtonGrp	ekf	missing	
-colorSliderButtonGrp	en	missing	
-colorSliderButtonGrp	enable	missing	
-colorSliderButtonGrp	enableBackground	missing	
-colorSliderButtonGrp	enableKeyboardFocus	missing	
-colorSliderButtonGrp	ex	missing	
-colorSliderButtonGrp	exists	missing	
-colorSliderButtonGrp	fdr	missing	
-colorSliderButtonGrp	forceDragRefresh	missing	
-colorSliderButtonGrp	fpn	missing	
-colorSliderButtonGrp	fullPathName	missing	
-colorSliderButtonGrp	h	missing	
-colorSliderButtonGrp	height	missing	
-colorSliderButtonGrp	highlightColor	missing	
-colorSliderButtonGrp	hlc	missing	
-colorSliderButtonGrp	hsv	missing	
-colorSliderButtonGrp	hsvValue	missing	
-colorSliderButtonGrp	i	missing	
-colorSliderButtonGrp	image	missing	
-colorSliderButtonGrp	io	missing	
-colorSliderButtonGrp	isObscured	missing	
-colorSliderButtonGrp	l	missing	
-colorSliderButtonGrp	label	missing	
-colorSliderButtonGrp	m	missing	
-colorSliderButtonGrp	manage	missing	
-colorSliderButtonGrp	nbg	missing	
-colorSliderButtonGrp	noBackground	missing	
-colorSliderButtonGrp	npm	missing	
-colorSliderButtonGrp	numberOfPopupMenus	missing	
-colorSliderButtonGrp	p	missing	
-colorSliderButtonGrp	parent	missing	
-colorSliderButtonGrp	pma	missing	
-colorSliderButtonGrp	po	missing	
-colorSliderButtonGrp	popupMenuArray	missing	
-colorSliderButtonGrp	preventOverride	missing	
-colorSliderButtonGrp	q	missing	
-colorSliderButtonGrp	query	missing	
-colorSliderButtonGrp	rat	missing	
-colorSliderButtonGrp	rgb	missing	
-colorSliderButtonGrp	rgbValue	missing	
-colorSliderButtonGrp	rowAttach	missing	
-colorSliderButtonGrp	sbc	missing	
-colorSliderButtonGrp	sbd	missing	
-colorSliderButtonGrp	sbm	missing	
-colorSliderButtonGrp	statusBarMessage	missing	
-colorSliderButtonGrp	symbolButtonCommand	missing	
-colorSliderButtonGrp	symbolButtonDisplay	missing	
-colorSliderButtonGrp	uds	missing	
-colorSliderButtonGrp	useDisplaySpace	missing	
-colorSliderButtonGrp	useTemplate	missing	
-colorSliderButtonGrp	useVpColorPicker	missing	
-colorSliderButtonGrp	ut	missing	
-colorSliderButtonGrp	vcc	missing	
-colorSliderButtonGrp	vcp	missing	
-colorSliderButtonGrp	vis	missing	
-colorSliderButtonGrp	visible	missing	
-colorSliderButtonGrp	visibleChangeCommand	missing	
-colorSliderButtonGrp	w	missing	
-colorSliderButtonGrp	width	missing	
+colorSliderButtonGrp	ad2	done	auto
+colorSliderButtonGrp	ad3	done	auto
+colorSliderButtonGrp	ad4	done	auto
+colorSliderButtonGrp	ad5	done	auto
+colorSliderButtonGrp	ad6	done	auto
+colorSliderButtonGrp	adj	done	auto
+colorSliderButtonGrp	adjustableColumn	done	auto
+colorSliderButtonGrp	adjustableColumn2	done	auto
+colorSliderButtonGrp	adjustableColumn3	done	auto
+colorSliderButtonGrp	adjustableColumn4	done	auto
+colorSliderButtonGrp	adjustableColumn5	done	auto
+colorSliderButtonGrp	adjustableColumn6	done	auto
+colorSliderButtonGrp	alp	done	auto
+colorSliderButtonGrp	alphaValue	done	auto
+colorSliderButtonGrp	ann	done	auto
+colorSliderButtonGrp	annotation	done	auto
+colorSliderButtonGrp	backgroundColor	done	auto
+colorSliderButtonGrp	bc	done	auto
+colorSliderButtonGrp	bgc	done	auto
+colorSliderButtonGrp	bl	done	auto
+colorSliderButtonGrp	buttonCommand	done	auto
+colorSliderButtonGrp	buttonLabel	done	auto
+colorSliderButtonGrp	cal	done	auto
+colorSliderButtonGrp	cat	done	auto
+colorSliderButtonGrp	cc	done	auto
+colorSliderButtonGrp	changeCommand	done	auto
+colorSliderButtonGrp	cl2	done	auto
+colorSliderButtonGrp	cl3	done	auto
+colorSliderButtonGrp	cl4	done	auto
+colorSliderButtonGrp	cl5	done	auto
+colorSliderButtonGrp	cl6	done	auto
+colorSliderButtonGrp	co2	done	auto
+colorSliderButtonGrp	co3	done	auto
+colorSliderButtonGrp	co4	done	auto
+colorSliderButtonGrp	co5	done	auto
+colorSliderButtonGrp	co6	done	auto
+colorSliderButtonGrp	columnAlign	done	auto
+colorSliderButtonGrp	columnAlign2	done	auto
+colorSliderButtonGrp	columnAlign3	done	auto
+colorSliderButtonGrp	columnAlign4	done	auto
+colorSliderButtonGrp	columnAlign5	done	auto
+colorSliderButtonGrp	columnAlign6	done	auto
+colorSliderButtonGrp	columnAttach	done	auto
+colorSliderButtonGrp	columnAttach2	done	auto
+colorSliderButtonGrp	columnAttach3	done	auto
+colorSliderButtonGrp	columnAttach4	done	auto
+colorSliderButtonGrp	columnAttach5	done	auto
+colorSliderButtonGrp	columnAttach6	done	auto
+colorSliderButtonGrp	columnOffset2	done	auto
+colorSliderButtonGrp	columnOffset3	done	auto
+colorSliderButtonGrp	columnOffset4	done	auto
+colorSliderButtonGrp	columnOffset5	done	auto
+colorSliderButtonGrp	columnOffset6	done	auto
+colorSliderButtonGrp	columnWidth	done	auto
+colorSliderButtonGrp	columnWidth1	done	auto
+colorSliderButtonGrp	columnWidth2	done	auto
+colorSliderButtonGrp	columnWidth3	done	auto
+colorSliderButtonGrp	columnWidth4	done	auto
+colorSliderButtonGrp	columnWidth5	done	auto
+colorSliderButtonGrp	columnWidth6	done	auto
+colorSliderButtonGrp	ct2	done	auto
+colorSliderButtonGrp	ct3	done	auto
+colorSliderButtonGrp	ct4	done	auto
+colorSliderButtonGrp	ct5	done	auto
+colorSliderButtonGrp	ct6	done	auto
+colorSliderButtonGrp	cw	done	auto
+colorSliderButtonGrp	cw1	done	auto
+colorSliderButtonGrp	cw2	done	auto
+colorSliderButtonGrp	cw3	done	auto
+colorSliderButtonGrp	cw4	done	auto
+colorSliderButtonGrp	cw5	done	auto
+colorSliderButtonGrp	cw6	done	auto
+colorSliderButtonGrp	dc	done	auto
+colorSliderButtonGrp	defineTemplate	done	auto
+colorSliderButtonGrp	dgc	done	auto
+colorSliderButtonGrp	docTag	done	auto
+colorSliderButtonGrp	dpc	done	auto
+colorSliderButtonGrp	dragCallback	done	auto
+colorSliderButtonGrp	dragCommand	done	auto
+colorSliderButtonGrp	dropCallback	done	auto
+colorSliderButtonGrp	dt	done	auto
+colorSliderButtonGrp	dtg	done	auto
+colorSliderButtonGrp	e	done	auto
+colorSliderButtonGrp	ebg	done	auto
+colorSliderButtonGrp	edit	done	auto
+colorSliderButtonGrp	ekf	done	auto
+colorSliderButtonGrp	en	done	auto
+colorSliderButtonGrp	enable	done	auto
+colorSliderButtonGrp	enableBackground	done	auto
+colorSliderButtonGrp	enableKeyboardFocus	done	auto
+colorSliderButtonGrp	ex	done	auto
+colorSliderButtonGrp	exists	done	auto
+colorSliderButtonGrp	fdr	done	auto
+colorSliderButtonGrp	forceDragRefresh	done	auto
+colorSliderButtonGrp	fpn	done	auto
+colorSliderButtonGrp	fullPathName	done	auto
+colorSliderButtonGrp	h	done	auto
+colorSliderButtonGrp	height	done	auto
+colorSliderButtonGrp	highlightColor	done	auto
+colorSliderButtonGrp	hlc	done	auto
+colorSliderButtonGrp	hsv	done	auto
+colorSliderButtonGrp	hsvValue	done	auto
+colorSliderButtonGrp	i	done	auto
+colorSliderButtonGrp	image	done	auto
+colorSliderButtonGrp	io	done	auto
+colorSliderButtonGrp	isObscured	done	auto
+colorSliderButtonGrp	l	done	auto
+colorSliderButtonGrp	label	done	auto
+colorSliderButtonGrp	m	done	auto
+colorSliderButtonGrp	manage	done	auto
+colorSliderButtonGrp	nbg	done	auto
+colorSliderButtonGrp	noBackground	done	auto
+colorSliderButtonGrp	npm	done	auto
+colorSliderButtonGrp	numberOfPopupMenus	done	auto
+colorSliderButtonGrp	p	done	auto
+colorSliderButtonGrp	parent	done	auto
+colorSliderButtonGrp	pma	done	auto
+colorSliderButtonGrp	po	done	auto
+colorSliderButtonGrp	popupMenuArray	done	auto
+colorSliderButtonGrp	preventOverride	done	auto
+colorSliderButtonGrp	q	done	auto
+colorSliderButtonGrp	query	done	auto
+colorSliderButtonGrp	rat	done	auto
+colorSliderButtonGrp	rgb	done	auto
+colorSliderButtonGrp	rgbValue	done	auto
+colorSliderButtonGrp	rowAttach	done	auto
+colorSliderButtonGrp	sbc	done	auto
+colorSliderButtonGrp	sbd	done	auto
+colorSliderButtonGrp	sbm	done	auto
+colorSliderButtonGrp	statusBarMessage	done	auto
+colorSliderButtonGrp	symbolButtonCommand	done	auto
+colorSliderButtonGrp	symbolButtonDisplay	done	auto
+colorSliderButtonGrp	uds	done	auto
+colorSliderButtonGrp	useDisplaySpace	done	auto
+colorSliderButtonGrp	useTemplate	done	auto
+colorSliderButtonGrp	useVpColorPicker	done	auto
+colorSliderButtonGrp	ut	done	auto
+colorSliderButtonGrp	vcc	done	auto
+colorSliderButtonGrp	vcp	done	auto
+colorSliderButtonGrp	vis	done	auto
+colorSliderButtonGrp	visible	done	auto
+colorSliderButtonGrp	visibleChangeCommand	done	auto
+colorSliderButtonGrp	w	done	auto
+colorSliderButtonGrp	width	done	auto
 colorSliderGrp	ad2	done	auto
 colorSliderGrp	ad3	done	auto
 colorSliderGrp	ad4	done	auto
@@ -7355,8 +7355,8 @@ colorSliderGrp	adjustableColumn3	done	auto
 colorSliderGrp	adjustableColumn4	done	auto
 colorSliderGrp	adjustableColumn5	done	auto
 colorSliderGrp	adjustableColumn6	done	auto
-colorSliderGrp	alp	missing	
-colorSliderGrp	alphaValue	missing	
+colorSliderGrp	alp	done	auto
+colorSliderGrp	alphaValue	done	auto
 colorSliderGrp	ann	done	auto
 colorSliderGrp	annotation	done	auto
 colorSliderGrp	backgroundColor	done	auto
@@ -7465,13 +7465,13 @@ colorSliderGrp	rgbValue	done	auto
 colorSliderGrp	rowAttach	done	auto
 colorSliderGrp	sbm	done	auto
 colorSliderGrp	statusBarMessage	done	auto
-colorSliderGrp	uds	missing	
-colorSliderGrp	useDisplaySpace	missing	
+colorSliderGrp	uds	done	auto
+colorSliderGrp	useDisplaySpace	done	auto
 colorSliderGrp	useTemplate	done	auto
-colorSliderGrp	useVpColorPicker	missing	
+colorSliderGrp	useVpColorPicker	done	auto
 colorSliderGrp	ut	done	auto
 colorSliderGrp	vcc	done	auto
-colorSliderGrp	vcp	missing	
+colorSliderGrp	vcp	done	auto
 colorSliderGrp	vis	done	auto
 colorSliderGrp	visible	done	auto
 colorSliderGrp	visibleChangeCommand	done	auto
@@ -7583,74 +7583,74 @@ commandEcho	q	done	auto
 commandEcho	query	done	auto
 commandEcho	st	done	auto
 commandEcho	state	done	auto
-commandLine	ann	missing	
-commandLine	annotation	missing	
-commandLine	backgroundColor	missing	
-commandLine	bgc	missing	
-commandLine	c	missing	
-commandLine	command	missing	
-commandLine	defineTemplate	missing	
-commandLine	dgc	missing	
-commandLine	docTag	missing	
-commandLine	dpc	missing	
-commandLine	dragCallback	missing	
-commandLine	dropCallback	missing	
-commandLine	dt	missing	
-commandLine	dtg	missing	
-commandLine	e	missing	
-commandLine	ebg	missing	
-commandLine	ec	missing	
-commandLine	edit	missing	
-commandLine	ekf	missing	
-commandLine	en	missing	
-commandLine	enable	missing	
-commandLine	enableBackground	missing	
-commandLine	enableKeyboardFocus	missing	
-commandLine	enterCommand	missing	
-commandLine	ex	missing	
-commandLine	exists	missing	
-commandLine	fpn	missing	
-commandLine	fullPathName	missing	
-commandLine	h	missing	
-commandLine	height	missing	
-commandLine	hf	missing	
-commandLine	highlightColor	missing	
-commandLine	hlc	missing	
-commandLine	holdFocus	missing	
-commandLine	ian	missing	
-commandLine	inputAnnotation	missing	
-commandLine	io	missing	
-commandLine	isObscured	missing	
-commandLine	m	missing	
-commandLine	manage	missing	
-commandLine	nbg	missing	
-commandLine	nhl	missing	
-commandLine	noBackground	missing	
-commandLine	npm	missing	
-commandLine	numberOfHistoryLines	missing	
-commandLine	numberOfPopupMenus	missing	
-commandLine	oan	missing	
-commandLine	outputAnnotation	missing	
-commandLine	p	missing	
-commandLine	parent	missing	
-commandLine	pma	missing	
-commandLine	po	missing	
-commandLine	popupMenuArray	missing	
-commandLine	preventOverride	missing	
-commandLine	q	missing	
-commandLine	query	missing	
-commandLine	sbm	missing	
-commandLine	sourceType	missing	
-commandLine	st	missing	
-commandLine	statusBarMessage	missing	
-commandLine	useTemplate	missing	
-commandLine	ut	missing	
-commandLine	vcc	missing	
-commandLine	vis	missing	
-commandLine	visible	missing	
-commandLine	visibleChangeCommand	missing	
-commandLine	w	missing	
-commandLine	width	missing	
+commandLine	ann	done	auto
+commandLine	annotation	done	auto
+commandLine	backgroundColor	done	auto
+commandLine	bgc	done	auto
+commandLine	c	done	auto
+commandLine	command	done	auto
+commandLine	defineTemplate	done	auto
+commandLine	dgc	done	auto
+commandLine	docTag	done	auto
+commandLine	dpc	done	auto
+commandLine	dragCallback	done	auto
+commandLine	dropCallback	done	auto
+commandLine	dt	done	auto
+commandLine	dtg	done	auto
+commandLine	e	done	auto
+commandLine	ebg	done	auto
+commandLine	ec	done	auto
+commandLine	edit	done	auto
+commandLine	ekf	done	auto
+commandLine	en	done	auto
+commandLine	enable	done	auto
+commandLine	enableBackground	done	auto
+commandLine	enableKeyboardFocus	done	auto
+commandLine	enterCommand	done	auto
+commandLine	ex	done	auto
+commandLine	exists	done	auto
+commandLine	fpn	done	auto
+commandLine	fullPathName	done	auto
+commandLine	h	done	auto
+commandLine	height	done	auto
+commandLine	hf	done	auto
+commandLine	highlightColor	done	auto
+commandLine	hlc	done	auto
+commandLine	holdFocus	done	auto
+commandLine	ian	done	auto
+commandLine	inputAnnotation	done	auto
+commandLine	io	done	auto
+commandLine	isObscured	done	auto
+commandLine	m	done	auto
+commandLine	manage	done	auto
+commandLine	nbg	done	auto
+commandLine	nhl	done	auto
+commandLine	noBackground	done	auto
+commandLine	npm	done	auto
+commandLine	numberOfHistoryLines	done	auto
+commandLine	numberOfPopupMenus	done	auto
+commandLine	oan	done	auto
+commandLine	outputAnnotation	done	auto
+commandLine	p	done	auto
+commandLine	parent	done	auto
+commandLine	pma	done	auto
+commandLine	po	done	auto
+commandLine	popupMenuArray	done	auto
+commandLine	preventOverride	done	auto
+commandLine	q	done	auto
+commandLine	query	done	auto
+commandLine	sbm	done	auto
+commandLine	sourceType	done	auto
+commandLine	st	done	auto
+commandLine	statusBarMessage	done	auto
+commandLine	useTemplate	done	auto
+commandLine	ut	done	auto
+commandLine	vcc	done	auto
+commandLine	vis	done	auto
+commandLine	visible	done	auto
+commandLine	visibleChangeCommand	done	auto
+commandLine	w	done	auto
+commandLine	width	done	auto
 commandLogging	historySize	done	auto
 commandLogging	hs	done	auto
 commandLogging	lc	done	auto
@@ -7663,28 +7663,28 @@ commandLogging	rc	done	auto
 commandLogging	recordCommands	done	auto
 commandLogging	resetLogFile	done	auto
 commandLogging	rl	done	auto
-commandPort	bs	missing	
-commandPort	bufferSize	missing	
-commandPort	cl	missing	
-commandPort	close	missing	
-commandPort	echoOutput	missing	
-commandPort	eo	missing	
-commandPort	listPorts	missing	
-commandPort	lp	missing	
-commandPort	n	missing	
-commandPort	name	missing	
-commandPort	noreturn	missing	
-commandPort	nr	missing	
-commandPort	pickleOutput	missing	
-commandPort	po	missing	
-commandPort	pre	missing	
-commandPort	prefix	missing	
-commandPort	returnNumCommands	missing	
-commandPort	rnc	missing	
-commandPort	securityWarning	missing	
-commandPort	sourceType	missing	
-commandPort	stp	missing	
-commandPort	sw	missing	
+commandPort	bs	done	auto
+commandPort	bufferSize	done	auto
+commandPort	cl	done	auto
+commandPort	close	done	auto
+commandPort	echoOutput	done	auto
+commandPort	eo	done	auto
+commandPort	listPorts	done	auto
+commandPort	lp	done	auto
+commandPort	n	done	auto
+commandPort	name	done	auto
+commandPort	noreturn	done	auto
+commandPort	nr	done	auto
+commandPort	pickleOutput	done	auto
+commandPort	po	done	auto
+commandPort	pre	done	auto
+commandPort	prefix	done	auto
+commandPort	returnNumCommands	done	auto
+commandPort	rnc	done	auto
+commandPort	securityWarning	done	auto
+commandPort	sourceType	done	auto
+commandPort	stp	done	auto
+commandPort	sw	done	auto
 componentBox	ann	missing	
 componentBox	annotation	missing	
 componentBox	backgroundColor	missing	

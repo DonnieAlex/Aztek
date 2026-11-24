@@ -34,6 +34,8 @@ pub mod attr_ui;
 pub mod script_objects;
 pub mod host_general;
 pub mod ee_listen;
+pub mod command_port;
+pub mod command_line;
 pub mod scriptui;
 pub mod tools;
 pub mod tools_quad;

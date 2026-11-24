@@ -108,6 +108,8 @@ impl Core {
         crate::panel_cmds::register(&mut c.s);
         crate::host_general::register(&mut c.s);
         crate::ee_listen::register(&mut c.s);
+        crate::command_port::register(&mut c.s);
+        crate::command_line::register(&mut c.s);
         crate::sys_host::register(&mut c.s);
         crate::sys_more::register(&mut c.s);
         crate::sys_info::register(&mut c.s);
@@ -391,6 +393,7 @@ impl Core {
         self.run_callbacks(scripts);
         self.run_callbacks(deferred);
         self.run_event_procs();
+        crate::command_port::serve(self);
         self.in_idle = false;
     }
 

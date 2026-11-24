@@ -148,19 +148,19 @@ colorAtPoint	missing
 colorEditor	done	auto
 colorIndex	done	auto
 colorIndexSliderGrp	done	auto
-colorInputWidgetGrp	missing	
+colorInputWidgetGrp	done	auto
 colorManagementCatalog	missing	
 colorManagementConvert	missing	
 colorManagementFileRules	missing	
 colorManagementPrefs	missing	
-colorSliderButtonGrp	missing	
+colorSliderButtonGrp	done	auto
 colorSliderGrp	done	auto
 columnLayout	done	auto
 combinationShape	done	auto
 commandEcho	done	auto
-commandLine	missing	
+commandLine	done	auto
 commandLogging	done	auto
-commandPort	missing	
+commandPort	done	auto
 componentBox	missing	
 componentEditor	done	auto
 componentTag	done	auto
