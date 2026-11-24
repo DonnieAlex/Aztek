@@ -1246,6 +1246,14 @@ LayerEditor::LayerEditor(QWidget* parent) : Panel(parent) {
         });
     };
     option("Make New Layers Current", "displayLayer/makeCurrent", false);
+    QAction* add_objects = options_menu->addAction("Add New Objects to Current Layer");
+    add_objects->setCheckable(true);
+    add_objects->setEnabled(false);
+    add_objects->setToolTip("Not in Aztek yet.");
+    QAction* auto_overrides = options_menu->addAction("Auto Overrides");
+    auto_overrides->setCheckable(true);
+    auto_overrides->setEnabled(false);
+    auto_overrides->setToolTip("Not in Aztek yet.");
     option("Show Namespace", "displayLayer/namespace", true);
     QMenu* help_menu = mb->addMenu("Help");
     help_menu->addAction("Help on Display Layers", [] { mel_action("showHelp DisplayLayer"); });
