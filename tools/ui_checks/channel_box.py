@@ -22,7 +22,7 @@ env = dict(os.environ, DISPLAY=DISPLAY, CHECK_STATE=state_file, XDG_CONFIG_HOME=
 
 # Where the rows are on a fresh layout at this screen size: the labels' and the fields' x, each row's y.
 LABEL_X, FIELD_X = 1348, 1470
-ROW = {"tx": 199, "ty": 218, "tz": 237, "rx": 256, "ry": 275, "rz": 294, "sx": 313, "sy": 332, "sz": 351}
+ROW = {"tx": 220, "ty": 239, "tz": 258, "rx": 277, "ry": 296, "rz": 315, "sx": 334, "sy": 353, "sz": 372}
 
 
 def xdo(*args):
@@ -105,12 +105,22 @@ try:
         # The work folder goes in the finally below, so the log has to be said here to be seen at all.
         print(open(log.name).read()[-4000:])
         raise SystemExit("the app never wrote its state: see " + log.name)
+    geom_file = state_file + ".geom"
+    for _ in range(40):
+        if os.path.exists(geom_file):
+            break
+        time.sleep(0.25)
     time.sleep(3)
     # The main window, active.
     wid = subprocess.run(["xdotool", "search", "--onlyvisible", "--name", "Aztek"], env=env, capture_output=True, text=True).stdout.split()
     WINDOW = wid[0]
     xdo("windowactivate", "--sync", WINDOW)
     time.sleep(0.5)
+    if os.path.exists(geom_file):
+        geom = json.load(open(geom_file))
+        LABEL_X = geom["label_x"]
+        FIELD_X = geom["field_x"]
+        ROW.update(geom["rows"])
     shot("0_start")
 
     # Scale X picked, Shift+click on Scale Z picks the run.

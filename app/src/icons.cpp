@@ -479,6 +479,117 @@ QPixmap draw(const QString& name, int size) {
         p.drawLine(QPointF(15, 15.5), QPointF(28, 15.5));
         p.drawLine(QPointF(24, 15.5), QPointF(24, 21));
         p.drawLine(QPointF(28, 15.5), QPointF(28, 20));
+    } else if (name == "channelBoxManips" || name == "channelBoxNoManips" || name == "channelBoxInvisibleManips") {
+        // The Channel Box's manipulator states: a four-way move, a crossed-out one, a dashed one.
+        const QColor c = name == "channelBoxInvisibleManips" ? QColor(150, 150, 150) : kInk;
+        pen_color(c, 1.6);
+        if (name == "channelBoxNoManips") {
+            p.setBrush(Qt::NoBrush);
+            p.drawRect(QRectF(10, 10, 12, 12));
+            p.drawLine(QPointF(8, 8), QPointF(24, 24));
+        } else {
+            if (name == "channelBoxInvisibleManips") p.setPen(QPen(c, 1.6, Qt::DashLine, Qt::RoundCap));
+            p.drawLine(QPointF(16, 5), QPointF(16, 27));
+            p.drawLine(QPointF(5, 16), QPointF(27, 16));
+            p.drawPolygon(QPolygonF({{16, 3}, {12, 9}, {20, 9}}));
+            p.drawPolygon(QPolygonF({{16, 29}, {12, 23}, {20, 23}}));
+            p.drawPolygon(QPolygonF({{3, 16}, {9, 12}, {9, 20}}));
+            p.drawPolygon(QPolygonF({{29, 16}, {23, 12}, {23, 20}}));
+        }
+    } else if (name == "channelBoxSpeed" || name == "channelBoxSlowest" || name == "channelBoxSlow" || name == "channelBoxMedium" || name == "channelBoxFast") {
+        // A speedometer, its needle at the setting.
+        p.setBrush(Qt::NoBrush);
+        pen_color(kInk, 1.5);
+        p.drawArc(QRectF(5, 7, 22, 22), 200 * 16, 140 * 16);
+        const QPointF end = name == "channelBoxSlowest" ? QPointF(9, 15)
+                          : name == "channelBoxSlow" ? QPointF(12, 10)
+                          : name == "channelBoxFast" ? QPointF(25, 9)
+                          : QPointF(23, 11);
+        p.drawLine(QPointF(16, 18), end);
+        p.drawEllipse(QPointF(16, 18), 2, 2);
+    } else if (name == "channelBoxHyperbolic") {
+        // A hyperbola, the slider's curve.
+        p.setBrush(Qt::NoBrush);
+        p.setPen(QPen(kBlue, 2.4, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+        p.drawLine(QPointF(5, 27), QPointF(11, 20));
+        p.drawLine(QPointF(11, 20), QPointF(16, 13));
+        p.drawLine(QPointF(16, 13), QPointF(21, 7));
+        p.drawLine(QPointF(21, 7), QPointF(27, 5));
+        p.drawEllipse(QPointF(16, 13), 1.8, 1.8);
+    } else if (name == "animZeroKey" || name == "animZeroWeight" || name == "animFullWeight") {
+        // The reference's weight keys: a 0 or 1 beside a key (and a weight slider for the weight ones).
+        QFont f = p.font();
+        f.setPixelSize(9);
+        f.setBold(true);
+        p.setFont(f);
+        p.setPen(kInk);
+        p.drawText(QRectF(1, 7, 10, 12), Qt::AlignCenter, name == "animFullWeight" ? "1" : "0");
+        if (name == "animZeroKey") {
+            p.setBrush(Qt::NoBrush);
+            pen_color(kInk, 1.8);
+            p.drawEllipse(QRectF(11, 8, 8, 8));
+            p.drawLine(QPointF(19, 12), QPointF(30, 12));
+            p.drawLine(QPointF(27, 12), QPointF(27, 17));
+        } else {
+            const bool full = name == "animFullWeight";
+            p.setPen(QPen(kInk, 1.5, Qt::SolidLine, Qt::RoundCap));
+            p.drawLine(QPointF(11, 19), QPointF(24, 19));
+            p.setBrush(kBlue);
+            p.setPen(QPen(QColor(35, 35, 35), 1.0));
+            p.drawRect(QRectF(full ? 20 : 11, 14, 5, 10));
+            pen_color(kGreen, 1.5);
+            p.setBrush(Qt::NoBrush);
+            p.drawEllipse(QRectF(21, 3, 6, 6));
+            p.drawLine(QPointF(27, 6), QPointF(31, 6));
+        }
+    } else if (name == "animLayerLock" || name == "animLayerSolo" || name == "animLayerMute") {
+        pen_color(name == "animLayerMute" ? QColor(180, 60, 60) : kInk, 1.8);
+        p.setBrush(Qt::NoBrush);
+        if (name == "animLayerLock") {
+            p.drawArc(QRectF(10, 5, 12, 14), 0, 180 * 16);
+            p.setBrush(kInk);
+            p.setPen(Qt::NoPen);
+            p.drawRoundedRect(QRectF(8, 13, 16, 13), 2, 2);
+        } else if (name == "animLayerSolo") {
+            p.drawRoundedRect(QRectF(7, 7, 18, 18), 2, 2);
+            p.drawLine(QPointF(11, 16), QPointF(21, 16));
+        } else {
+            p.drawEllipse(QRectF(7, 7, 18, 18));
+            p.drawLine(QPointF(11, 11), QPointF(21, 21));
+        }
+    } else if (name == "newLayerEmpty" || name == "newLayerSelected") {
+        p.setBrush(QColor(70, 110, 170));
+        p.setPen(QPen(kInk, 1.0));
+        p.drawRect(QRectF(5, 10, 16, 13));
+        p.setBrush(kInk);
+        p.setPen(Qt::NoPen);
+        if (name == "newLayerEmpty") {
+            p.drawRect(QRectF(21, 4, 3, 11));
+            p.drawRect(QRectF(17, 8, 11, 3));
+        } else {
+            p.drawPolygon(QPolygonF({{22, 6}, {30, 12}, {22, 18}}));
+        }
+    } else if (name == "layerNormal" || name == "layerTemplate" || name == "layerReference") {
+        // A display layer's type: a filled layer, or an outlined one marked T or R.
+        p.setBrush(name == "layerNormal" ? QColor(70, 110, 170) : Qt::NoBrush);
+        p.setPen(QPen(kInk, 1.3));
+        p.drawRect(QRectF(6, 8, 20, 16));
+        if (name != "layerNormal") {
+            QFont f = p.font();
+            f.setPixelSize(9);
+            f.setBold(true);
+            p.setFont(f);
+            p.setPen(kInk);
+            p.drawText(QRectF(6, 8, 20, 16), Qt::AlignCenter, name == "layerTemplate" ? "T" : "R");
+        }
+    } else if (name == "moveUp" || name == "moveDown") {
+        p.setBrush(QColor(70, 110, 170));
+        p.setPen(QPen(kInk, 1.0));
+        p.drawRect(QRectF(4, 13, 15, 12));
+        p.setBrush(kInk);
+        p.setPen(Qt::NoPen);
+        if (name == "moveUp") p.drawPolygon(QPolygonF({{25, 4}, {31, 12}, {19, 12}}));
+        else p.drawPolygon(QPolygonF({{25, 26}, {19, 18}, {31, 18}}));
     } else if (name == "menuArrow") {
         p.setBrush(kInk);
         p.setPen(Qt::NoPen);

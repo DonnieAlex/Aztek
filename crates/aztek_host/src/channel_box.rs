@@ -590,8 +590,8 @@ pub fn decorate(s: &mut Session, name: &str, snapshot: Value) -> Value {
     let name = if name.is_empty() { MAIN } else { name };
     let Some(path) = box_path(name) else { return snapshot };
     let mut v = snapshot;
+    let objs: Vec<NodeId> = objects(s, &path);
     if prop(&path, "mainListConnection").is_some_and(|c| !text(&c).is_empty()) {
-        let objs = objects(s, &path);
         v = match objs.last() {
             Some(&lead) => crate::query::channel_box_of(&s.graph, lead, objs.len()),
             None => Value::Null,
@@ -618,7 +618,7 @@ pub fn decorate(s: &mut Session, name: &str, snapshot: Value) -> Value {
             .into_iter()
             .filter_map(|o| {
                 let n = s.graph.node(o)?;
-                Some(json!({"name": n.name(), "path": s.graph.path(o), "type": n.ty().name, "channels": crate::query::channels(&s.graph, o, true)}))
+                Some(json!({"name": n.name(), "path": s.graph.path(o), "type": n.ty().name, "channels": crate::query::channel_box_channels(&s.graph, o, true, false)}))
             })
             .collect();
         let mut dressed = Vec::new();
@@ -628,6 +628,46 @@ pub fn decorate(s: &mut Session, name: &str, snapshot: Value) -> Value {
             dressed.push(o);
         }
         v["outputs"] = Value::Array(dressed);
+    }
+    // Every selected object, so the shell can stack them as the reference's Channel Box does. The lead's fields
+    // above stay for scripts and for a single selection.
+    if v.is_object() {
+        let mut all = Vec::new();
+        for &id in &objs {
+            let mut snap = crate::query::channel_box_of(&s.graph, id, objs.len());
+            if snap.is_null() {
+                continue;
+            }
+            let p = text(&snap["path"]);
+            let c = dress(s, &path, &p, &snap["channels"]);
+            snap["channels"] = c;
+            for key in ["shapes", "inputs"] {
+                let n = snap[key].as_array().map(Vec::len).unwrap_or(0);
+                for i in 0..n {
+                    let pp = text(&snap[key][i]["path"]);
+                    let c = dress(s, &path, &pp, &snap[key][i]["channels"]);
+                    snap[key][i]["channels"] = c;
+                }
+            }
+            if let Ok(Some(lead)) = s.graph.find(&p) {
+                let outs: Vec<Value> = outputs_of(s, lead)
+                    .into_iter()
+                    .filter_map(|o| {
+                        let n = s.graph.node(o)?;
+                        Some(json!({"name": n.name(), "path": s.graph.path(o), "type": n.ty().name, "channels": crate::query::channel_box_channels(&s.graph, o, true, false)}))
+                    })
+                    .collect();
+                let mut dressed = Vec::new();
+                for mut o in outs {
+                    let op = text(&o["path"]);
+                    o["channels"] = dress(s, &path, &op, &o["channels"]);
+                    dressed.push(o);
+                }
+                snap["outputs"] = Value::Array(dressed);
+            }
+            all.push(snap);
+        }
+        v["objects"] = Value::Array(all);
     }
     if prop(&path, "showTransforms").is_some_and(|x| truth(&x)) {
         v["shapes"] = json!([]);

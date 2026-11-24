@@ -22,6 +22,7 @@
 #include <QLabel>
 #include <QMenu>
 #include <QMenuBar>
+#include <QPainter>
 #include <QSettings>
 #include <QSlider>
 #include <QToolBar>
@@ -30,6 +31,7 @@
 #include <QVBoxLayout>
 
 #include "host.h"
+#include "icons.h"
 
 namespace az {
 
@@ -104,16 +106,54 @@ AnimLayerEditor::AnimLayerEditor(QWidget* parent) : Panel(parent) {
     build_layers_menu(menus->addMenu("Layers"));
     build_options_menu(menus->addMenu("Options"));
     build_show_menu(menus->addMenu("Show"));
+    QMenu* help = menus->addMenu("Help");
+    help->addAction("Help on Animation Layers", [] { mel_action("showHelp AnimationLayers"); });
     lay->addWidget(menus);
 
-    auto* bar = new QToolBar(this);
-    bar->setIconSize(QSize(16, 16));
-    bar->setToolButtonStyle(Qt::ToolButtonTextOnly);
-    bar->addAction("Zero Key", this, [this] { zero_key(); })->setToolTip("A key that nullifies the selected layers on the selected objects");
-    bar->addAction("Weight Key", this, [this] { key_weight(current()); })->setToolTip("Key the selected layer's weight");
-    bar->addSeparator();
-    bar->addAction("Empty", this, [this] { create(false, false); })->setToolTip("Create Empty Layer");
-    bar->addAction("Selected", this, [this] { create(true, false); })->setToolTip("Create Layer from Selected");
+    auto move_layer = [this](int dir) {
+        const QString name = current();
+        if (name.isEmpty() || name == "BaseAnimation") return;
+        const QJsonArray layers = ask("animLayerOptions").toObject()["layers"].toArray();
+        QStringList names;
+        for (const QJsonValue& v : layers) names << v.toObject()["name"].toString();
+        const int at = names.indexOf(name), to = at + dir;
+        if (at < 0 || to < 0 || to >= names.size()) return;
+        exec("animLayer", on_layer(name, flag(dir < 0 ? "moveLayerBefore" : "moveLayerAfter", names[to])));
+        Host::get()->poke();
+    };
+    auto* bar = new QWidget(this);
+    auto* bl = new QHBoxLayout(bar);
+    bl->setContentsMargins(2, 1, 2, 1);
+    bl->setSpacing(1);
+    auto tool = [bar, bl](const char* ic, const QString& tip, std::function<void()> fn) {
+        auto* b = new QToolButton(bar);
+        b->setFixedSize(23, 23);
+        b->setIcon(icon(ic));
+        b->setIconSize(QSize(20, 20));
+        b->setAutoRaise(true);
+        b->setToolTip(tip);
+        QObject::connect(b, &QToolButton::clicked, fn);
+        bl->addWidget(b);
+        return b;
+    };
+    tool("animZeroKey", "Zero Key Layer", [this] { zero_key(); });
+    tool("animZeroWeight", "Zero Weight and Key Layer", [this] {
+        const QString layer = current();
+        if (layer.isEmpty() || layer == "BaseAnimation") return;
+        exec("animLayer", on_layer(layer, flag("weight", 0.0)));
+        key_weight(layer);
+    });
+    tool("animFullWeight", "Set Weight to 1.0 and Key Layer", [this] {
+        const QString layer = current();
+        if (layer.isEmpty() || layer == "BaseAnimation") return;
+        exec("animLayer", on_layer(layer, flag("weight", 1.0)));
+        key_weight(layer);
+    });
+    bl->addStretch(1);
+    tool("moveUp", "Move selection up in list", [move_layer] { move_layer(-1); });
+    tool("moveDown", "Move selection down in list", [move_layer] { move_layer(1); });
+    tool("newLayerEmpty", "Create Empty Layer", [this] { create(false, false); });
+    tool("newLayerSelected", "Create Layer from Selected", [this] { create(true, false); });
     lay->addWidget(bar);
 
     list_ = new LayerTree(this);
@@ -124,6 +164,60 @@ AnimLayerEditor::AnimLayerEditor(QWidget* parent) : Panel(parent) {
     list_->setSelectionMode(QAbstractItemView::ExtendedSelection);
     list_->setContextMenuPolicy(Qt::CustomContextMenu);
     lay->addWidget(list_, 1);
+    // The reference's weight controls under the tree.
+    auto* weight_row = new QWidget(this);
+    auto* wl = new QHBoxLayout(weight_row);
+    wl->setContentsMargins(2, 2, 2, 2);
+    wl->setSpacing(2);
+    wl->addWidget(new QLabel("Weight", weight_row));
+    weight_spin_ = new QDoubleSpinBox(weight_row);
+    weight_spin_->setObjectName("AnimLayerTabWeightField");
+    weight_spin_->setRange(0.0, 1.0);
+    weight_spin_->setDecimals(3);
+    weight_spin_->setSingleStep(0.01);
+    weight_spin_->setButtonSymbols(QAbstractSpinBox::NoButtons);
+    weight_spin_->setFixedSize(40, 21);
+    weight_spin_->setToolTip("Weight");
+    weight_spin_->setContextMenuPolicy(Qt::NoContextMenu);
+    if (auto* line = weight_spin_->findChild<QLineEdit*>()) line->setContextMenuPolicy(Qt::NoContextMenu);
+    wl->addWidget(weight_spin_);
+    weight_slider_ = new QSlider(Qt::Horizontal, weight_row);
+    weight_slider_->setObjectName("AnimLayerTabWeightSlider");
+    weight_slider_->setRange(0, 100);
+    weight_slider_->setFixedWidth(147);
+    weight_slider_->setFixedHeight(15);
+    wl->addWidget(weight_slider_);
+    auto* weight_key = new QToolButton(weight_row);
+    weight_key->setObjectName("AnimLayerTabWeightButton");
+    weight_key->setText("K");
+    weight_key->setToolTip("Key the weight");
+    weight_key->setFixedSize(19, 26);
+    wl->addWidget(weight_key);
+    wl->addStretch(1);
+    lay->addWidget(weight_row);
+    auto set_weight = [this](double v) {
+        const QString layer = current();
+        if (layer.isEmpty() || layer == "BaseAnimation") return;
+        weight_pending_layer_ = layer;
+        weight_pending_value_ = v;
+        weight_pending_time_ = ask("currentTime", QJsonObject{{"query", true}}).toDouble();
+        exec_quiet("animLayer", on_layer(layer, flag("weight", v)));
+        Host::get()->poke();
+    };
+    connect(weight_slider_, &QSlider::valueChanged, this, [this, set_weight](int v) {
+        if (updating_) return;
+        const QSignalBlocker block(weight_spin_);
+        weight_spin_->setValue(v / 100.0);
+        set_weight(v / 100.0);
+    });
+    connect(weight_slider_, &QSlider::sliderReleased, this, [this, set_weight] { set_weight(weight_slider_->value() / 100.0); });
+    connect(weight_spin_, &QDoubleSpinBox::editingFinished, this, [this, set_weight] { set_weight(weight_spin_->value()); });
+    connect(weight_key, &QToolButton::clicked, this, [this] {
+        key_weight(current());
+        weight_pending_layer_.clear();
+        update_weight();
+    });
+    connect(list_, &QTreeWidget::currentItemChanged, this, [this] { update_weight(); });
     connect(list_, &QTreeWidget::itemSelectionChanged, this, [this] {
         if (updating_) return;
         QSet<QString> picked;
@@ -140,6 +234,13 @@ AnimLayerEditor::AnimLayerEditor(QWidget* parent) : Panel(parent) {
         QMenu m;
         build_layers_menu(&m);
         m.exec(list_->viewport()->mapToGlobal(at));
+    });
+    connect(list_, &QTreeWidget::itemCollapsed, this, [this](QTreeWidgetItem* it) {
+        if (!QSettings().value("animLayers/selectOnCollapse", true).toBool()) return;
+        for (QTreeWidgetItemIterator i(it); *i; ++i) {
+            if (*i == it) continue;
+            (*i)->setSelected(true);
+        }
     });
     schedule();
 }
@@ -225,6 +326,35 @@ void AnimLayerEditor::build_layers_menu(QMenu* m) {
     m->addAction("Create Layer from Selected", this, [this] { create(true, false); });
     m->addAction("Create Override Layer", this, [this] { create(false, true); });
     m->addAction("Create Override Layer from Selected", this, [this] { create(true, true); });
+    QMenu* create_options = m->addMenu("Create Layer Options");
+    QSettings prefs;
+    auto create_pref = [create_options](const char* label, const char* key, bool def) {
+        QAction* a = create_options->addAction(label);
+        a->setCheckable(true);
+        a->setChecked(QSettings().value(key, def).toBool());
+        const QString k = key;
+        QObject::connect(a, &QAction::toggled, [k](bool on) { QSettings().setValue(k, on); });
+        return a;
+    };
+    create_pref("Passthrough (Override Only)", "animLayers/passthrough", true);
+    create_options->addSeparator();
+    auto* rotation = new QActionGroup(create_options);
+    for (auto [label, by_layer] : {std::pair{"Rotation Accumulation By Component", false}, {"Rotation Accumulation By Layer", true}}) {
+        QAction* a = create_options->addAction(label);
+        a->setCheckable(true);
+        a->setChecked(QSettings().value("animLayers/byLayer", false).toBool() == by_layer);
+        rotation->addAction(a);
+        QObject::connect(a, &QAction::triggered, [by_layer] { QSettings().setValue("animLayers/byLayer", by_layer); });
+    }
+    create_options->addSeparator();
+    auto* scale = new QActionGroup(create_options);
+    for (auto [label, additive] : {std::pair{"Scale Accumulation Multiply", false}, {"Scale Accumulation Additive", true}}) {
+        QAction* a = create_options->addAction(label);
+        a->setCheckable(true);
+        a->setChecked(QSettings().value("animLayers/scaleAdditive", false).toBool() == additive);
+        scale->addAction(a);
+        QObject::connect(a, &QAction::triggered, [additive] { QSettings().setValue("animLayers/scaleAdditive", additive); });
+    }
     m->addSeparator();
     m->addAction("Add Selected Objects", this, [this] { for_selected([](const QString& n) { exec("animLayer", on_layer(n, flag("addSelectedObjects", true))); }); });
     m->addAction("Remove Selected Objects", this, [this] { for_selected([](const QString& n) { exec("animLayer", on_layer(n, flag("removeSelectedObjects", true))); }); });
@@ -232,8 +362,8 @@ void AnimLayerEditor::build_layers_menu(QMenu* m) {
     m->addAction("Move Selected Objects to New Layer", this, [] { exec("layerEditorMoveToNewLayer"); });
     m->addAction("Select Objects", this, [] { exec("layerEditorSelectObjects"); });
     m->addSeparator();
-    m->addAction("Copy Layer", this, [] { exec("layerEditorCopyLayer"); });
-    m->addAction("Copy Layer (No Animation)", this, [] { exec("layerEditorCopyLayer", flag("noAnimation", true)); });
+    m->addAction("Duplicate Layer", this, [] { exec("layerEditorCopyLayer"); });
+    m->addAction("Duplicate Layer (No Animation)", this, [] { exec("layerEditorCopyLayer", flag("noAnimation", true)); });
     m->addSeparator();
     m->addAction("Merge Layers", this, [this] {
         QJsonArray names;
@@ -241,11 +371,51 @@ void AnimLayerEditor::build_layers_menu(QMenu* m) {
         exec("animLayerMerge", QJsonObject{{"args", names}});
     });
     m->addAction("Merge Layers Options...", this, [this] { merge_options(); });
+    m->addSeparator();
     m->addAction("Extract Non-Layered Animation for Selected Objects", this, [] { exec("layerEditorExtractNonLayered"); });
     m->addAction("Extract Non-Layered Animation for All Objects", this, [] { exec("layerEditorExtractNonLayered", flag("all", true)); });
     m->addSeparator();
     m->addAction("Select All", this, [this] { list_->selectAll(); });
+    m->addAction("Select Branch", this, [this] {
+        const QString name = current();
+        if (name.isEmpty()) return;
+        const QJsonArray layers = ask("animLayerOptions").toObject()["layers"].toArray();
+        QSet<QString> branch{name};
+        for (bool added = true; added;) {
+            added = false;
+            for (const QJsonValue& v : layers) {
+                const QJsonObject l = v.toObject();
+                if (branch.contains(l["parent"].toString()) && !branch.contains(l["name"].toString())) {
+                    branch.insert(l["name"].toString());
+                    added = true;
+                }
+            }
+        }
+        for (const QJsonValue& v : layers) {
+            const QString n = v.toObject()["name"].toString();
+            const bool on = branch.contains(n);
+            if (v.toObject()["selected"].toBool() != on) exec_quiet("animLayer", on_layer(n, QJsonObject{{"selected", on}, {"preferred", on}}));
+        }
+        Host::get()->poke();
+    });
     m->addAction("Select Layer Node", this, [this] { for_selected([](const QString& n) { exec("select", QJsonObject{{"args", QJsonArray{n}}}); }); });
+    m->addSeparator();
+    QAction* export_layer = m->addAction("Export Layer...");
+    export_layer->setEnabled(false);
+    export_layer->setToolTip("Not in Aztek yet.");
+    QAction* export_branch = m->addAction("Export Branch...");
+    export_branch->setEnabled(false);
+    export_branch->setToolTip("Not in Aztek yet.");
+    m->addSeparator();
+    QAction* membership = m->addAction("Membership");
+    membership->setEnabled(false);
+    membership->setToolTip("Not in Aztek yet.");
+    m->addAction("Attribute Editor", this, [this] {
+        for_selected([](const QString& n) {
+            exec("select", QJsonObject{{"args", QJsonArray{n}}, {"replace", true}});
+            mel_action("AttributeEditor");
+        });
+    });
     m->addSeparator();
     m->addAction("Delete", this, [this] { for_selected([](const QString& n) { if (n != "BaseAnimation") exec("delete", QJsonObject{{"args", QJsonArray{n}}}); }); });
     m->addAction("Empty", this, [] { exec("layerEditorEmpty"); });
@@ -261,6 +431,10 @@ void AnimLayerEditor::build_layers_menu(QMenu* m) {
     auto* sc = m->addMenu("Scale Accumulation");
     sc->addAction("Multiply", this, [this] { for_selected([](const QString& n) { exec("animLayer", on_layer(n, flag("scaleAccumulationMode", 1))); }); });
     sc->addAction("Additive", this, [this] { for_selected([](const QString& n) { exec("animLayer", on_layer(n, flag("scaleAccumulationMode", 0))); }); });
+    m->addSeparator();
+    QAction* package = m->addAction("Package into Assets");
+    package->setEnabled(false);
+    package->setToolTip("Not in Aztek yet.");
 }
 
 void AnimLayerEditor::build_options_menu(QMenu* m) {
@@ -287,16 +461,29 @@ void AnimLayerEditor::build_options_menu(QMenu* m) {
     };
     pref("Make New Layers Current", "animLayers/makeCurrent", true);
     pref("Insert New Layers After Current", "animLayers/insertAfter", false);
-    auto* lock = m->addAction("Lock Muted Layer");
+    pref("Select Children Under Collapsed Parent", "animLayers/selectOnCollapse", true);
+    m->addSeparator();
+    auto* lock = m->addAction("Lock Muted Layers");
     lock->setCheckable(true);
+    lock->setChecked(ask("animLayerOptions").toObject()["lockMuted"].toBool());
     connect(lock, &QAction::toggled, this, [](bool on) { exec("animLayerOptions", flag("lockMuted", on)); });
+    QAction* lock_curves = m->addAction("Template Curves of Locked Layers");
+    lock_curves->setCheckable(true);
+    lock_curves->setEnabled(false);
+    lock_curves->setToolTip("Not in Aztek yet.");
     m->addSeparator();
-    pref("New Layers: Passthrough", "animLayers/passthrough", true);
-    pref("New Layers: Rotation by Layer", "animLayers/byLayer", false);
-    pref("New Layers: Scale Additive", "animLayers/scaleAdditive", false);
+    QAction* right = m->addAction("Buttons on Right");
+    right->setCheckable(true);
+    right->setEnabled(false);
+    right->setToolTip("Not in Aztek yet.");
+    pref("Reverse Layer Stack", "animLayers/reverse", false);
     m->addSeparator();
-    auto* rev = pref("Reverse Layer Stack", "animLayers/reverse", false);
-    connect(rev, &QAction::toggled, this, [this] { schedule(); });
+    for (const char* label : {"Auto ghost selected objects", "Auto ghost objects in layer", "Turn on ghosts manually"}) {
+        QAction* a = m->addAction(label);
+        a->setCheckable(true);
+        a->setEnabled(false);
+        a->setToolTip("Not in Aztek yet.");
+    }
 }
 
 void AnimLayerEditor::build_show_menu(QMenu* m) {
@@ -329,73 +516,99 @@ QWidget* AnimLayerEditor::make_row(const QJsonObject& l) {
     auto* h = new QHBoxLayout(row);
     h->setContentsMargins(2, 0, 2, 0);
     h->setSpacing(1);
-    // Green takes keys, red holds channels of the selection but doesn't.
-    auto* dot = new QLabel("●");
-    dot->setStyleSheet(QString("color: %1").arg(l["active"].toBool() ? "#3fd14a" : l["affected"].toBool() ? "#d9443f" : "transparent"));
-    h->addWidget(dot);
+    auto icon_toggle = [row](const char* ic, bool on, const QString& tip) {
+        auto* b = new QToolButton(row);
+        b->setCheckable(true);
+        b->setChecked(on);
+        b->setIcon(icon(ic));
+        b->setIconSize(QSize(15, 15));
+        b->setFixedSize(18, 18);
+        b->setAutoRaise(true);
+        b->setToolTip(tip);
+        return b;
+    };
+    auto spacer = [&] {
+        auto* w = new QWidget(row);
+        w->setFixedSize(18, 18);
+        h->addWidget(w, 0, Qt::AlignVCenter);
+    };
+    // The reference's row: lock, solo and mute on the left, the layer name, then the ghost button and the
+    // active/affected octagon at the right. The base layer has no solo or mute; the top layer has no ghost.
+    auto* lock = icon_toggle("animLayerLock", l["lock"].toBool(), "Lock Layer");
+    connect(lock, &QToolButton::toggled, this, [name](bool now) { exec("animLayer", on_layer(name, flag("lock", now))); });
+    h->addWidget(lock, 0, Qt::AlignVCenter);
+    if (base) {
+        spacer();
+        spacer();
+    } else {
+        auto* solo = icon_toggle("animLayerSolo", l["solo"].toBool(), "Solo Layer");
+        connect(solo, &QToolButton::toggled, this, [name](bool now) { exec("animLayer", on_layer(name, flag("solo", now))); });
+        h->addWidget(solo, 0, Qt::AlignVCenter);
+        auto* mute = icon_toggle("animLayerMute", l["mute"].toBool(), "Mute Layer");
+        connect(mute, &QToolButton::toggled, this, [name](bool now) { exec("animLayer", on_layer(name, flag("mute", now))); });
+        h->addWidget(mute, 0, Qt::AlignVCenter);
+    }
+    const bool topmost = !base && name == top_layer_;
+    if (topmost) {
+        spacer();
+    } else {
+        auto* ghost = new QToolButton(row);
+        ghost->setCheckable(true);
+        ghost->setChecked(l["ghost"].toBool());
+        ghost->setFixedSize(18, 18);
+        ghost->setIconSize(QSize(16, 16));
+        ghost->setAutoRaise(true);
+        ghost->setToolTip("Ghost/Color Layer");
+        const QColor gc = ghost_colour(l["ghostColor"].toInt());
+        QPixmap pm(16, 16);
+        pm.fill(Qt::transparent);
+        QPainter gp(&pm);
+        QPolygonF octagon({{8, 1}, {13, 3}, {15, 8}, {13, 13}, {8, 15}, {3, 13}, {1, 8}, {3, 3}});
+        if (l["ghost"].toBool()) {
+            gp.setBrush(gc);
+            gp.setPen(QPen(gc.darker(180), 1));
+            gp.drawPolygon(octagon);
+        } else {
+            gp.setBrush(Qt::NoBrush);
+            gp.setPen(QPen(QColor(120, 120, 120), 1.4));
+            gp.drawPolygon(octagon);
+        }
+        gp.end();
+        ghost->setIcon(QIcon(pm));
+        connect(ghost, &QToolButton::toggled, this, [name](bool now) { exec("animLayer", on_layer(name, flag("ghost", now))); });
+        ghost->setContextMenuPolicy(Qt::CustomContextMenu);
+        connect(ghost, &QWidget::customContextMenuRequested, this, [name] {
+            bool ok = false;
+            int c = QInputDialog::getInt(nullptr, "Ghost Colour", "Colour index", 5, 0, 31, 1, &ok);
+            if (ok) exec("animLayer", on_layer(name, flag("ghostColor", c)));
+        });
+        h->addWidget(ghost, 0, Qt::AlignVCenter);
+    }
+    h->addStretch(1);
     auto* label = new QLabel(name);
     label->setMinimumWidth(40);
+    label->setAlignment(Qt::AlignCenter);
+    if (l["selected"].toBool()) label->setStyleSheet("color: #ffffff;");
     QString mode = l["override"].toBool() ? (l["passthrough"].toBool() ? "Override, passthrough" : "Override") : "Additive";
     label->setToolTip(base ? "The base animation" : mode + QString(", %1 channels").arg(l["channels"].toInt()));
-    h->addWidget(label, 1);
-    if (!base) {
-        auto* tag = new QLabel(l["override"].toBool() ? "O" : "A");
-        tag->setToolTip(mode);
-        tag->setStyleSheet("color: palette(mid);");
-        h->addWidget(tag);
-        const auto wire = [&](const QString& text, bool on, const char* word, const QString& tip) {
-            auto* b = toggle(text, on, tip);
-            const QString f = word;
-            connect(b, &QToolButton::toggled, this, [name, f](bool now) { exec("animLayer", on_layer(name, flag(f.toUtf8().constData(), now))); });
-            h->addWidget(b);
-        };
-        wire("M", l["mute"].toBool(), "mute", "Mute");
-        wire("S", l["solo"].toBool(), "solo", "Solo");
+    h->addWidget(label, 0, Qt::AlignVCenter);
+    h->addStretch(1);
+    auto* ornament = new QLabel(row);
+    ornament->setFixedSize(14, 14);
+    QPixmap op(14, 14);
+    op.fill(Qt::transparent);
+    const QColor oc = l["selected"].toBool() ? QColor(63, 209, 74)
+                    : (l["affected"].toBool() || (base && !top_layer_.isEmpty())) ? QColor(217, 68, 63)
+                    : l["active"].toBool() ? QColor(63, 209, 74)
+                    : QColor(Qt::transparent);
+    if (oc.alpha() > 0) {
+        QPainter pp(&op);
+        pp.setBrush(oc);
+        pp.setPen(QPen(oc.darker(160), 1));
+        pp.drawPolygon(QPolygonF({{7, 1}, {12, 3}, {13, 7}, {12, 11}, {7, 13}, {2, 11}, {1, 7}, {2, 3}}));
     }
-    auto* lock = toggle("L", l["lock"].toBool(), "Lock");
-    connect(lock, &QToolButton::toggled, this, [name](bool now) { exec("animLayer", on_layer(name, flag("lock", now))); });
-    h->addWidget(lock);
-    if (base) return row;
-    auto* ghost = toggle("G", l["ghost"].toBool(), "Ghost; the right button sets the colour");
-    ghost->setStyleSheet(QString("QToolButton { color: white; background: %1 }").arg(ghost_colour(l["ghostColor"].toInt()).name()));
-    ghost->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(ghost, &QToolButton::toggled, this, [name](bool now) { exec("animLayer", on_layer(name, flag("ghost", now))); });
-    connect(ghost, &QWidget::customContextMenuRequested, this, [name] {
-        bool ok = false;
-        int c = QInputDialog::getInt(nullptr, "Ghost Colour", "Colour index", 5, 0, 31, 1, &ok);
-        if (ok) exec("animLayer", on_layer(name, flag("ghostColor", c)));
-    });
-    h->addWidget(ghost);
-    auto* slider = new QSlider(Qt::Horizontal);
-    slider->setRange(0, 100);
-    slider->setValue(qRound(l["weight"].toDouble() * 100));
-    slider->setFixedWidth(60);
-    auto* spin = new QDoubleSpinBox;
-    spin->setRange(0, 1);
-    spin->setDecimals(2);
-    spin->setSingleStep(0.05);
-    spin->setButtonSymbols(QAbstractSpinBox::NoButtons);
-    spin->setValue(l["weight"].toDouble());
-    spin->setFixedWidth(38);
-    if (l["weightKey"].toBool()) spin->setStyleSheet("background: #cd2222; color: white");
-    else if (l["weightAnimated"].toBool()) spin->setStyleSheet("background: #dd727a; color: black");
-    connect(slider, &QSlider::valueChanged, this, [name, spin](int v) {
-        const QSignalBlocker block(spin);
-        spin->setValue(v / 100.0);
-        exec_quiet("animLayer", on_layer(name, flag("weight", v / 100.0)));
-        Host::get()->poke();
-    });
-    connect(slider, &QSlider::sliderReleased, this, [name, slider] { exec("animLayer", on_layer(name, flag("weight", slider->value() / 100.0))); });
-    connect(spin, &QDoubleSpinBox::editingFinished, this, [name, spin] { exec("animLayer", on_layer(name, flag("weight", spin->value()))); });
-    h->addWidget(slider);
-    h->addWidget(spin);
-    auto* key = new QToolButton;
-    key->setText("K");
-    key->setToolTip("Key the weight");
-    key->setFixedSize(20, 20);
-    key->setAutoRaise(true);
-    connect(key, &QToolButton::clicked, this, [this, name] { key_weight(name); });
-    h->addWidget(key);
+    ornament->setPixmap(op);
+    h->addWidget(ornament, 0, Qt::AlignVCenter);
     return row;
 }
 
@@ -430,6 +643,14 @@ void AnimLayerEditor::refresh() {
         if (l["base"].toBool()) it->setData(0, Qt::UserRole + 1, true);
     }
     list_->addTopLevelItems(tops);
+    top_layer_.clear();
+    for (int i = 0; i < list_->topLevelItemCount(); ++i) {
+        QTreeWidgetItem* it = list_->topLevelItem(i);
+        if (!it->data(0, Qt::UserRole + 1).toBool()) {
+            top_layer_ = it->data(0, Qt::UserRole).toString();
+            break;
+        }
+    }
     for (const auto& l : rows) {
         auto* it = items.value(l["name"].toString());
         if (!it) continue;
@@ -441,6 +662,39 @@ void AnimLayerEditor::refresh() {
         if (l["name"].toString() == was) list_->setCurrentItem(it, 0, QItemSelectionModel::NoUpdate);
     }
     updating_ = false;
+    if (!list_->currentItem()) {
+        for (const auto& l : rows) {
+            if (!l["selected"].toBool()) continue;
+            if (auto* it = items.value(l["name"].toString())) {
+                list_->setCurrentItem(it, 0, QItemSelectionModel::NoUpdate);
+                break;
+            }
+        }
+    }
+    update_weight();
+}
+
+void AnimLayerEditor::update_weight() {
+    if (!weight_slider_ || !weight_spin_) return;
+    const QString name = current();
+    QJsonObject found;
+    for (const QJsonValue& v : ask("animLayerOptions").toObject()["layers"].toArray())
+        if (v.toObject()["name"].toString() == name) found = v.toObject();
+    const bool editable = !name.isEmpty() && !found["base"].toBool();
+    weight_slider_->setEnabled(editable);
+    weight_spin_->setEnabled(editable);
+    if (found.isEmpty()) return;
+    const double now = ask("currentTime", QJsonObject{{"query", true}}).toDouble();
+    if (!weight_pending_layer_.isEmpty() && (name != weight_pending_layer_ || qAbs(now - weight_pending_time_) > 1e-6))
+        weight_pending_layer_.clear();
+    double weight = found["weight"].toDouble(1.0);
+    if (name == weight_pending_layer_ && weight_pending_value_ >= 0.0) weight = weight_pending_value_;
+    const QSignalBlocker b1(weight_slider_), b2(weight_spin_);
+    weight_slider_->setValue(qRound(weight * 100));
+    weight_spin_->setValue(weight);
+    if (found["weightKey"].toBool()) weight_spin_->setStyleSheet("background: #cd2222; color: white");
+    else if (found["weightAnimated"].toBool()) weight_spin_->setStyleSheet("background: #dd727a; color: black");
+    else weight_spin_->setStyleSheet(QString());
 }
 
 } // namespace az

@@ -140,3 +140,4 @@ Requests waiting or in progress, newest detail kept. Move to Done with the date 
 - 07/11/2026 Sculpting icons drawn to show what each tool does.
 - 07/11/2026 Symmetry on polygon actions, B fixed, hold B falloff circle, Global, Object and Surface falloff, many menu items and option boxes.
 - 07/11/2026 Every build of main is a numbered release, 1.N with N the commits so far, titled with the commit; the app shows the same.
+- 24/11/2026 Anim layer weight keys: the Anim tab's K button records the layer weight, but no key appears in the Graph Editor or the Time Slider.
