@@ -845,7 +845,9 @@ QString material_label(const QString& section, const QString& attr, const QStrin
 
 // A collapsible section header, remembered per title across refreshes.
 QSet<QString>& closed_sections() {
-    static QSet<QString> s{"Node Behaviour", "Limit Information", "Extra Attributes", "Special Effects", "Matte Opacity", "Raytrace Options"};
+    static QSet<QString> s{"Node Behaviour", "Limit Information", "Extra Attributes", "Special Effects", "Matte Opacity",
+                           "Raytrace Options", "Light Effects", "Shadows", "Arnold", "Arnold Subdivision", "Arnold Displacement",
+                           "Drawing Overrides", "Display"};
     return s;
 }
 
