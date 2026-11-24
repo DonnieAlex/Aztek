@@ -3397,6 +3397,7 @@ void AttributeEditor::refresh() {
     // The order the tabs were dragged into, for the tabs still here.
     if (!tab_order().isEmpty()) {
         tabs_->blockSignals(true);
+        tabs_->tabBar()->blockSignals(true);
         int at = 0;
         for (const QString& name : tab_order()) {
             for (int i = at; i < tabs_->count(); ++i)
@@ -3409,6 +3410,7 @@ void AttributeEditor::refresh() {
             if (tabs_->tabText(i) == keep) select = i;
             else if (tabs_->tabText(i) == focus_tab) focus_index = i;
         if (select < 0) select = focus_index;
+        tabs_->tabBar()->blockSignals(false);
         tabs_->blockSignals(false);
     }
     tabs_->setCurrentIndex(select);

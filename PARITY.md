@@ -4238,7 +4238,8 @@ Projected Center sets snapMode -meshCenter while the viewport does not use that 
 
 ![The Attribute Editor](docs/attribute-editor.png)
 
-Tabs drag to reorder, and a tab dragged out of the strip tears off into a window of its own. The Attribute Editor is
+Tabs drag to reorder and keep that order while the editor runs, and a tab dragged out of the strip tears off into a
+window of its own. The Attribute Editor is
 rebuilt on the reference's own chrome: the menu bar with List, Selected, Focus, Attributes,
 Display, Show and Help and the pin at its right; the outlined tab strip with its scroll arrows; and the name row with
 the node type right-aligned, an empty name field, the input and output connection buttons, and Focus, Presets, Show

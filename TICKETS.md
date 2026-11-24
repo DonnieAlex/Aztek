@@ -27,7 +27,8 @@ Requests waiting or in progress, newest detail kept. Move to Done with the date 
   blendShape in-betweens have no separate sliders (the reference's Weight frame lists the target weights only);
   NURBS curves have no component table in their history, and a surface's advanced tessellation controls are
   greyed; a cluster handle's Origin sits in a Cluster Attributes frame where the reference leaves it unframed, and
-  the sculpt's advanced sculpt maps are not built. Translate and Scale limits are not attributes on a transform; Attribute
+  the sculpt's advanced sculpt maps are not built; a torn-off tab's window does not remember its tab order, and the
+  dock's own title bar stays as the host panel chrome. Translate and Scale limits are not attributes on a transform; Attribute
   Names' Short mode shows the long names, as Aztek keeps no short ones.
 - Found 16/11/2026: `namespaceInfo -lon` at the root lists only the scene's namespaces; the reference also lists UI and
   shared, which scripts skip by name. Not changed: `core_forms.rs` and `core_cmds.rs` hold the current answer.
