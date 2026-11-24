@@ -4166,3 +4166,24 @@ plug-ins Aztek ships:
 - `progressWindow` answers false while one is showing, as the reference's, rather than failing.
 Not done: a plug-in locator under the transform it drives (mGear's weightDriver under its driven node) is read as a
 cycle and its outputs are left unconnected; ikSpringSolver.
+
+### Channel Box and Layer Editor, to the reference's interface (24/11/2026)
+
+![The Channel Box and Layer Editor](docs/channel-box.png)
+
+The Channel Box now stacks every selected object, lead last, with the reference's per-object name, channels, SHAPES,
+INPUTS and OUTPUTS; Show ▸ Assets chooses all attributes or the selected object's, and its Attributes filter has All,
+Keyable, Non-keyable and Connected with Invert Shown and Show All. The three buttons above the channels are in: the
+manipulator cycle, the slider speed cycle and the hyperbolic toggle, with the reference's tooltips and icons. The panel
+has the reference's empty-selection message, a full Edit menu (the same editors, attributes and Channel Box settings
+as the Ctrl+right-click menu), and a right-click row menu on a channel that acts on that channel.
+The Layer Editor opens on Anim, as the reference's does. Its Display tab has the Layers, Options and Help menus, the
+move up and down, new empty and new-from-selected buttons, rename, sorting, the Set All/Selected/Only Selected Layers
+submenus, and the display options that exist here. The Anim tab has Layers, Options, Show and Help, the seven symbol
+buttons (zero key, zero and full weight and key, move up and down, new empty and new from selected), and the reference's
+weight field, slider and K under the tree; the menu names and order follow `layerEditor.mel`.
+Not done: the Show menu's Selected Type(s), Select Attributes, Create Entry and Delete Entry are not built; its
+attribute filters are the four above rather than the reference's dynamic filter list. `Add New Objects to Current
+Layer`, `Auto Overrides`, the Anim Export Layer/Branch, Membership, Template Curves of Locked Layers, Buttons on Right,
+the ghost modes and Package into Assets are greyed because the feature is not in Aztek. The Display layer list has no
+current-layer marker or membership count, and a channel's label and value widths are not draggable.
