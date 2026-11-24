@@ -2149,24 +2149,59 @@ AttributeEditor::AttributeEditor(QWidget* parent, const QString& pinned) : Panel
         return b;
     };
     auto* listMenu = new QMenu(this);
-    auto* pinAction = listMenu->addAction("Pin Tab");
-    pinAction->setCheckable(true);
-    pinAction->setChecked(!pinned_.isEmpty());
-    connect(pinAction, &QAction::toggled, this, [this](bool on) {
-        QWidget* w = tabs_->currentWidget();
-        pinned_ = on && w ? w->property("nodePath").toString() : QString();
-        refresh();
+    connect(listMenu, &QMenu::aboutToShow, this, [this, listMenu] {
+        listMenu->clear();
+        auto* pinAction = listMenu->addAction("Pin Tab");
+        pinAction->setCheckable(true);
+        pinAction->setChecked(!pinned_.isEmpty());
+        connect(pinAction, &QAction::toggled, this, [this](bool on) {
+            QWidget* w = tabs_->currentWidget();
+            pinned_ = on && w ? w->property("nodePath").toString() : QString();
+            refresh();
+        });
+        const QJsonArray selectedAttrs = ask("channelBox", QJsonObject{{"query", true}, {"selectedMainAttributes", true}}).toArray();
+        auto* loadSel = listMenu->addAction("Load Selected Attributes");
+        loadSel->setEnabled(!selectedAttrs.isEmpty());
+        auto* selItems = listMenu->addAction("Selected Items");
+        selItems->setCheckable(true);
+        selItems->setChecked(false);
+        selItems->setEnabled(false);
+        listMenu->addSeparator();
+        auto names_of = [](const QStringList& types) {
+            QStringList names;
+            for (const QString& t : types)
+                for (const QJsonValue& v : ask("ls", QJsonObject{{"type", t}}).toArray()) names << v.toString();
+            names.removeDuplicates();
+            names.sort();
+            return names;
+        };
+        auto add_category = [this, listMenu](const QString& title, const QStringList& names) {
+            QMenu* sub = listMenu->addMenu(title);
+            style_ae_menu(sub);
+            if (names.isEmpty()) {
+                sub->addAction("None")->setEnabled(false);
+                sub->setEnabled(false);
+                return;
+            }
+            for (const QString& n : names) {
+                const QString leaf = n.section('|', -1);
+                sub->addAction(leaf, this, [n] { exec("select", args(QJsonArray{n})); });
+            }
+        };
+        add_category("Dynamics", names_of({"particle", "nParticle", "fluidShape", "nCloth", "nRigid", "rigidBody", "emitter"}));
+        add_category("Kinematics", names_of({"joint", "ikHandle", "ikEffector"}));
+        add_category("Deformers", names_of({"skinCluster", "blendShape", "cluster", "lattice", "baseLattice", "deformBend", "deformTwist",
+                                            "deformSquash", "deformFlare", "deformSine", "deformWave", "softMod", "wire", "wrap", "shrinkWrap"}));
+        QStringList lights;
+        for (const QJsonValue& v : ask("ls", QJsonObject{{"lights", true}}).toArray()) lights << v.toString();
+        lights.sort();
+        add_category("Lights", lights);
+        QStringList shading = names_of({"lambert", "blinn", "phong", "phongE", "anisotropic", "standardSurface", "aiStandardSurface"});
+        for (const QJsonValue& v : ask("ls", QJsonObject{{"textures", true}}).toArray()) shading << v.toString();
+        shading.removeDuplicates();
+        shading.sort();
+        add_category("Shading", shading);
     });
-    auto* loadSel = listMenu->addAction("Load Selected Attributes");
-    loadSel->setEnabled(false);
-    auto* selItems = listMenu->addAction("Selected Items");
-    selItems->setEnabled(false);
-    listMenu->addSeparator();
-    for (const char* t : {"Dynamics", "Kinematics", "Deformers", "Lights", "Shading"}) {
-        QMenu* sub = listMenu->addMenu(t);
-        sub->addAction("None")->setEnabled(false);
-        sub->setEnabled(false);
-    }
     menu_button("List", listMenu);
 
     auto* selectedMenu = new QMenu(this);
@@ -2292,10 +2327,9 @@ AttributeEditor::AttributeEditor(QWidget* parent, const QString& pinned) : Panel
     pin->setToolTip("Pin Tab");
     pin->setCheckable(true);
     pin->setChecked(!pinned_.isEmpty());
-    connect(pin, &QToolButton::toggled, this, [this, pin, pinAction](bool on) {
+    connect(pin, &QToolButton::toggled, this, [this, pin](bool on) {
         QWidget* w = tabs_->currentWidget();
         pinned_ = on && w ? w->property("nodePath").toString() : QString();
-        if (pinAction->isChecked() != on) pinAction->setChecked(on);
         refresh();
     });
     barLay->addWidget(pin);
