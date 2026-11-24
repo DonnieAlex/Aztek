@@ -4172,7 +4172,8 @@ cycle and its outputs are left unconnected; ikSpringSolver.
 ![The Channel Box and Layer Editor](docs/channel-box.png)
 
 The Channel Box now stacks every selected object, lead last, with the reference's per-object name, channels, SHAPES,
-INPUTS and OUTPUTS; Show ▸ Assets chooses all attributes or the selected object's, and its Attributes filter has All,
+INPUTS and OUTPUTS; Visibility is the last channel of the selected object and is not shown on its shapes, history
+nodes or outputs; Show ▸ Assets chooses all attributes or the selected object's, and its Attributes filter has All,
 Keyable, Non-keyable and Connected with Invert Shown and Show All. The three buttons above the channels are in: the
 manipulator cycle, the slider speed cycle and the hyperbolic toggle, with the reference's tooltips and icons. The panel
 has the reference's empty-selection message, a full Edit menu (the same editors, attributes and Channel Box settings
