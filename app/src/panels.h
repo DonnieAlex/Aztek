@@ -156,6 +156,8 @@ private:
     QString weight_pending_layer_;
     double weight_pending_value_ = -1.0;
     double weight_pending_time_ = 0.0;
+    // The top of the stack: its ghost button is hidden, as the reference's.
+    QString top_layer_;
     bool updating_ = false;
     bool only_affected_ = false;
 };

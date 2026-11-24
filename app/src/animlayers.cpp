@@ -22,6 +22,7 @@
 #include <QLabel>
 #include <QMenu>
 #include <QMenuBar>
+#include <QPainter>
 #include <QSettings>
 #include <QSlider>
 #include <QToolBar>
@@ -148,13 +149,11 @@ AnimLayerEditor::AnimLayerEditor(QWidget* parent) : Panel(parent) {
         exec("animLayer", on_layer(layer, flag("weight", 1.0)));
         key_weight(layer);
     });
-    bl->addSpacing(78);
+    bl->addStretch(1);
     tool("moveUp", "Move selection up in list", [move_layer] { move_layer(-1); });
     tool("moveDown", "Move selection down in list", [move_layer] { move_layer(1); });
-    bl->addSpacing(3);
     tool("newLayerEmpty", "Create Empty Layer", [this] { create(false, false); });
     tool("newLayerSelected", "Create Layer from Selected", [this] { create(true, false); });
-    bl->addStretch(1);
     lay->addWidget(bar);
 
     list_ = new LayerTree(this);
@@ -517,40 +516,99 @@ QWidget* AnimLayerEditor::make_row(const QJsonObject& l) {
     auto* h = new QHBoxLayout(row);
     h->setContentsMargins(2, 0, 2, 0);
     h->setSpacing(1);
-    // Green takes keys, red holds channels of the selection but doesn't.
-    auto* dot = new QLabel("●");
-    dot->setStyleSheet(QString("color: %1").arg(l["active"].toBool() ? "#3fd14a" : l["affected"].toBool() ? "#d9443f" : "transparent"));
-    h->addWidget(dot);
+    auto icon_toggle = [row](const char* ic, bool on, const QString& tip) {
+        auto* b = new QToolButton(row);
+        b->setCheckable(true);
+        b->setChecked(on);
+        b->setIcon(icon(ic));
+        b->setIconSize(QSize(15, 15));
+        b->setFixedSize(18, 18);
+        b->setAutoRaise(true);
+        b->setToolTip(tip);
+        return b;
+    };
+    auto spacer = [&] {
+        auto* w = new QWidget(row);
+        w->setFixedSize(18, 18);
+        h->addWidget(w, 0, Qt::AlignVCenter);
+    };
+    // The reference's row: lock, solo and mute on the left, the layer name, then the ghost button and the
+    // active/affected octagon at the right. The base layer has no solo or mute; the top layer has no ghost.
+    auto* lock = icon_toggle("animLayerLock", l["lock"].toBool(), "Lock Layer");
+    connect(lock, &QToolButton::toggled, this, [name](bool now) { exec("animLayer", on_layer(name, flag("lock", now))); });
+    h->addWidget(lock, 0, Qt::AlignVCenter);
+    if (base) {
+        spacer();
+        spacer();
+    } else {
+        auto* solo = icon_toggle("animLayerSolo", l["solo"].toBool(), "Solo Layer");
+        connect(solo, &QToolButton::toggled, this, [name](bool now) { exec("animLayer", on_layer(name, flag("solo", now))); });
+        h->addWidget(solo, 0, Qt::AlignVCenter);
+        auto* mute = icon_toggle("animLayerMute", l["mute"].toBool(), "Mute Layer");
+        connect(mute, &QToolButton::toggled, this, [name](bool now) { exec("animLayer", on_layer(name, flag("mute", now))); });
+        h->addWidget(mute, 0, Qt::AlignVCenter);
+    }
+    const bool topmost = !base && name == top_layer_;
+    if (topmost) {
+        spacer();
+    } else {
+        auto* ghost = new QToolButton(row);
+        ghost->setCheckable(true);
+        ghost->setChecked(l["ghost"].toBool());
+        ghost->setFixedSize(18, 18);
+        ghost->setIconSize(QSize(16, 16));
+        ghost->setAutoRaise(true);
+        ghost->setToolTip("Ghost/Color Layer");
+        const QColor gc = ghost_colour(l["ghostColor"].toInt());
+        QPixmap pm(16, 16);
+        pm.fill(Qt::transparent);
+        QPainter gp(&pm);
+        QPolygonF octagon({{8, 1}, {13, 3}, {15, 8}, {13, 13}, {8, 15}, {3, 13}, {1, 8}, {3, 3}});
+        if (l["ghost"].toBool()) {
+            gp.setBrush(gc);
+            gp.setPen(QPen(gc.darker(180), 1));
+            gp.drawPolygon(octagon);
+        } else {
+            gp.setBrush(Qt::NoBrush);
+            gp.setPen(QPen(QColor(120, 120, 120), 1.4));
+            gp.drawPolygon(octagon);
+        }
+        gp.end();
+        ghost->setIcon(QIcon(pm));
+        connect(ghost, &QToolButton::toggled, this, [name](bool now) { exec("animLayer", on_layer(name, flag("ghost", now))); });
+        ghost->setContextMenuPolicy(Qt::CustomContextMenu);
+        connect(ghost, &QWidget::customContextMenuRequested, this, [name] {
+            bool ok = false;
+            int c = QInputDialog::getInt(nullptr, "Ghost Colour", "Colour index", 5, 0, 31, 1, &ok);
+            if (ok) exec("animLayer", on_layer(name, flag("ghostColor", c)));
+        });
+        h->addWidget(ghost, 0, Qt::AlignVCenter);
+    }
+    h->addStretch(1);
     auto* label = new QLabel(name);
     label->setMinimumWidth(40);
+    label->setAlignment(Qt::AlignCenter);
     if (l["selected"].toBool()) label->setStyleSheet("color: #ffffff;");
     QString mode = l["override"].toBool() ? (l["passthrough"].toBool() ? "Override, passthrough" : "Override") : "Additive";
     label->setToolTip(base ? "The base animation" : mode + QString(", %1 channels").arg(l["channels"].toInt()));
-    h->addWidget(label, 1);
-    if (!base) {
-        const auto wire = [&](const QString& text, bool on, const char* word, const QString& tip) {
-            auto* b = toggle(text, on, tip);
-            const QString f = word;
-            connect(b, &QToolButton::toggled, this, [name, f](bool now) { exec("animLayer", on_layer(name, flag(f.toUtf8().constData(), now))); });
-            h->addWidget(b);
-        };
-        wire("M", l["mute"].toBool(), "mute", "Mute");
-        wire("S", l["solo"].toBool(), "solo", "Solo");
+    h->addWidget(label, 0, Qt::AlignVCenter);
+    h->addStretch(1);
+    auto* ornament = new QLabel(row);
+    ornament->setFixedSize(14, 14);
+    QPixmap op(14, 14);
+    op.fill(Qt::transparent);
+    const QColor oc = l["selected"].toBool() ? QColor(63, 209, 74)
+                    : (l["affected"].toBool() || (base && !top_layer_.isEmpty())) ? QColor(217, 68, 63)
+                    : l["active"].toBool() ? QColor(63, 209, 74)
+                    : QColor(Qt::transparent);
+    if (oc.alpha() > 0) {
+        QPainter pp(&op);
+        pp.setBrush(oc);
+        pp.setPen(QPen(oc.darker(160), 1));
+        pp.drawPolygon(QPolygonF({{7, 1}, {12, 3}, {13, 7}, {12, 11}, {7, 13}, {2, 11}, {1, 7}, {2, 3}}));
     }
-    auto* lock = toggle("L", l["lock"].toBool(), "Lock");
-    connect(lock, &QToolButton::toggled, this, [name](bool now) { exec("animLayer", on_layer(name, flag("lock", now))); });
-    h->addWidget(lock);
-    if (base) return row;
-    auto* ghost = toggle("G", l["ghost"].toBool(), "Ghost; the right button sets the colour");
-    ghost->setStyleSheet(QString("QToolButton { color: white; background: %1 }").arg(ghost_colour(l["ghostColor"].toInt()).name()));
-    ghost->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(ghost, &QToolButton::toggled, this, [name](bool now) { exec("animLayer", on_layer(name, flag("ghost", now))); });
-    connect(ghost, &QWidget::customContextMenuRequested, this, [name] {
-        bool ok = false;
-        int c = QInputDialog::getInt(nullptr, "Ghost Colour", "Colour index", 5, 0, 31, 1, &ok);
-        if (ok) exec("animLayer", on_layer(name, flag("ghostColor", c)));
-    });
-    h->addWidget(ghost);
+    ornament->setPixmap(op);
+    h->addWidget(ornament, 0, Qt::AlignVCenter);
     return row;
 }
 
@@ -585,6 +643,14 @@ void AnimLayerEditor::refresh() {
         if (l["base"].toBool()) it->setData(0, Qt::UserRole + 1, true);
     }
     list_->addTopLevelItems(tops);
+    top_layer_.clear();
+    for (int i = 0; i < list_->topLevelItemCount(); ++i) {
+        QTreeWidgetItem* it = list_->topLevelItem(i);
+        if (!it->data(0, Qt::UserRole + 1).toBool()) {
+            top_layer_ = it->data(0, Qt::UserRole).toString();
+            break;
+        }
+    }
     for (const auto& l : rows) {
         auto* it = items.value(l["name"].toString());
         if (!it) continue;

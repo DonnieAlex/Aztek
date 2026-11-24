@@ -516,28 +516,48 @@ QPixmap draw(const QString& name, int size) {
         p.drawLine(QPointF(16, 13), QPointF(21, 7));
         p.drawLine(QPointF(21, 7), QPointF(27, 5));
         p.drawEllipse(QPointF(16, 13), 1.8, 1.8);
-    } else if (name == "animZeroKey") {
-        // A key, for a zero key at the current frame.
+    } else if (name == "animZeroKey" || name == "animZeroWeight" || name == "animFullWeight") {
+        // The reference's weight keys: a 0 or 1 beside a key (and a weight slider for the weight ones).
+        QFont f = p.font();
+        f.setPixelSize(9);
+        f.setBold(true);
+        p.setFont(f);
+        p.setPen(kInk);
+        p.drawText(QRectF(1, 7, 10, 12), Qt::AlignCenter, name == "animFullWeight" ? "1" : "0");
+        if (name == "animZeroKey") {
+            p.setBrush(Qt::NoBrush);
+            pen_color(kInk, 1.8);
+            p.drawEllipse(QRectF(11, 8, 8, 8));
+            p.drawLine(QPointF(19, 12), QPointF(30, 12));
+            p.drawLine(QPointF(27, 12), QPointF(27, 17));
+        } else {
+            const bool full = name == "animFullWeight";
+            p.setPen(QPen(kInk, 1.5, Qt::SolidLine, Qt::RoundCap));
+            p.drawLine(QPointF(11, 19), QPointF(24, 19));
+            p.setBrush(kBlue);
+            p.setPen(QPen(QColor(35, 35, 35), 1.0));
+            p.drawRect(QRectF(full ? 20 : 11, 14, 5, 10));
+            pen_color(kGreen, 1.5);
+            p.setBrush(Qt::NoBrush);
+            p.drawEllipse(QRectF(21, 3, 6, 6));
+            p.drawLine(QPointF(27, 6), QPointF(31, 6));
+        }
+    } else if (name == "animLayerLock" || name == "animLayerSolo" || name == "animLayerMute") {
+        pen_color(name == "animLayerMute" ? QColor(180, 60, 60) : kInk, 1.8);
         p.setBrush(Qt::NoBrush);
-        pen_color(kInk, 1.8);
-        p.drawEllipse(QRectF(5, 8, 9, 9));
-        p.drawLine(QPointF(14, 12.5), QPointF(27, 12.5));
-        p.drawLine(QPointF(23, 12.5), QPointF(23, 18));
-        p.drawLine(QPointF(27, 12.5), QPointF(27, 17));
-    } else if (name == "animZeroWeight" || name == "animFullWeight") {
-        // A weight slider with its handle at 0 or 1, and a key beside it.
-        const bool full = name == "animFullWeight";
-        p.setPen(QPen(kInk, 1.6, Qt::SolidLine, Qt::RoundCap));
-        p.drawLine(QPointF(3, 18), QPointF(18, 18));
-        p.setBrush(kBlue);
-        p.setPen(QPen(QColor(35, 35, 35), 1.0));
-        p.drawRect(QRectF(full ? 14 : 3, 13, 5, 10));
-        pen_color(kGreen, 1.5);
-        p.setBrush(Qt::NoBrush);
-        p.drawEllipse(QRectF(19, 4, 6, 6));
-        p.drawLine(QPointF(25, 7), QPointF(30, 7));
-        p.drawLine(QPointF(28, 7), QPointF(28, 11));
-    } else if (name == "newLayerEmpty" || name == "newLayerSelected") {    } else if (name == "newLayerEmpty" || name == "newLayerSelected") {
+        if (name == "animLayerLock") {
+            p.drawArc(QRectF(10, 5, 12, 14), 0, 180 * 16);
+            p.setBrush(kInk);
+            p.setPen(Qt::NoPen);
+            p.drawRoundedRect(QRectF(8, 13, 16, 13), 2, 2);
+        } else if (name == "animLayerSolo") {
+            p.drawRoundedRect(QRectF(7, 7, 18, 18), 2, 2);
+            p.drawLine(QPointF(11, 16), QPointF(21, 16));
+        } else {
+            p.drawEllipse(QRectF(7, 7, 18, 18));
+            p.drawLine(QPointF(11, 11), QPointF(21, 21));
+        }
+    } else if (name == "newLayerEmpty" || name == "newLayerSelected") {
         p.setBrush(QColor(70, 110, 170));
         p.setPen(QPen(kInk, 1.0));
         p.drawRect(QRectF(5, 10, 16, 13));
