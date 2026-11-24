@@ -171,19 +171,24 @@ AnimLayerEditor::AnimLayerEditor(QWidget* parent) : Panel(parent) {
     wl->setSpacing(2);
     wl->addWidget(new QLabel("Weight", weight_row));
     weight_spin_ = new QDoubleSpinBox(weight_row);
+    weight_spin_->setObjectName("AnimLayerTabWeightField");
     weight_spin_->setRange(0.0, 1.0);
     weight_spin_->setDecimals(3);
     weight_spin_->setSingleStep(0.01);
     weight_spin_->setButtonSymbols(QAbstractSpinBox::NoButtons);
     weight_spin_->setFixedSize(40, 21);
     weight_spin_->setToolTip("Weight");
+    weight_spin_->setContextMenuPolicy(Qt::NoContextMenu);
+    if (auto* line = weight_spin_->findChild<QLineEdit*>()) line->setContextMenuPolicy(Qt::NoContextMenu);
     wl->addWidget(weight_spin_);
     weight_slider_ = new QSlider(Qt::Horizontal, weight_row);
+    weight_slider_->setObjectName("AnimLayerTabWeightSlider");
     weight_slider_->setRange(0, 100);
     weight_slider_->setFixedWidth(147);
     weight_slider_->setFixedHeight(15);
     wl->addWidget(weight_slider_);
     auto* weight_key = new QToolButton(weight_row);
+    weight_key->setObjectName("AnimLayerTabWeightButton");
     weight_key->setText("K");
     weight_key->setToolTip("Key the weight");
     weight_key->setFixedSize(19, 26);
@@ -193,6 +198,9 @@ AnimLayerEditor::AnimLayerEditor(QWidget* parent) : Panel(parent) {
     auto set_weight = [this](double v) {
         const QString layer = current();
         if (layer.isEmpty() || layer == "BaseAnimation") return;
+        weight_pending_layer_ = layer;
+        weight_pending_value_ = v;
+        weight_pending_time_ = ask("currentTime", QJsonObject{{"query", true}}).toDouble();
         exec_quiet("animLayer", on_layer(layer, flag("weight", v)));
         Host::get()->poke();
     };
@@ -204,7 +212,11 @@ AnimLayerEditor::AnimLayerEditor(QWidget* parent) : Panel(parent) {
     });
     connect(weight_slider_, &QSlider::sliderReleased, this, [this, set_weight] { set_weight(weight_slider_->value() / 100.0); });
     connect(weight_spin_, &QDoubleSpinBox::editingFinished, this, [this, set_weight] { set_weight(weight_spin_->value()); });
-    connect(weight_key, &QToolButton::clicked, this, [this] { key_weight(current()); });
+    connect(weight_key, &QToolButton::clicked, this, [this] {
+        key_weight(current());
+        weight_pending_layer_.clear();
+        update_weight();
+    });
     connect(list_, &QTreeWidget::currentItemChanged, this, [this] { update_weight(); });
     connect(list_, &QTreeWidget::itemSelectionChanged, this, [this] {
         if (updating_) return;
@@ -604,7 +616,11 @@ void AnimLayerEditor::update_weight() {
     weight_slider_->setEnabled(editable);
     weight_spin_->setEnabled(editable);
     if (found.isEmpty()) return;
-    const double weight = found["weight"].toDouble(1.0);
+    const double now = ask("currentTime", QJsonObject{{"query", true}}).toDouble();
+    if (!weight_pending_layer_.isEmpty() && (name != weight_pending_layer_ || qAbs(now - weight_pending_time_) > 1e-6))
+        weight_pending_layer_.clear();
+    double weight = found["weight"].toDouble(1.0);
+    if (name == weight_pending_layer_ && weight_pending_value_ >= 0.0) weight = weight_pending_value_;
     const QSignalBlocker b1(weight_slider_), b2(weight_spin_);
     weight_slider_->setValue(qRound(weight * 100));
     weight_spin_->setValue(weight);

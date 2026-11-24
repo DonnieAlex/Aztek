@@ -152,6 +152,10 @@ private:
     // The reference's weight controls under the tree, for the current layer.
     QSlider* weight_slider_ = nullptr;
     QDoubleSpinBox* weight_spin_ = nullptr;
+    // A weight dragged or typed, held in the controls until the layer or time changes or K records it.
+    QString weight_pending_layer_;
+    double weight_pending_value_ = -1.0;
+    double weight_pending_time_ = 0.0;
     bool updating_ = false;
     bool only_affected_ = false;
 };
