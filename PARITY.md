@@ -1531,6 +1531,9 @@ Workspace; a saved arrangement under a workspace's name wins over the shipped on
 workspace docks go back to windows when another is chosen. `workspaceLayoutManager -setCurrent`, `-q -current`,
 `-listLayouts` and `-reset` script it. MASH and Motion Graphics wait for TRASH.
 
+23/11/2026 (#261): On launch the last selected workspace opens with its own layout. Once its editors exist, the docks
+are restored to their last positions if the saved session used that workspace.
+
 ### Tangent types: auto mix, ease and custom, slow and fast (18/11/2026, #141)
 
 `MFnAnimCurve` in both APIs has the reference's whole TangentType list, `kTangentAutoMix`, `kTangentAutoEase` and
