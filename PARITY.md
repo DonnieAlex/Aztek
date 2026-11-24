@@ -4269,6 +4269,9 @@ Environment, Special Effects and Display Options. A joint adds Joint (Draw Style
 Preferred Angle, Joint Orient, Segment Scale Compensate) and Joint Labelling, and drops Pivots as its template does.
 skinCluster lays out Smooth Skin Attributes and Deformer Attributes with GPU; blendShape lays out Blend Shape
 Attributes and Weight, whose sliders are named after the blend shape's targets and read and write their weight plugs.
+A material is headed by the reference's sample sphere and its Type list, then its own frames: the OpenPBR surface has
+Base, Specular, Transmission, Subsurface, Fuzz, Coat, Thin Film, Emission, Geometry and Hardware Shading as
+AEopenPBRSurfaceTemplate orders them.
 
 Notes sit in a fixed area under the scrolling sections, with the reference's dotted rule, and Select, Load Attributes
 and Copy Tab fill the panel's width as three equal buttons. A right-click on an attribute's name gives Set Key, Break

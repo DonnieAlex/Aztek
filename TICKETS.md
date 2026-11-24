@@ -21,7 +21,8 @@ Requests waiting or in progress, newest detail kept. Move to Done with the date 
   Manip History Node, mesh component display detail, DoF scale, GPU options, a camera's Angle of View and millimetre
   aperture). skinCluster's input table and Manage
   Deformed Geometry, blendShape's in-betweens and target management, Load Selected Attributes, the Show filters and a
-  tab's right-click menu are not built. Translate and Scale limits are not attributes on a transform; Attribute
+  tab's right-click menu are not built; a material's Type list is shown but greyed, and its sample is drawn rather
+  than rendered with the material. Translate and Scale limits are not attributes on a transform; Attribute
   Names' Short mode shows the long names, as Aztek keeps no short ones.
 - Found 16/11/2026: `namespaceInfo -lon` at the root lists only the scene's namespaces; the reference also lists UI and
   shared, which scripts skip by name. Not changed: `core_forms.rs` and `core_cmds.rs` hold the current answer.

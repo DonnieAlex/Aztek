@@ -1082,6 +1082,51 @@ QList<AeBox> skin_boxes() {
     return l;
 }
 
+// The OpenPBR surface, from AEopenPBRSurfaceTemplate.
+QList<AeBox> openpbr_boxes() {
+    QList<AeBox> l;
+    l << box("Base",
+             {shown("baseWeight", "Weight", "slider", "0,1"), shown("baseColor", "Color", "color"),
+              shown("baseDiffuseRoughness", "Diffuse Roughness", "slider", "0,1"), shown("baseMetalness", "Metalness", "slider", "0,1")},
+             1);
+    l << box("Specular",
+             {shown("specularWeight", "Weight", "slider", "0,1"), shown("specularColor", "Color", "color"),
+              shown("specularIOR", "IOR", "slider", "1,3"), shown("specularRoughness", "Roughness", "slider", "0,1"),
+              shown("specularRoughnessAnisotropy", "Anisotropy", "slider", "0,1"),
+              shown("", "Anisotropy Tangent", "text")},
+             1);
+    l << box("Transmission",
+             {shown("transmissionWeight", "Weight", "slider", "0,1"), shown("transmissionColor", "Color", "color"),
+              shown("transmissionDepth", "Depth", "slider", "0,10"), shown("transmissionScatter", "Scatter", "color"),
+              shown("transmissionScatterAnisotropy", "Scatter Anisotropy", "slider", "-1,1"),
+              shown("transmissionDispersionScale", "Dispersion Scale", "slider", "0,1"),
+              shown("transmissionDispersionAbbeNumber", "Abbe Number", "slider", "0,100")});
+    l << box("Subsurface",
+             {shown("subsurfaceWeight", "Weight", "slider", "0,1"), shown("subsurfaceColor", "Color", "color"),
+              shown("subsurfaceRadius", "Radius", "slider", "0,10"), shown("subsurfaceRadiusScale", "Radius Scale", "vec3"),
+              shown("subsurfaceScatterAnisotropy", "Scatter Anisotropy", "slider", "-1,1")});
+    l << box("Fuzz",
+             {shown("fuzzWeight", "Weight", "slider", "0,1"), shown("fuzzColor", "Color", "color"),
+              shown("fuzzRoughness", "Roughness", "slider", "0,1")});
+    l << box("Coat",
+             {shown("coatWeight", "Weight", "slider", "0,1"), shown("coatColor", "Color", "color"),
+              shown("coatDarkening", "Darkening", "slider", "0,1"), shown("coatIOR", "IOR", "slider", "1,3"),
+              shown("coatRoughness", "Roughness", "slider", "0,1"), shown("coatRoughnessAnisotropy", "Anisotropy", "slider", "0,1"),
+              shown("", "Anisotropy Tangent", "text"), shown("", "Bump Mapping", "text")});
+    l << box("Thin Film", {shown("thinFilmWeight", "Weight", "slider", "0,1"), shown("thinFilmThickness", "Thickness", "slider", "0,10"),
+                           shown("thinFilmIOR", "IOR", "slider", "1,3")});
+    l << box("Emission", {shown("emissionLuminance", "Luminance", "slider", "0,100"), shown("emissionColor", "Color", "color")});
+    l << box("Geometry",
+             {shown("geometryThinWalled", "Thin Walled", "check"), shown("geometryOpacity", "Opacity", "slider", "0,1"),
+              shown("", "Bump Mapping", "text")});
+    l << box("Hardware Shading", {shown("", "Hardware Shader", "combo", "None")});
+    l << box("Arnold", {});
+    l << box("Node Behavior", {row("caching"), row("nodeState")});
+    l << box("UUID", {shown("", "", "uuid")});
+    l << box("Extra Attributes", {});
+    return l;
+}
+
 // The camera's tab, from AEcameraTemplateCommon.
 QList<AeBox> camera_boxes() {
     QList<AeBox> l;
@@ -1190,6 +1235,7 @@ QList<AeBox> ae_tree(const QString& type) {
     if (type == "joint") return joint_boxes();
     if (type == "mesh") return mesh_boxes();
     if (type == "camera") return camera_boxes();
+    if (type == "openPBRSurface") return openpbr_boxes();
     if (type == "blendShape") return blend_boxes();
     if (type == "skinCluster") return skin_boxes();
     static const QSet<QString> polys{"polyCube", "polySphere", "polyCylinder", "polyCone", "polyTorus", "polyPlane"};
@@ -1330,6 +1376,69 @@ void style_ae_menu(QMenu* m) {
                      "QMenu::item:selected { background: #587f9d; color: #ffffff; }"
                      "QMenu::item:disabled { color: #9a9a9a; }"
                      "QMenu::separator { height: 1px; background: #3d3d3d; margin: 3px 4px; }");
+}
+
+// A material's sample sphere and its shader type, above the frames as the reference draws them.
+QWidget* material_header(const QString& type, const QHash<QString, QJsonObject>& by, QWidget* parent) {
+    static const QHash<QString, QString> names{{"lambert", "Lambert"}, {"blinn", "Blinn"}, {"phong", "Phong"}, {"phongE", "Phong E"},
+                                                {"anisotropic", "Anisotropic"}, {"standardSurface", "Standard Surface"},
+                                                {"aiStandardSurface", "aiStandardSurface"}, {"openPBRSurface", "OpenPBR Surface"},
+                                                {"surfaceShader", "Surface Shader"}};
+    QJsonObject colourAttr = by.value("baseColor");
+    if (colourAttr.isEmpty()) colourAttr = by.value("color");
+    QColor tint(128, 128, 128);
+    if (!colourAttr.isEmpty()) {
+        QJsonArray v = colourAttr["value"].toArray();
+        if (v.size() >= 3) tint = swatch_color(v);
+    }
+    auto* w = new QWidget(parent);
+    auto* v = new QVBoxLayout(w);
+    v->setContentsMargins(2, 6, 12, 6);
+    v->setSpacing(2);
+    auto* sampleRow = new QWidget(w);
+    auto* sh = new QHBoxLayout(sampleRow);
+    sh->setContentsMargins(0, 0, 0, 0);
+    sh->setSpacing(4);
+    auto* sampleLabel = new QLabel("Sample", sampleRow);
+    sampleLabel->setObjectName("aeRowLabel");
+    sampleLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    sampleLabel->setFixedWidth(140);
+    sh->addWidget(sampleLabel);
+    QPixmap px(56, 56);
+    px.fill(QColor(70, 70, 70));
+    QPainter p(&px);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    QRadialGradient g(QPointF(20, 18), 46);
+    g.setColorAt(0, QColor(245, 245, 245));
+    g.setColorAt(0.35, tint.lighter(140));
+    g.setColorAt(0.75, tint.darker(170));
+    g.setColorAt(1, QColor(15, 15, 15));
+    p.setPen(Qt::NoPen);
+    p.setBrush(g);
+    p.drawEllipse(QRectF(4, 4, 48, 48));
+    auto* sample = new QLabel(sampleRow);
+    sample->setPixmap(px);
+    sample->setFixedSize(56, 56);
+    sh->addWidget(sample);
+    sh->addStretch(1);
+    v->addWidget(sampleRow);
+    auto* typeRow = new QWidget(w);
+    auto* th = new QHBoxLayout(typeRow);
+    th->setContentsMargins(0, 0, 0, 0);
+    th->setSpacing(4);
+    auto* typeLabel = new QLabel("Type", typeRow);
+    typeLabel->setObjectName("aeRowLabel");
+    typeLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    typeLabel->setFixedWidth(140);
+    th->addWidget(typeLabel);
+    auto* combo = new QComboBox(typeRow);
+    combo->addItem(names.value(type, type));
+    combo->setFixedWidth(148);
+    combo->setEnabled(false);
+    th->addWidget(combo);
+    th->addStretch(1);
+    v->addWidget(typeRow);
+    return w;
 }
 
 QFormLayout* add_section(QVBoxLayout* v, QWidget* parent, const QString& title) {
@@ -1473,11 +1582,25 @@ QWidget* ae_placeholder(const AeRow& r, const QJsonObject& a, QWidget* parent) {
         return w;
     }
     if (kind == "matrix" || kind == "text") {
-        auto* e = new QLineEdit(parent);
+        auto* w = new QWidget(parent);
+        auto* h = new QHBoxLayout(w);
+        h->setContentsMargins(0, 0, 0, 0);
+        h->setSpacing(4);
+        auto* e = new QLineEdit(w);
         e->setFixedHeight(20);
-        e->setMinimumWidth(295);
+        e->setMinimumWidth(270);
         e->setEnabled(false);
-        return e;
+        h->addWidget(e, 1);
+        if (kind == "text") {
+            auto* map = new QToolButton(w);
+            map->setObjectName("mapButton");
+            map->setAutoRaise(true);
+            map->setFixedSize(18, 18);
+            map->setIcon(map_icon(false));
+            map->setEnabled(false);
+            h->addWidget(map);
+        }
+        return w;
     }
     if (kind == "uuid") {
         auto* e = new QLineEdit(parent);
@@ -1997,7 +2120,7 @@ void ae_render_rows(QVBoxLayout* v, QWidget* parent, const QList<AeRow>& rows, c
         if (!a.isEmpty()) {
             used.insert(r.attr);
             if (a["type"].toString() == "matrix") field = ae_placeholder(r, a, parent);
-            else if (a["type"].toString() == "vec3") field = ae_vec3(a, parent);
+            else if (a["type"].toString() == "vec3" && !a["color"].toBool() && r.kind != "color") field = ae_vec3(a, parent);
             else field = ae_field(r, a, style, parent);
             if (checklike) {
                 if (auto* cb = qobject_cast<QCheckBox*>(field)) cb->setText(label);
@@ -2562,6 +2685,9 @@ void AttributeEditor::refresh() {
         nh->addWidget(right);
         nh->addStretch(1);
         v->addWidget(nameRow);
+        static const QSet<QString> material_types{"lambert", "blinn", "phong", "phongE", "anisotropic", "standardSurface",
+                                                   "aiStandardSurface", "openPBRSurface", "surfaceShader"};
+        if (material_types.contains(node_type)) v->addWidget(material_header(node_type, by, body));
 
         QList<AeBox> boxes = ae_tree(node_type);
         // A blend shape's target weights, named after their targets as the reference names them.
