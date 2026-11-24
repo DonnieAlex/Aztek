@@ -19,13 +19,13 @@ with tempfile.TemporaryDirectory(prefix="aztek_workspace_") as directory:
 import json
 import os
 from pathlib import Path
-from PySide6.QtWidgets import QApplication, QComboBox, QDockWidget, QToolBar
+from PySide6.QtWidgets import QApplication, QComboBox, QDockWidget
 
 window = next(w for w in QApplication.topLevelWidgets() if w.objectName() == "MayaWindow")
 uv = window.findChild(QDockWidget, "workspace_uvEditor")
 Path(os.environ["AZTEK_WORKSPACE_PROBE"]).write_text(json.dumps([
     window.findChild(QComboBox, "workspaceBox").currentText(),
-    window.findChild(QToolBar, "timeBar").isVisible(),
+    window.findChild(QDockWidget, "TimeSlider").isVisible(),
     uv is not None and uv.isVisible(),
 ]))
 window.close()

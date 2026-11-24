@@ -2698,7 +2698,7 @@ void MainWindow::run_startup(const QString& script, const QString& screenshot) {
         // Workspace editors must exist before Qt can put their docks back where the user left them.
         apply_workspace(workspace);
         if (saved_workspace == workspace)
-            restoreState(s.value("window/state").toByteArray());
+            restore_layout(s.value("window/state").toByteArray());
     }
     // Last time ended without closing: offer the newest autosave. Not when a script or a screenshot drives the run.
     const bool crashed = s.value("session/running", false).toBool();
