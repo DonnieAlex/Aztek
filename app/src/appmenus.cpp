@@ -781,7 +781,8 @@ QMenu* MainWindow::display_menu() {
     ui_item("Status Line", findChild<QToolBar*>("statusLine"));
     ui_item("Shelf", findChild<QToolBar*>("shelf"));
     ui_item("Tool Box", findChild<QToolBar*>("toolbox"));
-    ui_item("Time and Range Sliders", findChild<QToolBar*>("timeBar"));
+    ui_item("Time Slider", time_dock_);
+    ui_item("Range Slider", range_dock_);
     ui_item("Command Line", findChild<QToolBar*>("commandLine"));
     ui_item("Help Line", statusBar());
     ui->addSeparator();
@@ -961,6 +962,9 @@ void MainWindow::default_dock_layout() {
         addDockWidget(Qt::RightDockWidgetArea, d);
         tabifyDockWidget(channel_dock_, d);
     }
+    for (QDockWidget* d : {time_dock_, range_dock_}) d->setFloating(false);
+    addDockWidget(Qt::BottomDockWidgetArea, time_dock_, Qt::Vertical);
+    splitDockWidget(time_dock_, range_dock_, Qt::Vertical);
 }
 
 // An editor window docked into the main window for a workspace; release_docked_editors gives it back as a window.
@@ -976,8 +980,9 @@ QDockWidget* MainWindow::dock_editor(const QString& id, QWidget* editor, const Q
     d->setWidget(editor);
     editor->show();
     d->setFloating(false);
-    addDockWidget(area, d);
+    addDockWidget(area, d, area == Qt::BottomDockWidgetArea ? Qt::Vertical : Qt::Horizontal);
     d->show();
+    if (area == Qt::BottomDockWidgetArea) seat_slider_docks();
     return d;
 }
 
@@ -1043,12 +1048,12 @@ void MainWindow::apply_workspace(const QString& name) {
     // A saved one first: the arrangement the user kept under this name.
     QByteArray saved = s.value("workspaces/" + name).toByteArray();
     if (!saved.isEmpty()) {
-        restoreState(saved);
+        restore_layout(saved);
         return;
     }
     if (!workspace_names().contains(name)) return;
     auto bar = [this](const char* id, bool on) {
-        if (auto* b = findChild<QToolBar*>(id)) b->setVisible(on);
+        if (auto* b = findChild<QWidget*>(id, Qt::FindDirectChildrenOnly)) b->setVisible(on);
     };
     // The panels on the edges; the rest of the reference's editors are docked in below.
     auto only = [this](bool outliner, bool channels, bool attr, bool tool) {
@@ -1066,7 +1071,7 @@ void MainWindow::apply_workspace(const QString& name) {
     auto shelf = [this](const QString& n) {
         if (shelf_bar_) shelf_bar_->select_shelf(n);
     };
-    for (const char* id : {"statusLine", "shelf", "toolbox", "timeBar", "commandLine"}) bar(id, true);
+    for (const char* id : {"statusLine", "shelf", "toolbox", "TimeSlider", "RangeSlider", "commandLine"}) bar(id, true);
     panels_->set_layout(0);
     if (name == "General" || name == "Bicrust Fluids") {
         only(true, true, true, false);
@@ -1082,13 +1087,14 @@ void MainWindow::apply_workspace(const QString& name) {
             mtk_dock_->show();
             mtk_dock_->raise();
         }
-        bar("timeBar", false);
+        bar("TimeSlider", false);
+        bar("RangeSlider", false);
         set_menus("Modeling");
         shelf("Poly Modeling");
     } else if (name == "Modeling - Expert") {
         // The view alone: no shelf, tool box, time slider or panels.
         only(false, false, false, false);
-        for (const char* id : {"shelf", "toolbox", "timeBar"}) bar(id, false);
+        for (const char* id : {"shelf", "toolbox", "TimeSlider", "RangeSlider"}) bar(id, false);
         set_menus("Modeling");
     } else if (name == "Sculpting" || name == "Pose Sculpting") {
         // The Shape Editor over the Tool Settings on the right.
@@ -1105,7 +1111,8 @@ void MainWindow::apply_workspace(const QString& name) {
             }
             tool_dock_->raise();
         }
-        bar("timeBar", false);
+        bar("TimeSlider", false);
+        bar("RangeSlider", false);
         set_menus("Modeling");
         shelf("Sculpting");
     } else if (name == "UV Editing") {
@@ -1113,7 +1120,8 @@ void MainWindow::apply_workspace(const QString& name) {
         only(false, false, false, false);
         show_uv_editor();
         if (QDockWidget* d = dock_editor("uvEditor", uv_window_, "UV Editor", Qt::RightDockWidgetArea)) resizeDocks({d}, {width() / 2}, Qt::Horizontal);
-        bar("timeBar", false);
+        bar("TimeSlider", false);
+        bar("RangeSlider", false);
         set_menus("Modeling");
         shelf("UV Editing");
     } else if (name == "XJEN" || name == "XJEN - Interactive Groom") {
@@ -1601,24 +1609,6 @@ QList<MarkItem> MainWindow::hotbox_zone(int zone, QPoint origin) {
             return [widget] { widget->setVisible(!widget->isVisible()); };
         };
         auto tool_bar = [this, toggle](const char* name) { return toggle(findChild<QToolBar*>(name)); };
-        auto slider = [this](const char* name, const char* other_name) {
-            auto* bar = findChild<QToolBar*>("timeBar");
-            auto* row = bar->findChild<QWidget*>(name);
-            auto* other = bar->findChild<QWidget*>(other_name);
-            return [bar, row, other] {
-                if (bar->isHidden()) {
-                    other->hide();
-                    row->show();
-                    bar->show();
-                } else {
-                    row->setVisible(row->isHidden());
-                    if (row->isHidden() && other->isHidden()) {
-                        bar->hide();
-                        row->show();
-                    }
-                }
-            };
-        };
         // The Channel Box and Layer Editor share a dock, as they do in the reference's combined mode.
         MarkItem attributes{"Attributes", 2};
         attributes.sub = {{"Tool Settings", 0, [] { mel("ToggleToolSettings;"); }},
@@ -1629,8 +1619,8 @@ QList<MarkItem> MainWindow::hotbox_zone(int zone, QPoint origin) {
                                else show_attribute_editor();
                            }}};
         return {{"Help Line", 0, toggle(statusBar())}, {"Status Line", 1, tool_bar("statusLine")}, attributes,
-                {"Tool Box", 3, tool_bar("toolbox")}, {"Time Slider", 4, slider("timeSliderRow", "rangeSliderRow")},
-                {"Range Slider", 5, slider("rangeSliderRow", "timeSliderRow")},
+                {"Tool Box", 3, tool_bar("toolbox")}, {"Time Slider", 4, toggle(time_dock_)},
+                {"Range Slider", 5, toggle(range_dock_)},
                 {"Shelf", 6, tool_bar("shelf")}, {"Command Line", 7, tool_bar("commandLine")}};
     }
     case 2: {

@@ -198,6 +198,11 @@ private:
     // The reference's workspaces (#134): which docks, editors, shelf, menu set and bars each shows.
     static QStringList workspace_names();
     QDockWidget* dock_editor(const QString& id, QWidget* editor, const QString& title, Qt::DockWidgetArea area);
+    QDockWidget* slider_dock(const QString& title, const QString& id);
+    void seat_slider_docks();
+    void restore_layout(const QByteArray& state);
+    QDockWidget* time_dock_ = nullptr;
+    QDockWidget* range_dock_ = nullptr;
     void release_docked_editors();
     QComboBox* workspace_box_ = nullptr;
     QHash<QString, QDockWidget*> ws_docks_;
