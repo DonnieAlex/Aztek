@@ -1082,6 +1082,92 @@ QList<AeBox> skin_boxes() {
     return l;
 }
 
+// A NURBS curve's tab, from AEnurbsCurveTemplate.
+QList<AeBox> curve_boxes() {
+    QList<AeBox> l;
+    l << box("NURBS Curve History",
+             {shown("", "Lock Length", "check"), row("minValue"), row("maxValue"), row("spans"),
+              shown("form", "Form", "combo", "Open|Closed|Periodic"), row("degree")},
+             1);
+    l << box("Component Display", {row("dispCV"), row("dispEP"), row("dispHull"), shown("dispGeometry", "Display Geometry", "check")});
+    AeBox display = box("Object Display",
+                        {shown("visibility", "Visibility", "check2"), shown("lodVisibility", "LOD Visibility", "check2"),
+                         shown("hideOnPlayback", "Hide on playback", "check2"), shown("hiddenInOutliner", "Hidden In Outliner", "check2"),
+                         shown("useOutlinerColor", "Use Outliner Color", "check2"), shown("outlinerColor", "Outliner Color", "color"),
+                         row("intermediateObject")});
+    display.rows[0].extra = "template";
+    display.subs << box("Bounding Box Information", {shown("boundingBoxMin", "Bounding Box Min", "vec3"), shown("boundingBoxMax", "Bounding Box Max", "vec3")});
+    AeBox overrides;
+    overrides.title = "Drawing Overrides";
+    overrides.rows = transform_boxes().at(3).subs.at(2).rows;
+    overrides.open = -1;
+    display.subs << overrides;
+    display.subs << box("Selection", {row("selectionChildHighlighting")});
+    l << display;
+    l << box("Node Behavior", {row("caching"), row("nodeState")});
+    l << box("UUID", {shown("", "", "uuid")});
+    l << box("Extra Attributes", {});
+    return l;
+}
+
+// A NURBS surface's tab, from AEnurbsSurfaceTemplate.
+QList<AeBox> surface_boxes() {
+    QList<AeBox> l;
+    l << box("NURBS Surface History",
+             {shown("minValueU", "Min/Max Range U", "pair", "maxValueU"), shown("minValueV", "Min/Max Range V", "pair", "maxValueV"),
+              shown("spansU", "Spans", "pair", "spansV"), shown("degreeU", "Degree", "pair", "degreeV"),
+              shown("formU", "Form U", "combo", "Open|Closed|Periodic"), shown("formV", "Form V", "combo", "Open|Closed|Periodic")},
+             1);
+    l << box("NURBS Surface Display",
+             {shown("curvePrecision", "Curve Precision", "int"), shown("curvePrecisionShaded", "Curve Precision Shaded", "int"),
+              shown("simplifyMode", "Simplify Mode", "combo", "None|Simplify"), shown("simplifyU", "Simplify U", "int"),
+              shown("simplifyV", "Simplify V", "int"), row("divisionsU"), row("divisionsV"),
+              shown("", "Normals Display Scale", "float")});
+    AeBox tess = box("Tessellation",
+                     {shown("", "Enable Advanced Tessellation", "check"), shown("displayRenderTessellation", "Display Render Tessellation", "check")});
+    tess.subs << box("Simple Tessellation Options",
+                     {shown("curvatureTolerance", "Curvature Tolerance", "float"), shown("uDivisionsFactor", "U Divisions Factor", "float"),
+                      shown("vDivisionsFactor", "V Divisions Factor", "float")});
+    AeBox advanced;
+    advanced.title = "Advanced Tessellation";
+    advanced.rows = {shown("", "Enable Advanced Tessellation", "check")};
+    advanced.subs << box("Primary Tessellation Attributes",
+                         {shown("modeU", "U Type", "combo", "Per Span # of Iso Params|Per Surface # of Iso Params"),
+                          shown("numberU", "Number U", "int"), shown("modeV", "V Type", "combo", "Per Span # of Iso Params|Per Surface # of Iso Params"),
+                          shown("numberV", "Number V", "int")},
+                         1);
+    advanced.subs << box("Secondary Tessellation Attributes",
+                         {shown("useChordHeight", "Use Chord Height", "check"), shown("chordHeight", "Chord Height", "float"),
+                          shown("useChordHeightRatio", "Use Chord Height Ratio", "check"), shown("chordHeightRatio", "Chord Height Ratio", "float"),
+                          shown("useMinScreen", "Use Min Screen", "check"), shown("minScreen", "Min Screen", "float")},
+                         1);
+    advanced.subs << box("Common Tessellation Options",
+                         {shown("smoothEdge", "Smooth Edge", "check"), shown("smoothEdgeRatio", "Smooth Edge Ratio", "float"),
+                          shown("edgeSwap", "Edge Swap", "check")});
+    tess.subs << advanced;
+    l << tess;
+    l << box("Render Stats", {row("castsShadows"), row("receiveShadows"), row("primaryVisibility"), row("visibleInReflections"),
+                              row("visibleInRefractions"), row("doubleSided"), row("smoothShading"), row("motionBlur")});
+    AeBox display = box("Object Display",
+                        {shown("visibility", "Visibility", "check2"), shown("lodVisibility", "LOD Visibility", "check2"),
+                         shown("hideOnPlayback", "Hide on playback", "check2"), shown("hiddenInOutliner", "Hidden In Outliner", "check2"),
+                         shown("useOutlinerColor", "Use Outliner Color", "check2"), shown("outlinerColor", "Outliner Color", "color"),
+                         row("intermediateObject")});
+    display.rows[0].extra = "template";
+    AeBox overrides;
+    overrides.title = "Drawing Overrides";
+    overrides.rows = transform_boxes().at(3).subs.at(2).rows;
+    overrides.open = -1;
+    display.subs << overrides;
+    display.subs << box("Selection", {row("selectionChildHighlighting")});
+    l << display;
+    l << box("Arnold", {});
+    l << box("Node Behavior", {row("caching"), row("nodeState")});
+    l << box("UUID", {shown("", "", "uuid")});
+    l << box("Extra Attributes", {});
+    return l;
+}
+
 // The OpenPBR surface, from AEopenPBRSurfaceTemplate.
 QList<AeBox> openpbr_boxes() {
     QList<AeBox> l;
@@ -1244,6 +1330,8 @@ QList<AeBox> ae_tree(const QString& type) {
     if (lights.contains(type)) return light_boxes(type);
     if (type == "blendShape") return blend_boxes();
     if (type == "skinCluster") return skin_boxes();
+    if (type == "nurbsCurve") return curve_boxes();
+    if (type == "nurbsSurface") return surface_boxes();
     static const QSet<QString> polys{"polyCube", "polySphere", "polyCylinder", "polyCone", "polyTorus", "polyPlane"};
     if (polys.contains(type)) return poly_boxes(type);
     return {};

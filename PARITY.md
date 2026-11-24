@@ -4271,7 +4271,10 @@ skinCluster lays out Smooth Skin Attributes and Deformer Attributes with GPU; bl
 Attributes and Weight, whose sliders are named after the blend shape's targets and read and write their weight plugs.
 A material is headed by the reference's sample sphere and its Type list, then its own frames: the OpenPBR surface has
 Base, Specular, Transmission, Subsurface, Fuzz, Coat, Thin Film, Emission, Geometry and Hardware Shading as
-AEopenPBRSurfaceTemplate orders them. A light is headed by its sample, and its tab has Type, Color, Intensity,
+AEopenPBRSurfaceTemplate orders them. A NURBS curve follows AEnurbsCurveTemplate: NURBS Curve History (Lock Length, its range, Spans, Form, Degree),
+Component Display, Object Display, Node Behavior, UUID and Extra Attributes; a NURBS surface follows
+AEnurbsSurfaceTemplate with its history, display, tessellation frames, Render Stats and Object Display.
+A light is headed by its sample, and its tab has Type, Color, Intensity,
 Illuminates by Default, Emit Diffuse and Emit Specular on one row and Decay Rate; Light Effects with Light Fog and
 Light Glow; Shadows with the Depth Map Shadow Attributes and Ray Trace Shadow Attributes frames; Object Display,
 Arnold, Node Behavior, UUID and Extra Attributes. A light's default light set is the last tab, as the reference
