@@ -28,7 +28,7 @@ const QColor kGreen(110, 200, 120);
 const QColor kRed(220, 90, 80);
 const QColor kFill(150, 170, 190);
 const QColor kSePaper(206, 206, 206);
-const QColor kSeTeal(72, 182, 196);
+const QColor kSeTeal(72, 176, 190);
 const QColor kSeDark(38, 38, 38);
 
 // A cube in a simple oblique view, on a 32 unit canvas.
@@ -867,14 +867,14 @@ QPixmap draw(const QString& name, int size) {
     } else if (name == "seShowLineNumbers") {
         p.setPen(Qt::NoPen);
         QFont f = p.font();
-        f.setPixelSize(9);
+        f.setPixelSize(11);
         f.setBold(true);
         p.setFont(f);
         p.setPen(kSePaper);
-        for (int i = 0; i < 3; ++i) p.drawText(QRectF(1, 5 + i * 8, 7, 7), Qt::AlignCenter, QString::number(i + 1));
+        for (int i = 0; i < 3; ++i) p.drawText(QRectF(0, 3 + i * 8, 9, 8), Qt::AlignCenter, QString::number(i + 1));
         p.setPen(Qt::NoPen);
         p.setBrush(kSeTeal);
-        for (int i = 0; i < 3; ++i) p.drawRect(QRectF(10, 6 + i * 8, 17, 4));
+        for (int i = 0; i < 3; ++i) p.drawRect(QRectF(11, 4 + i * 8, 16, 4));
     } else if (name == "seExecuteAll") {
         p.setPen(Qt::NoPen);
         p.setBrush(kSeTeal);
@@ -926,15 +926,16 @@ QPixmap draw(const QString& name, int size) {
     } else if (name == "sePythonTab") {
         p.setPen(Qt::NoPen);
         p.setBrush(QColor(55, 118, 171));
-        p.drawRoundedRect(QRectF(5, 2, 15, 13), 4, 4);
+        p.drawRoundedRect(QRectF(4, 2, 20, 12), 4, 4);
+        p.drawRoundedRect(QRectF(4, 8, 10, 14), 4, 4);
         p.setBrush(QColor(255, 212, 59));
-        p.drawRoundedRect(QRectF(12, 11, 15, 13), 4, 4);
+        p.drawRoundedRect(QRectF(8, 18, 20, 12), 4, 4);
+        p.drawRoundedRect(QRectF(18, 10, 10, 16), 4, 4);
         p.setBrush(QColor(255, 255, 255));
-        p.drawEllipse(QPointF(10, 7), 1.4, 1.4);
-        p.drawEllipse(QPointF(22, 19), 1.4, 1.4);
+        p.drawEllipse(QPointF(9, 7.5), 2.0, 2.0);
         p.setBrush(QColor(30, 30, 30));
-        p.drawEllipse(QPointF(10, 7), 0.6, 0.6);
-        p.drawEllipse(QPointF(22, 19), 0.6, 0.6);
+        p.drawEllipse(QPointF(9, 7.5), 0.9, 0.9);
+        p.drawEllipse(QPointF(23, 24), 1.2, 1.2);
     } else if (name == "seMelTab") {
         p.setPen(QPen(kSePaper, 1.2));
         p.setBrush(QColor(46, 92, 130));

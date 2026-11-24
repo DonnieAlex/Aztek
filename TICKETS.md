@@ -66,11 +66,12 @@ Requests waiting or in progress, newest detail kept. Move to Done with the date 
 
 ## Session log
 
-- Script Editor chrome. Done: menus, toolbar with its fields, tab strip with icons, close and +, splitter, line-number
-  gutter, syntax colours, Search and Replace window, Show History/Input/Both, search and goto fields, ExecuteAll, tab
-  context menu and the reference's tooltips.
-  Not done: the history language filter is stored only; completion toggles are greyed; scrollbar arrows are plain; the
-  MEL tab icon is a guess.
+- Script Editor chrome. Done: menus, the toolbar's fourteen buttons in the reference's order and states with its
+  tooltips, search and goto fields, tab strip with each tab's language icon, label, close and the +, splitter,
+  line-number gutter, syntax colours, Search and Replace window, Show History/Input/Both, ExecuteAll and the tab
+  context menu.
+  Not done: the history language filter is stored only; completion toggles are greyed, so the Quick Help side bar is
+  not built; the MEL tab icon is a guess.
   Why: the history carries no language per line, the editor has no completion, and the reference's mel_tab.png is not on
   disk. 24/11/2026.
 - 0.4 `--batch`. Done: no window, no Vulkan, scene, scripts and commands in order, exit status from uncaught errors and `sys.exit`, `about -batch` true, CI on all three platforms.

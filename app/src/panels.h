@@ -201,6 +201,7 @@ public:
     void load_file(const QString& path);
 protected:
     bool eventFilter(QObject* o, QEvent* e) override;
+    void showEvent(QShowEvent* e) override;
 private:
     void add_tab(const QString& language, const QString& name, const QString& text, const QString& path = QString());
     void rename_tab(int i);
@@ -237,6 +238,8 @@ private:
     QLineEdit* goto_field_ = nullptr;
     QHash<QString, QAction*> option_actions_;
     int pane_mode_ = 2;
+    QList<int> both_sizes_ = {315, 313};
+    bool split_sized_ = false;
     void set_pane_mode(int mode);
     QPlainTextEdit* search_pane() const;
     void run_all();

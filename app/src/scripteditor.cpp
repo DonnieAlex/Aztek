@@ -12,7 +12,6 @@
 #include <QCheckBox>
 #include <QDialog>
 #include <QDir>
-#include <QStandardPaths>
 #include <QDesktopServices>
 #include <QDrag>
 #include <QFile>
@@ -28,6 +27,7 @@
 #include <QLineEdit>
 #include <QMenu>
 #include <QMenuBar>
+#include <QMessageBox>
 #include <QMimeData>
 #include <QMouseEvent>
 #include <QPainter>
@@ -37,11 +37,13 @@
 #include <QScrollBar>
 #include <QStackedWidget>
 #include <QSettings>
+#include <QStandardPaths>
+#include <QShortcut>
 #include <QSplitter>
 #include <QStyleOptionMenuItem>
+#include <QStyleOptionSlider>
 #include <QSyntaxHighlighter>
 #include <QTabBar>
-#include <QTabWidget>
 #include <QTextBlock>
 #include <QTextDocument>
 #include <QTextOption>
@@ -101,6 +103,53 @@ protected:
 private:
     bool python_;
     QList<QPair<QRegularExpression, QTextCharFormat>> rules_;
+};
+
+// The reference's scroll bars: an 8 pixel groove, a bordered handle and triangle arrows at the ends.
+class ScriptScrollBar : public QScrollBar {
+public:
+    ScriptScrollBar(Qt::Orientation o, QWidget* parent) : QScrollBar(o, parent) {
+        if (o == Qt::Vertical) setFixedWidth(8);
+        else setFixedHeight(8);
+    }
+protected:
+    void paintEvent(QPaintEvent*) override {
+        QPainter p(this);
+        const bool v = orientation() == Qt::Vertical;
+        p.fillRect(rect(), QColor(68, 68, 68));
+        QStyleOptionSlider opt;
+        initStyleOption(&opt);
+        const int arrow = 8;
+        QRect first = v ? QRect(0, 0, width(), arrow) : QRect(0, 0, arrow, height());
+        QRect last = v ? QRect(0, height() - arrow, width(), arrow) : QRect(width() - arrow, 0, arrow, height());
+        p.setPen(QColor(111, 111, 111));
+        if (v) p.drawLine(0, 0, 0, height());
+        else p.drawLine(0, 0, width(), 0);
+        const QRect slider = style()->subControlRect(QStyle::CC_ScrollBar, &opt, QStyle::SC_ScrollBarSlider, this);
+        if (slider.isValid() && slider.height() > 0 && slider.width() > 0) {
+            p.fillRect(slider, QColor(94, 94, 94));
+            p.setPen(QColor(111, 111, 111));
+            p.drawRect(slider.adjusted(0, 0, -1, -1));
+        }
+        p.setPen(Qt::NoPen);
+        p.setBrush(QColor(200, 200, 200));
+        auto triangle = [&](const QRect& r, int dx, int dy) {
+            const QPointF c = QRectF(r).center();
+            QPolygonF t;
+            if (dy < 0) t = {c + QPointF(-3, 1.5), c + QPointF(3, 1.5), c + QPointF(0, -2)};
+            else if (dy > 0) t = {c + QPointF(-3, -1.5), c + QPointF(3, -1.5), c + QPointF(0, 2)};
+            else if (dx < 0) t = {c + QPointF(1.5, -3), c + QPointF(1.5, 3), c + QPointF(-2, 0)};
+            else t = {c + QPointF(-1.5, -3), c + QPointF(-1.5, 3), c + QPointF(2, 0)};
+            p.drawPolygon(t);
+        };
+        if (v) {
+            triangle(first, 0, -1);
+            triangle(last, 0, 1);
+        } else {
+            triangle(first, -1, 0);
+            triangle(last, 1, 0);
+        }
+    }
 };
 
 class Gutter;
@@ -164,6 +213,8 @@ ScriptEdit::ScriptEdit(const QString& lang, QWidget* parent) : QPlainTextEdit(pa
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
     setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     document()->setDocumentMargin(2);
+    setHorizontalScrollBar(new ScriptScrollBar(Qt::Horizontal, this));
+    setVerticalScrollBar(new ScriptScrollBar(Qt::Vertical, this));
 }
 
 void ScriptEdit::resizeEvent(QResizeEvent* e) {
@@ -183,7 +234,7 @@ void ScriptEdit::paint_gutter(QPaintEvent* e) {
     int n = b.blockNumber();
     int top = qRound(blockBoundingGeometry(b).translated(contentOffset()).top());
     while (b.isValid() && top <= e->rect().bottom()) {
-        p.drawText(0, top, gutter_->width() - 5, fontMetrics().height(), Qt::AlignRight, QString::number(n + 1));
+        p.drawText(0, top, gutter_->width() - 4, fontMetrics().height(), Qt::AlignRight, QString::number(n + 1));
         b = b.next();
         top += qRound(blockBoundingRect(b).height());
         ++n;
@@ -222,8 +273,7 @@ public:
     std::function<void()> new_tab;
     QSize sizeHint() const override { return QSize(4096, 20); }
     QSize tabSizeHint(int index) const override {
-        QSize base = QTabBar::tabSizeHint(index);
-        return QSize(qMax(72, base.width()), 20);
+        return QSize(42 + fontMetrics().horizontalAdvance(tabText(index)), 20);
     }
 protected:
     QRect plus_rect() const {
@@ -261,17 +311,11 @@ protected:
     }
 };
 
-class ScriptTabs : public QTabWidget {
-public:
-    explicit ScriptTabs(QWidget* parent = nullptr) : QTabWidget(parent) {}
-    void use_bar(QTabBar* bar) { setTabBar(bar); }
-};
-
 // The toolbar, laid out left to right at the reference's sizes and clipped when the window is narrow.
 class ScriptToolBar : public QWidget {
 public:
     explicit ScriptToolBar(QWidget* parent = nullptr) : QWidget(parent) {
-        setFixedHeight(27);
+        setFixedHeight(26);
         setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
         setMinimumWidth(1);
     }
@@ -279,7 +323,7 @@ public:
         auto* b = new QToolButton(this);
         b->setObjectName("scriptToolButton");
         b->setIcon(icon(icon_name));
-        b->setIconSize(QSize(17, 17));
+        b->setIconSize(QSize(16, 16));
         b->setFixedSize(23, 23);
         b->setAutoRaise(true);
         b->setToolTip(tip);
@@ -317,7 +361,7 @@ private:
         relayout();
     }
     void relayout() {
-        int x = 4;
+        int x = 5;
         for (const Item& it : items_) {
             if (it.sep) {
                 x += 4;
@@ -415,25 +459,6 @@ const QString& script_icon_dir() {
     static const QString dir = [] {
         const QString path = QStandardPaths::writableLocation(QStandardPaths::CacheLocation) + "/scripteditor";
         QDir().mkpath(path);
-        auto arrow = [&](const QString& name, int dx, int dy) {
-            QPixmap pm(9, 9);
-            pm.fill(Qt::transparent);
-            QPainter p(&pm);
-            p.setRenderHint(QPainter::Antialiasing);
-            p.setPen(Qt::NoPen);
-            p.setBrush(QColor(200, 200, 200));
-            QPolygonF tri;
-            if (dy < 0) tri = {{1.5, 6.0}, {7.5, 6.0}, {4.5, 2.0}};
-            else if (dy > 0) tri = {{1.5, 3.0}, {7.5, 3.0}, {4.5, 7.0}};
-            else if (dx < 0) tri = {{6.0, 1.5}, {6.0, 7.5}, {2.0, 4.5}};
-            else tri = {{3.0, 1.5}, {3.0, 7.5}, {7.0, 4.5}};
-            p.drawPolygon(tri);
-            pm.save(path + "/" + name + ".png");
-        };
-        arrow("up", 0, -1);
-        arrow("down", 0, 1);
-        arrow("left", -1, 0);
-        arrow("right", 1, 0);
         return path;
     }();
     return dir;
@@ -497,7 +522,7 @@ QSplitter#scriptSplit::handle:vertical { height:8px; }
 QPlainTextEdit#scriptHistory { background:#2f2f2f; color:#d2d2d2; border:none; selection-background-color:#4a6d8c; }
 QPlainTextEdit#scriptInput { background:#2b2b2b; color:#d2d2d2; border:none; selection-background-color:#4a6d8c; }
 QStackedWidget#scriptStack { background:#2b2b2b; }
-QTabBar#scriptTabBar { background:#373737; border:none; font-size:12px; }
+QTabBar#scriptTabBar { background:#373737; border:none; }
 
 QTabBar#scriptTabBar::tab { background:#373737; color:#d0d0d0; border:1px solid #5a5a5a; border-bottom:1px solid #8a8a8a; border-top-left-radius:2px; border-top-right-radius:2px; padding:0 2px 0 5px; margin:0 1px 0 0; }
 QTabBar#scriptTabBar::tab:selected { background:#3f3f3f; }
@@ -513,10 +538,6 @@ QPlainTextEdit#scriptHistory QScrollBar:horizontal, QPlainTextEdit#scriptInput Q
 QPlainTextEdit#scriptHistory QScrollBar::handle:horizontal, QPlainTextEdit#scriptInput QScrollBar::handle:horizontal { background:#5e5e5e; border:1px solid #6f6f6f; min-width:24px; }
 QPlainTextEdit#scriptHistory QScrollBar::add-line, QPlainTextEdit#scriptHistory QScrollBar::sub-line, QPlainTextEdit#scriptInput QScrollBar::add-line, QPlainTextEdit#scriptInput QScrollBar::sub-line { background:#4a4a4a; border:none; width:8px; height:8px; }
 QPlainTextEdit#scriptHistory QScrollBar::add-page, QPlainTextEdit#scriptHistory QScrollBar::sub-page, QPlainTextEdit#scriptInput QScrollBar::add-page, QPlainTextEdit#scriptInput QScrollBar::sub-page { background:#444444; }
-QPlainTextEdit#scriptHistory QScrollBar::up-arrow:vertical, QPlainTextEdit#scriptInput QScrollBar::up-arrow:vertical { image:url(@DIR/up.png); width:9px; height:9px; }
-QPlainTextEdit#scriptHistory QScrollBar::down-arrow:vertical, QPlainTextEdit#scriptInput QScrollBar::down-arrow:vertical { image:url(@DIR/down.png); width:9px; height:9px; }
-QPlainTextEdit#scriptHistory QScrollBar::left-arrow:horizontal, QPlainTextEdit#scriptInput QScrollBar::left-arrow:horizontal { image:url(@DIR/left.png); width:9px; height:9px; }
-QPlainTextEdit#scriptHistory QScrollBar::right-arrow:horizontal, QPlainTextEdit#scriptInput QScrollBar::right-arrow:horizontal { image:url(@DIR/right.png); width:9px; height:9px; }
 )";
 
 QString script_style() {
@@ -628,7 +649,7 @@ ScriptEditor::ScriptEditor(QWidget* parent) : QWidget(parent) {
         else mel(QString::fromUtf8(in.readAll()));
     });
     QAction* save_act = file->addAction("Save Script...", this, [this] { save_current(true); });
-    QAction* save_all_act = file->addAction("Save All Script Tabs", this, [this] { save_all_tabs(); });
+    file->addAction("Save All Script Tabs", this, [this] { save_all_tabs(); });
     file->addSeparator();
     QAction* shelf_act = file->addAction("Save Script to Shelf...", this, [this] { save_to_shelf(); });
 
@@ -794,14 +815,14 @@ ScriptEditor::ScriptEditor(QWidget* parent) : QWidget(parent) {
     auto* exec_b = bar->button("seExecute", "Execute");
     connect(exec_b, &QToolButton::clicked, this, [this] { run(false); });
     bar->separator();
-    search_field_ = bar->field(120, "Search field", "scriptSearchField");
+    search_field_ = bar->field(113, "Search field", "scriptSearchField");
     connect(search_field_, &QLineEdit::returnPressed, this, [this] { find(false); });
     auto* search_down_b = bar->button("seSearchDown", "Search down");
     connect(search_down_b, &QToolButton::clicked, this, [this] { find(false); });
     auto* search_up_b = bar->button("seSearchUp", "Search up");
     connect(search_up_b, &QToolButton::clicked, this, [this] { find(true); });
     bar->separator();
-    goto_field_ = bar->field(30, "Goto line field", "scriptGotoField");
+    goto_field_ = bar->field(27, "Goto line field", "scriptGotoField");
     auto goto_now = [this] {
         bool ok = false;
         const int line = goto_field_->text().trimmed().toInt(&ok);
@@ -811,12 +832,16 @@ ScriptEditor::ScriptEditor(QWidget* parent) : QWidget(parent) {
     auto* go_b = bar->button("seGotoLine", "Go");
     connect(go_b, &QToolButton::clicked, this, goto_now);
 
+    auto* replace_shortcut = new QShortcut(QKeySequence("Ctrl+H"), this);
+    connect(replace_shortcut, &QShortcut::activated, this, [this] { open_search_replace(); });
+
     split_ = new QSplitter(Qt::Vertical, this);
     split_->setObjectName("scriptSplit");
     split_->setHandleWidth(8);
     split_->setChildrenCollapsible(false);
     history_ = new QPlainTextEdit(split_);
     history_->setMinimumWidth(1);
+    history_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     history_->setReadOnly(true);
     history_->setObjectName("scriptHistory");
     history_->setMaximumBlockCount(20000);
@@ -826,10 +851,13 @@ ScriptEditor::ScriptEditor(QWidget* parent) : QWidget(parent) {
     history_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     history_->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     history_->setFont(script_font());
-    history_->document()->setDocumentMargin(3);
+    history_->document()->setDocumentMargin(2);
+    history_->setHorizontalScrollBar(new ScriptScrollBar(Qt::Horizontal, history_));
+    history_->setVerticalScrollBar(new ScriptScrollBar(Qt::Vertical, history_));
     input_pane_ = new QWidget(split_);
     input_pane_->setObjectName("scriptInputPane");
     input_pane_->setMinimumWidth(1);
+    input_pane_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     auto* input_layout = new QVBoxLayout(input_pane_);
     input_layout->setContentsMargins(0, 0, 0, 0);
     input_layout->setSpacing(0);
@@ -877,9 +905,10 @@ ScriptEditor::ScriptEditor(QWidget* parent) : QWidget(parent) {
     split_->setStyleSheet("QSplitter::handle { background:#444444; border:none; } QSplitter::handle:vertical { height:8px; }");
     split_->setStretchFactor(0, 1);
     split_->setStretchFactor(1, 1);
-    QList<int> sizes{312, 316};
+    QList<int> sizes{315, 313};
     const QVariantList saved = s.value("scriptEditor/split").toList();
     if (saved.size() == 2) sizes = {saved[0].toInt(), saved[1].toInt()};
+    both_sizes_ = sizes;
     split_->setSizes(sizes);
     lay->addWidget(split_, 1);
     lay->setSizeConstraint(QLayout::SetNoConstraint);
@@ -913,15 +942,32 @@ QPlainTextEdit* ScriptEditor::current() const {
     return qobject_cast<QPlainTextEdit*>(stack_->currentWidget());
 }
 
+void ScriptEditor::showEvent(QShowEvent* e) {
+    QWidget::showEvent(e);
+    if (split_sized_ || !split_) return;
+    split_sized_ = true;
+    // The reference opens on equal panes; a saved split keeps its proportion.
+    const int total = qMax(1, split_->height() - split_->handleWidth());
+    int first = total / 2;
+    const int saved = both_sizes_.value(0) + both_sizes_.value(1);
+    if (saved > 2 && both_sizes_.value(0) > 1) first = qBound(40, total * both_sizes_.value(0) / saved, total - 40);
+    split_->setSizes({first, total - first});
+    if (auto* e = page_at(pages_, tab_bar_->currentIndex())) e->setFocus();
+}
+
 void ScriptEditor::set_pane_mode(int mode) {
+    if (pane_mode_ == 2 && mode != 2) both_sizes_ = split_->sizes();
     pane_mode_ = mode;
     const bool both = mode == 2;
     history_->setVisible(mode != 1);
     input_pane_->setVisible(mode != 0);
     split_->setHandleWidth(both ? 8 : 0);
     if (both) {
-        const int h = qMax(120, split_->height());
-        split_->setSizes({h / 2, h - h / 2});
+        const int total = qMax(1, split_->height() - split_->handleWidth());
+        const int saved = both_sizes_.value(0) + both_sizes_.value(1);
+        int first = total / 2;
+        if (saved > 2 && both_sizes_.value(0) > 1) first = qBound(40, total * both_sizes_.value(0) / saved, total - 40);
+        split_->setSizes({first, total - first});
     }
     QSettings().setValue("scriptEditor/paneMode", mode);
 }
@@ -989,8 +1035,8 @@ void ScriptEditor::add_tab(const QString& language, const QString& name, const Q
     auto* close = new QToolButton;
     close->setObjectName("scriptTabClose");
     close->setIcon(icon("seTabClose"));
-    close->setIconSize(QSize(10, 10));
-    close->setFixedSize(16, 16);
+    close->setIconSize(QSize(9, 9));
+    close->setFixedSize(14, 14);
     close->setAutoRaise(true);
     close->setFocusPolicy(Qt::NoFocus);
     close->setCursor(Qt::ArrowCursor);
@@ -1001,13 +1047,45 @@ void ScriptEditor::add_tab(const QString& language, const QString& name, const Q
 
 void ScriptEditor::rename_tab(int i) {
     if (i < 0) return;
-    bool ok = false;
-    QString n = QInputDialog::getText(this, "Rename Tab", "New Tab Name:", QLineEdit::Normal, tab_bar_->tabText(i), &ok);
-    if (ok && !n.trimmed().isEmpty()) tab_bar_->setTabText(i, n.trimmed());
+    QDialog d(this);
+    d.setWindowTitle("Rename Tab");
+    auto* form = new QVBoxLayout(&d);
+    form->setContentsMargins(12, 12, 12, 10);
+    form->setSpacing(8);
+    form->addWidget(new QLabel("New Tab Name:", &d));
+    auto* edit = new QLineEdit(tab_bar_->tabText(i), &d);
+    edit->selectAll();
+    form->addWidget(edit);
+    auto* row = new QHBoxLayout;
+    row->addStretch(1);
+    auto* rename = new QPushButton("Rename", &d);
+    rename->setDefault(true);
+    auto* cancel = new QPushButton("Cancel", &d);
+    row->addWidget(rename);
+    row->addWidget(cancel);
+    form->addLayout(row);
+    connect(rename, &QPushButton::clicked, &d, &QDialog::accept);
+    connect(cancel, &QPushButton::clicked, &d, &QDialog::reject);
+    connect(edit, &QLineEdit::returnPressed, &d, &QDialog::accept);
+    if (d.exec() != QDialog::Accepted) return;
+    const QString n = edit->text().trimmed();
+    if (!n.isEmpty()) tab_bar_->setTabText(i, n);
 }
 
 void ScriptEditor::close_tab(int i) {
-    if (i < 0 || tab_bar_->count() < 2) return;
+    if (i < 0) return;
+    if (tab_bar_->count() < 2) {
+        log("// Warning: The script editor must contain at least one executer tab.", 4);
+        return;
+    }
+    ScriptEdit* e = page_at(pages_, i);
+    if (e && !e->toPlainText().isEmpty()) {
+        const QString message = i == tab_bar_->currentIndex() ? QString("Delete the current tab?")
+                                                             : QString("Delete %1 tab?").arg(tab_bar_->tabText(i));
+        QMessageBox box(QMessageBox::Question, "Delete Tab", message, QMessageBox::Yes | QMessageBox::No, this);
+        box.setDefaultButton(QMessageBox::No);
+        if (box.exec() != QMessageBox::Yes) return;
+    }
     tab_bar_->removeTab(i);
     QWidget* w = pages_.takeAt(i);
     stack_->removeWidget(w);
@@ -1275,11 +1353,17 @@ void ScriptEditor::apply_editor_options() {
 
 // New Tab...: which language, as the reference asks.
 void ScriptEditor::new_tab_prompt() {
-    bool ok = false;
-    const QString lang = QInputDialog::getItem(this, "Source Type", "Specify executer source language:", {"MEL", "Python"}, 0, false, &ok);
-    if (!ok) return;
-    if (lang == "Python") add_tab("python", "Python", QString());
-    else add_tab("mel", "MEL", QString());
+    QMessageBox box(this);
+    box.setWindowTitle("Source Type");
+    box.setText("Specify executer source language:");
+    box.setIcon(QMessageBox::NoIcon);
+    QAbstractButton* mel = box.addButton("MEL", QMessageBox::AcceptRole);
+    QAbstractButton* python = box.addButton("Python", QMessageBox::AcceptRole);
+    box.addButton("Cancel", QMessageBox::RejectRole);
+    box.setDefaultButton(qobject_cast<QPushButton*>(mel));
+    box.exec();
+    if (box.clickedButton() == mel) add_tab("mel", "MEL", QString());
+    else if (box.clickedButton() == python) add_tab("python", "Python", QString());
 }
 
 void ScriptEditor::step_tab(int by) {
