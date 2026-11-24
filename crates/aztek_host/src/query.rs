@@ -345,6 +345,7 @@ pub(crate) fn channels(g: &Graph, id: NodeId, all_inputs: bool) -> Vec<Value> {
                     "value": n.data().element(i, e.element).map_or(0.0, |v| v.as_float()) / aztek_ops::units::factor(a.unit),
                     "enum": [],
                     "connected": g.source(&e).is_some(),
+                    "keyable": true,
                     "state": channel_state(g, &e),
                 }));
             }
@@ -374,6 +375,7 @@ pub(crate) fn channels(g: &Graph, id: NodeId, all_inputs: bool) -> Vec<Value> {
                         "type": "float",
                         "value": v[k] / aztek_ops::units::factor(a.unit),
                         "connected": g.source(&aztek_scene::plug::PlugRef::new(id, i as i32)).is_some(),
+                        "keyable": shown(&PlugRef::component(id, i as i32, k as i32)),
                         "state": channel_state(g, &PlugRef::component(id, i as i32, k as i32)),
                     }));
                 }
@@ -388,6 +390,7 @@ pub(crate) fn channels(g: &Graph, id: NodeId, all_inputs: bool) -> Vec<Value> {
                     "value": shown_json(a, v),
                     "enum": a.enum_names,
                     "connected": g.source(&aztek_scene::plug::PlugRef::new(id, i as i32)).is_some(),
+                    "keyable": keyable,
                     "state": channel_state(g, &PlugRef::new(id, i as i32)),
                 }));
             }

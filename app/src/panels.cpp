@@ -910,6 +910,10 @@ ChannelBox::ChannelBox(QWidget* parent, const QString& name) : Panel(parent), na
             refresh();
         });
     }
+    connect(assets, &QMenu::aboutToShow, this, [this, assets] {
+        const QString kind = QSettings().value("channelBox/showType", "all").toString();
+        for (QAction* a : assets->actions()) if (a->isCheckable()) a->setChecked(a->data().toString() == kind);
+    });
     assets->addSeparator();
     QAction* at_top = assets->addAction("Show at top");
     at_top->setCheckable(true);
@@ -919,6 +923,44 @@ ChannelBox::ChannelBox(QWidget* parent, const QString& name) : Panel(parent), na
         QSettings().setValue("channelBox/containerAtTop", on);
         exec_quiet("channelBox", QJsonObject{{"edit", true}, {"args", QJsonArray{name_}}, {"containerAtTop", on}});
     });
+    QMenu* attrs = show->addMenu("Attributes");
+    auto* filter_group = new QActionGroup(attrs);
+    for (auto [label, value] : {std::pair{"All", "all"}, {"Keyable", "keyable"}, {"Non-keyable", "nonkeyable"}, {"Connected", "connected"}}) {
+        QAction* a = attrs->addAction(label);
+        a->setCheckable(true);
+        a->setData(value);
+        a->setChecked(QSettings().value("channelBox/filter", "all").toString() == value);
+        filter_group->addAction(a);
+        connect(a, &QAction::triggered, this, [this, a] {
+            QSettings().setValue("channelBox/filter", a->data().toString());
+            refresh();
+        });
+    }
+    show->addSeparator();
+    QAction* invert = show->addAction("Invert Shown");
+    invert->setCheckable(true);
+    invert->setChecked(QSettings().value("channelBox/invertFilter", false).toBool());
+    connect(invert, &QAction::toggled, this, [this](bool on) {
+        QSettings().setValue("channelBox/invertFilter", on);
+        refresh();
+    });
+    show->addAction("Show All", this, [this] {
+        QSettings().setValue("channelBox/filter", "all");
+        QSettings().setValue("channelBox/invertFilter", false);
+        refresh();
+    });
+    connect(show, &QMenu::aboutToShow, this, [this, attrs, invert] {
+        const QString kind = QSettings().value("channelBox/filter", "all").toString();
+        for (QAction* a : attrs->actions()) if (a->isCheckable()) a->setChecked(a->data().toString() == kind);
+        invert->setChecked(QSettings().value("channelBox/invertFilter", false).toBool());
+    });
+    show->addSeparator();
+    QAction* create_entry = show->addAction("Create Entry...");
+    create_entry->setEnabled(false);
+    create_entry->setToolTip("Not in Aztek yet.");
+    QAction* delete_entry = show->addAction("Delete Entry...");
+    delete_entry->setEnabled(false);
+    delete_entry->setToolTip("Not in Aztek yet.");
     lay->addWidget(bar);
     scroll_ = new QScrollArea(this);
     scroll_->setWidgetResizable(true);
@@ -953,7 +995,14 @@ void ChannelBox::add_channels(QVBoxLayout* lay, const QJsonArray& channels) {
     int w = 60;
     for (const QJsonValue& c : channels) w = qMax(w, fm.horizontalAdvance(c.toObject()["nice"].toString()) + 8);
     if (options_.contains("labelWidth")) w = qMax(10, options_["labelWidth"].toInt());
-    for (const QJsonValue& c : channels) lay->addWidget(channel_row(c.toObject(), body_, w));
+    const QString kind = QSettings().value("channelBox/filter", "all").toString();
+    const bool invert = QSettings().value("channelBox/invertFilter", false).toBool();
+    for (const QJsonValue& v : channels) {
+        const QJsonObject c = v.toObject();
+        const bool keyable = c["keyable"].toBool(true);
+        const bool on = kind == "keyable" ? keyable : kind == "nonkeyable" ? !keyable : kind == "connected" ? c["connected"].toBool() : true;
+        if (invert ? !on : on) lay->addWidget(channel_row(c, body_, w));
+    }
 }
 
 // The INPUTS or OUTPUTS heading and its nodes, each a button that opens its channels.
