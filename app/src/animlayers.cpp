@@ -453,6 +453,7 @@ void AnimLayerEditor::build_options_menu(QMenu* m) {
     m->addSeparator();
     auto* lock = m->addAction("Lock Muted Layers");
     lock->setCheckable(true);
+    lock->setChecked(ask("animLayerOptions").toObject()["lockMuted"].toBool());
     connect(lock, &QAction::toggled, this, [](bool on) { exec("animLayerOptions", flag("lockMuted", on)); });
     QAction* lock_curves = m->addAction("Template Curves of Locked Layers");
     lock_curves->setCheckable(true);
