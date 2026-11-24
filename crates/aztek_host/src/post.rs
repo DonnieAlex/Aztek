@@ -36,7 +36,7 @@ layout(push_constant) uniform P {
     // Width, height, and one over each.
     vec4 size;
     // The background's gradient, top and bottom colours; top.w is 1 with the gradient on, bottom.w the flat grey the
-    // scene was cleared to.
+    // scene was cleared to. The occlusion passes have no background: there top.x is 1 in the bounce light's second.
     vec4 bg_top;
     vec4 bg_bottom;
 } pc;
@@ -79,6 +79,20 @@ vec3 normal_at(vec2 c, float d, vec3 p) {
 /// How open each pixel is (alpha): 1 with nothing near it, less in creases and where things meet. And the light that
 /// reaches it bounced off what the view shows round about (rgb), before the surface's own colour takes its share.
 const AO_MAIN: &str = r#"
+// How far a camera-space point lies behind the shaded surface the view shows at its pixel: negative in front of it.
+// Off the view it is -1e6; where no shaded surface shows, 1e6.
+float behind_at(vec3 at) {
+    vec4 clip = pp.proj * vec4(at, 1.0);
+    if (clip.w <= 0.0) return -1e6;
+    vec2 sx = clip.xy / clip.w * 0.5 + 0.5;
+    if (sx.x < 0.0 || sx.x > 1.0 || sx.y < 0.0 || sx.y > 1.0) return -1e6;
+    vec2 q = floor(sx * pc.size.xy) + 0.5;
+    float dq = depth_at(q);
+    // Only shaded surfaces send light back: the grid, icons and wireframes leave no surface colour.
+    if (dq <= 0.0 || texelFetch(sampler2D(t_albedo, s_point), ivec2(q), 0).a <= 0.0) return 1e6;
+    return point_at(q, dq).z - at.z;
+}
+
 // Noise that differs from pixel to pixel with no pattern the eye picks out.
 float noise(vec2 px) {
     return fract(52.9829189 * fract(dot(px, vec2(0.06711056, 0.00583715))));
@@ -93,6 +107,8 @@ void main() {
     }
     vec3 p = point_at(c, d);
     vec3 n = normal_at(c, d, p);
+    // The bounce light's second pass keeps the first's occlusion and sends its bounce round once more.
+    bool second = pc.bg_top.x > 0.5;
 
     float reach = pc.ao.x;
     // How far that is on screen at this depth, kept to a size worth sampling.
@@ -147,53 +163,87 @@ void main() {
         }
     }
     float open = pc.ao.z > 0.5 ? clamp(1.0 - pc.ao.y * sum / float(taps), 0.0, 1.0) : 1.0;
-    // Bounce light, as screen-space global illumination does it: each tap a patch of the lit surfaces round about,
-    // sending what the scene drew there towards this point. Taps are spread evenly over a disc whose radius is two
-    // fifths of the view, so each stands for the same share of it; a few steps along the way check nothing in front cuts
-    // it off.
-    // Only what the view shows gives light, so it costs the same however the lights move.
+    if (second) {
+        open = texelFetch(sampler2D(t_open, s_point), ivec2(c), 0).a;
+        contact = 1.0;
+    }
+    // Bounce light, as screen-space global illumination does it: rays leave the point over the hemisphere round its
+    // normal, more of them near the normal as the cosine has it, and march across what the view shows until one passes
+    // behind a surface; that surface's lit colour is the light it sends back. Their mean is the radiance arriving here,
+    // weighted by the cosine, so the surface's colour times it is the light it bounces: rays that leave the view bring
+    // none. Only what the view shows gives light, so it costs the same however the lights move.
     vec3 gi = vec3(0.0);
-    if (pp.quality.y > 0.0) {
-        float gi_px = clamp(0.4 * min(pc.size.x, pc.size.y), 16.0, 600.0);
-        float gturn = noise(c.yx + vec2(17.0, 5.0)) * 6.2831853;
-        const int GI_TAPS = 24;
-        for (int i = 0; i < GI_TAPS; ++i) {
-            float t = sqrt((float(i) + 0.5) / float(GI_TAPS));
-            float a = gturn + float(i) * 2.39996323;
-            vec2 q = floor(c + vec2(cos(a), sin(a)) * gi_px * t) + 0.5;
-            if (q.x < 0.0 || q.y < 0.0 || q.x > pc.size.x || q.y > pc.size.y) continue;
-            float dq = depth_at(q);
-            if (dq <= 0.0) continue;
-            vec3 pq = point_at(q, dq);
-            vec3 v = pq - p;
-            float dist2 = dot(v, v);
-            if (dist2 < 1e-10) continue;
-            vec3 dir = v * inversesqrt(dist2);
-            float cr = dot(n, dir);
-            if (cr <= 0.0) continue;
-            float cs = -dot(normal_at(q, dq, pq), dir);
-            if (cs <= 0.0) continue;
-            bool hidden = false;
-            for (int k = 1; k < 4; ++k) {
-                float f = float(k) * 0.25;
-                vec2 m = floor(mix(c, q, f)) + 0.5;
-                float dm = depth_at(m);
-                if (dm <= 0.0) continue;
-                // Something stands nearer the eye than the line between the two points, by more than a slope's worth.
-                float zm = point_at(m, dm).z;
-                float zl = mix(p.z, pq.z, f);
-                if (zm - zl > 0.05 * sqrt(dist2)) {
-                    hidden = true;
+    if (pp.quality.y > 0.0 && texelFetch(sampler2D(t_albedo, s_point), ivec2(c), 0).a > 0.0) {
+        vec3 tn = normalize(cross(n, abs(n.y) < 0.9 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0)));
+        vec3 bn = cross(n, tn);
+        // How far a ray goes: as far as the point is from the eye, which spans what the view shows.
+        float reach = pc.ao.w > 0.5 ? 2.0 * pc.ao.x * 8.0 : length(p);
+        float jitter = noise(c.yx + vec2(17.0, 5.0));
+        // Rays leave a little off the surface, so those that skim along it don't meet it again in its own depth.
+        vec3 from = p + n * (0.01 * reach);
+        const int RAYS = 12;
+        vec3 hit_albedo = vec3(0.0);
+        float hits = 0.0, gone = 0.0;
+        const int STEPS = 16;
+        for (int i = 0; i < RAYS; ++i) {
+            float u1 = fract((float(i) + jitter) / float(RAYS));
+            float u2 = fract(float(i) * 0.618034 + noise(c + vec2(float(i) * 7.0, 3.0)));
+            float phi = 6.2831853 * u1;
+            float r = sqrt(u2);
+            vec3 dir = tn * (r * cos(phi)) + bn * (r * sin(phi)) + n * sqrt(max(1.0 - u2, 0.0));
+            float step_jit = noise(c + vec2(3.0, float(i) * 11.0));
+            float t_last = 0.0;
+            bool was_behind = false;
+            for (int k = 0; k < STEPS; ++k) {
+                // Steps grow along the ray: fine near the point, where what stands close matters most.
+                float f = (float(k) + step_jit) / float(STEPS);
+                float t = reach * f * f + 0.01 * reach;
+                float gap = behind_at(from + dir * t);
+                if (gap < -1e5) {
+                    gone += 1.0;
                     break;
                 }
+                if (gap > 1e5) continue;
+                bool behind = gap > 0.0;
+                if (behind && k == 0) break;
+                if (behind && !was_behind) {
+                    // It went behind the surface the view shows there since the last step. Narrow down where: when the
+                    // gap closes, the ray met that surface, however edge-on it is to the eye; when it stays open, the
+                    // ray only passed behind something standing in front, and goes on.
+                    float lo = t_last, hi = t;
+                    for (int b = 0; b < 5; ++b) {
+                        float mid = 0.5 * (lo + hi);
+                        if (behind_at(from + dir * mid) > 0.0) hi = mid; else lo = mid;
+                    }
+                    vec3 at = from + dir * hi;
+                    if (behind_at(at) < 0.05 * hi + 0.02 * reach) {
+                        vec4 clip = pp.proj * vec4(at, 1.0);
+                        ivec2 q = ivec2(clip.xy / clip.w * 0.5 * pc.size.xy + 0.5 * pc.size.xy);
+                        vec3 hit_colour = texelFetch(sampler2D(t_albedo, s_point), q, 0).rgb;
+                        gi += pow(texelFetch(sampler2D(t_scene, s_point), q, 0).rgb, vec3(2.2));
+                        // The second time round, the surface met also sends back what the first bounce brought it.
+                        if (second) gi += hit_colour * texelFetch(sampler2D(t_open, s_point), q, 0).rgb;
+                        hit_albedo += hit_colour;
+                        hits += 1.0;
+                        break;
+                    }
+                }
+                was_behind = behind;
+                t_last = t;
             }
-            if (hidden) continue;
-            vec3 lq = pow(texelFetch(sampler2D(t_scene, s_point), ivec2(q), 0).rgb, vec3(2.2));
-            float per_q = length(point_at(q + vec2(1.0, 0.0), dq) - pq);
-            float area = 3.14159265 * (gi_px * per_q) * (gi_px * per_q) / float(GI_TAPS);
-            gi += lq * cr * cs * area / max(dist2, area);
         }
-        gi *= pp.quality.y * 0.31830988;
+        // Light keeps bouncing: what came back goes out again off the surfaces the rays met, which send back the same
+        // share again, and so on. The first pass saw one bounce; the series of the rest is that over one less the share
+        // each bounce keeps, the hits' surface colour times how much of the view round about they cover. The second
+        // pass met those surfaces with that on them already.
+        // Rays that leave the view meet what it doesn't show, which may be more of the room or open space: taken to be
+        // half as bright as what the others met. Rays that cross open space that the view shows bring nothing.
+        if (hits > 0.5) {
+            gi += gi / hits * gone * 0.5;
+            hit_albedo += hit_albedo / hits * gone * 0.5;
+        }
+        vec3 keep = second ? vec3(0.0) : min(hit_albedo / float(RAYS), vec3(0.9));
+        gi *= pp.quality.y / float(RAYS) / (vec3(1.0) - keep);
     }
     o = vec4(gi, clamp(open * contact, 0.0, 1.0));
 }
@@ -302,6 +352,9 @@ pub struct Post {
     pool: vk::DescriptorPool,
     set: vk::DescriptorSet,
     ao_set: vk::DescriptorSet,
+    /// The bounce light's second pass, reading the first's; and the picture's, reading the second's.
+    bounce_set: vk::DescriptorSet,
+    bounced_set: vk::DescriptorSet,
     sampler: vk::Sampler,
     params: crate::gpu::Buffer,
 }
@@ -330,11 +383,11 @@ impl Post {
             ];
             let set_layout = d.create_descriptor_set_layout(&vk::DescriptorSetLayoutCreateInfo::default().bindings(&bindings), None).unwrap();
             let sizes = [
-                vk::DescriptorPoolSize::default().ty(vk::DescriptorType::SAMPLED_IMAGE).descriptor_count(8),
-                vk::DescriptorPoolSize::default().ty(vk::DescriptorType::SAMPLER).descriptor_count(2),
-                vk::DescriptorPoolSize::default().ty(vk::DescriptorType::UNIFORM_BUFFER).descriptor_count(2),
+                vk::DescriptorPoolSize::default().ty(vk::DescriptorType::SAMPLED_IMAGE).descriptor_count(16),
+                vk::DescriptorPoolSize::default().ty(vk::DescriptorType::SAMPLER).descriptor_count(4),
+                vk::DescriptorPoolSize::default().ty(vk::DescriptorType::UNIFORM_BUFFER).descriptor_count(4),
             ];
-            let pool = d.create_descriptor_pool(&vk::DescriptorPoolCreateInfo::default().max_sets(2).pool_sizes(&sizes), None).unwrap();
+            let pool = d.create_descriptor_pool(&vk::DescriptorPoolCreateInfo::default().max_sets(4).pool_sizes(&sizes), None).unwrap();
             let layouts = [set_layout];
             let set = d.allocate_descriptor_sets(&vk::DescriptorSetAllocateInfo::default().descriptor_pool(pool).set_layouts(&layouts)).unwrap()[0];
             let sampler = d
@@ -386,10 +439,12 @@ impl Post {
             let ao_pipeline = d.create_graphics_pipelines(vk::PipelineCache::null(), &[ao_info], None).map_err(|e| e.1).unwrap()[0];
             // The occlusion pass can't read the image it writes: its set has the scene's colour in that place.
             let ao_set = d.allocate_descriptor_sets(&vk::DescriptorSetAllocateInfo::default().descriptor_pool(pool).set_layouts(&layouts)).unwrap()[0];
+            let bounce_set = d.allocate_descriptor_sets(&vk::DescriptorSetAllocateInfo::default().descriptor_pool(pool).set_layouts(&layouts)).unwrap()[0];
+            let bounced_set = d.allocate_descriptor_sets(&vk::DescriptorSetAllocateInfo::default().descriptor_pool(pool).set_layouts(&layouts)).unwrap()[0];
             d.destroy_shader_module(vs, None);
             d.destroy_shader_module(fs, None);
             d.destroy_shader_module(ao_fs, None);
-            Post { pipeline, ao_pipeline, layout, set_layout, pool, set, ao_set, sampler, params }
+            Post { pipeline, ao_pipeline, layout, set_layout, pool, set, ao_set, bounce_set, bounced_set, sampler, params }
         }
     }
 
@@ -403,10 +458,11 @@ impl Post {
         let depth = [vk::DescriptorImageInfo::default().image_view(gpu.depth_view).image_layout(vk::ImageLayout::DEPTH_STENCIL_READ_ONLY_OPTIMAL)];
         let point = [vk::DescriptorImageInfo::default().sampler(self.sampler)];
         let open = [vk::DescriptorImageInfo::default().image_view(gpu.ao_view).image_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)];
+        let bounced = [vk::DescriptorImageInfo::default().image_view(gpu.bounce_view).image_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)];
         let albedo = [vk::DescriptorImageInfo::default().image_view(gpu.albedo_view).image_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)];
         let params = [vk::DescriptorBufferInfo::default().buffer(self.params.buffer).offset(0).range(std::mem::size_of::<PostParams>() as u64)];
         let mut writes = Vec::new();
-        for (set, last) in [(self.set, &open), (self.ao_set, &color)] {
+        for (set, last) in [(self.set, &open), (self.ao_set, &color), (self.bounce_set, &open), (self.bounced_set, &bounced)] {
             writes.push(vk::WriteDescriptorSet::default().dst_set(set).dst_binding(0).descriptor_type(vk::DescriptorType::SAMPLED_IMAGE).image_info(&color));
             writes.push(vk::WriteDescriptorSet::default().dst_set(set).dst_binding(1).descriptor_type(vk::DescriptorType::SAMPLED_IMAGE).image_info(&depth));
             writes.push(vk::WriteDescriptorSet::default().dst_set(set).dst_binding(2).descriptor_type(vk::DescriptorType::SAMPLER).image_info(&point));
@@ -460,9 +516,19 @@ impl Post {
         }
     }
 
+    /// The bounce light's second pass: the rays again, now meeting surfaces lit by the first bounce as well. Between
+    /// `Gpu::begin_bounce` and `Gpu::begin_post`, with bounce light on.
+    pub fn draw_bounce(&self, gpu: &Gpu, proj: Mat4, orthographic: bool, s: &PostSettings) {
+        let mut push = self.push(gpu, proj, orthographic, s);
+        // The occlusion passes have no use for the background: its first value says which pass this is.
+        push.bg_top[0] = 1.0;
+        self.pass(gpu, self.ao_pipeline, self.bounce_set, &push);
+    }
+
     /// Draws the scene's picture onto the window's image. Between `Gpu::begin_post` and `Gpu::end_frame`.
     pub fn draw(&self, gpu: &Gpu, proj: Mat4, orthographic: bool, s: &PostSettings) {
-        self.pass(gpu, self.pipeline, self.set, &self.push(gpu, proj, orthographic, s));
+        let set = if s.bounce > 0.0 { self.bounced_set } else { self.set };
+        self.pass(gpu, self.pipeline, set, &self.push(gpu, proj, orthographic, s));
     }
 
     pub fn destroy(&mut self, gpu: &Gpu) {

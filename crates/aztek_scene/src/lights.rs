@@ -432,6 +432,9 @@ pub fn scene_light(g: &mut Graph, shape: NodeId) -> Option<SceneLight> {
     let harold = ty.starts_with("ai") && ty != "aiSkyDomeLight";
     let (decay, cone_deg, penumbra_deg, dropoff) = if ty == "aiPhotometricLight" {
         (2, 180.0, 0.0, 0.0)
+    } else if ty == "aiAreaLight" {
+        // Arnold's quad light falls off with the square of distance unless aiDecayType turns it off, as Harold lights it.
+        (if read_f(g, shape, "aiDecayType", 1.0) as i64 == 0 { 0 } else { 2 }, 40.0, 0.0, 0.0)
     } else if harold {
         (read_f(g, shape, "decayRate", 0.0) as i32, read_f(g, shape, "coneAngle", 40_f64.to_radians()).to_degrees(), read_f(g, shape, "penumbraAngle", 0.0).to_degrees(), read_f(g, shape, "dropoff", 0.0))
     } else {

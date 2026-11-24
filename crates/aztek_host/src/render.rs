@@ -240,7 +240,7 @@ void shade(vec3 n, vec3 v, vec4 sa, vec4 sb, out vec3 diff, out vec3 high) {
             vec3 to = q - v_view;
             float d = length(to);
             l = to / max(d, 0.0001);
-            c *= decay(dir.w, d) * max(dot(-l, dir.xyz), 0.0);
+            c *= decay(dir.w, d) * max(dot(-l, dir.xyz), 0.0) * par.y;
         } else {
             // Volume: nothing outside its shape, fading from its middle to its boundary.
             vec4 p = vec4(v_view, 1.0);
@@ -454,6 +454,11 @@ float f_ior(float ior) {
     return f * f;
 }
 
+// The distance from the light, along its face's axis, to what the cube shadow map saw in that direction.
+float cube_distance(vec3 d, float near, float far) {
+    float depth = texture(samplerCube(t_shadow_cube, s_shadow_cube), d).r;
+    return far * near / (far + depth * (near - far));
+}
 // How much of the light reaches this point from the shadow map, 0 in shadow to 1 lit. Outside the map it is lit.
 float shadow_at(vec3 p, vec3 n) {
     if (lt.shadow.w < 0.5) return 1.0;
@@ -466,10 +471,43 @@ float shadow_at(vec3 p, vec3 n) {
         vec3 d = normalize((lt.view_to_world * vec4(to, 0.0)).xyz);
         float near = max(lt.shadow_range.x, 0.01);
         float far = max(lt.shadow_range.y, near + 0.02);
-        // The faces are orthographic: the depth is linear in how far along the chosen axis the point is.
+        // Each face looks a quarter turn from the light: its depth turns back into the distance along the face's axis.
         float axis = max(abs(to.x), max(abs(to.y), abs(to.z)));
-        float stored = near + texture(samplerCube(t_shadow_cube, s_shadow_cube), d).r * (far - near);
-        return axis <= stored + lt.shadow.x + 0.02 ? 1.0 : 0.0;
+        float slack = lt.shadow.x + 0.02;
+        // An area light's shadows soften with its size, as Harold's do: look round the direction for what stands between
+        // (percentage-closer soft shadows), then take the share of the light's spread that gets past it. A point light
+        // has no size and a hard edge.
+        int li = int(lt.shadow.z);
+        float size = lt.lights[li].pos.w > 3.5 && lt.lights[li].pos.w < 4.5 ? 0.5 * (length(lt.lights[li].a.xyz) + length(lt.lights[li].b.xyz)) : 0.0;
+        if (size <= 0.0) {
+            float stored = cube_distance(d, near, far);
+            return axis <= stored + slack ? 1.0 : 0.0;
+        }
+        vec3 t1 = normalize(cross(d, abs(d.y) < 0.9 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0)));
+        vec3 t2 = cross(d, t1);
+        float turn = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))) * 6.2831853;
+        float search = clamp(size / max(axis, 0.001), 0.0, 0.5);
+        float blockers = 0.0, found = 0.0;
+        for (int i = 0; i < 12; ++i) {
+            float r = sqrt((float(i) + 0.5) / 12.0) * search;
+            float a = turn + float(i) * 2.39996323;
+            float stored = cube_distance(normalize(d + (t1 * cos(a) + t2 * sin(a)) * r), near, far);
+            if (stored + slack < axis) {
+                blockers += stored;
+                found += 1.0;
+            }
+        }
+        if (found < 0.5) return 1.0;
+        float b = blockers / found;
+        float spread = clamp(size * (axis - b) / max(b * axis, 0.0001), 0.0005, 0.5);
+        float lit = 0.0;
+        for (int i = 0; i < 16; ++i) {
+            float r = sqrt((float(i) + 0.5) / 16.0) * spread;
+            float a = turn + 1.3 + float(i) * 2.39996323;
+            float stored = cube_distance(normalize(d + (t1 * cos(a) + t2 * sin(a)) * r), near, far);
+            lit += axis <= stored + slack ? 1.0 : 0.0;
+        }
+        return lit / 16.0;
     }
     vec4 sc = lt.shadow_matrix * vec4(q3, 1.0);
     // Clip x and y run -1 to 1, so they go to 0 to 1; Vulkan's clip z already runs 0 to 1 and must not be halved.
@@ -485,7 +523,21 @@ float shadow_at(vec3 p, vec3 n) {
     }
     return sum / 9.0;
 }
-// One light: what it adds to the base layer, and to the coat. Mirrors `aztek_scene::lights::viewport_diffuse`.
+// What a rectangle of light sends to a matte surface at x facing n, as its radiance times this: the exact integral of
+// the cosines over the distance squared across it (Lambert's polygon formula). Corners p0..p3 go round it so that
+// cross(p1 - p0, p3 - p0) points away from the side it lights.
+float rect_irradiance(vec3 x, vec3 n, vec3 p0, vec3 p1, vec3 p2, vec3 p3) {
+    vec3 r0 = normalize(p0 - x), r1 = normalize(p1 - x), r2 = normalize(p2 - x), r3 = normalize(p3 - x);
+    float s = 0.0;
+    vec3 e;
+    e = cross(r0, r1); s += acos(clamp(dot(r0, r1), -1.0, 1.0)) * dot(e, n) / max(length(e), 1e-7);
+    e = cross(r1, r2); s += acos(clamp(dot(r1, r2), -1.0, 1.0)) * dot(e, n) / max(length(e), 1e-7);
+    e = cross(r2, r3); s += acos(clamp(dot(r2, r3), -1.0, 1.0)) * dot(e, n) / max(length(e), 1e-7);
+    e = cross(r3, r0); s += acos(clamp(dot(r3, r0), -1.0, 1.0)) * dot(e, n) / max(length(e), 1e-7);
+    return max(0.5 * s, 0.0);
+}
+// One light: what it adds to the base layer, and to the coat. Mirrors `aztek_scene::lights::viewport_diffuse`, but for
+// an area light that falls off with distance, whose diffuse is the rectangle's exact irradiance as Harold's.
 void direct(vec3 base, vec3 n, vec3 v, out vec3 diff, out vec3 spec, out vec3 coat_spec) {
     diff = vec3(0.0);
     spec = vec3(0.0);
@@ -508,6 +560,8 @@ void direct(vec3 base, vec3 n, vec3 v, out vec3 diff, out vec3 spec, out vec3 co
         // gives the same radiance for the same colour and intensity, so both renderers need the same light settings.
         vec3 c = col.rgb * PI;
         vec3 l = vec3(0.0, 0.0, 1.0);
+        // An area light's diffuse, worked out over its whole rectangle; negative while the light has none.
+        vec3 area_diff = vec3(-1.0);
         if (kind < 0.5) {
             vec3 to = pos.xyz - v_view;
             l = normalize(to);
@@ -560,7 +614,20 @@ void direct(vec3 base, vec3 n, vec3 v, out vec3 diff, out vec3 spec, out vec3 co
             vec3 to = q - v_view;
             float d = length(to);
             l = to / max(d, 0.0001);
-            c *= decay(dir.w, d) * max(dot(-l, dir.xyz), 0.0);
+            if (dir.w > 1.5) {
+                // Falling off as Arnold's: its radiance (colour, intensity and exposure, normalised over the area, as
+                // Harold's: without the pi the viewport's own lights take) through the rectangle's exact irradiance for
+                // the diffuse, and as a point of the same power at the nearest point for the highlight.
+                vec3 radiance = col.rgb * par.x;
+                vec3 su = ua.xyz, sv = ub.xyz;
+                bool flip = dot(cross(su, sv), dir.xyz) > 0.0;
+                vec3 p0 = pos.xyz - su - sv, p1 = pos.xyz + su - sv, p2 = pos.xyz + su + sv, p3 = pos.xyz - su + sv;
+                float e = dot(v_view - pos.xyz, dir.xyz) > 0.0 ? (flip ? rect_irradiance(v_view, n, p0, p3, p2, p1) : rect_irradiance(v_view, n, p0, p1, p2, p3)) : 0.0;
+                area_diff = radiance * e;
+                c = radiance * 4.0 * length(cross(su, sv)) * max(dot(-l, dir.xyz), 0.0) / max(d * d, 0.000001);
+            } else {
+                c *= decay(dir.w, d) * max(dot(-l, dir.xyz), 0.0) * par.y;
+            }
         } else {
             vec4 p = vec4(v_view, 1.0);
             vec3 u = vec3(dot(lt.lights[i].a, p), dot(lt.lights[i].b, p), dot(lt.lights[i].c, p));
@@ -575,11 +642,14 @@ void direct(vec3 base, vec3 n, vec3 v, out vec3 diff, out vec3 spec, out vec3 co
                 c = vec3(0.0);
             }
         }
-        float nl = dot(n, l);
-        if (nl <= 0.0) continue;
         int emits = int(col.w);
         float lit = i == int(lt.shadow.z) ? shadow_at(v_view, n) : 1.0;
-        if ((emits & 1) != 0) {
+        if (area_diff.x >= 0.0 && (emits & 1) != 0) {
+            diff += area_diff * lit;
+        }
+        float nl = dot(n, l);
+        if (nl <= 0.0) continue;
+        if ((emits & 1) != 0 && area_diff.x < 0.0) {
             diff += c * nl * lit;
         }
         if ((emits & 2) != 0 && nl > 0.0) {
@@ -1270,7 +1340,8 @@ mod tests {
             "diff += c * (1.0 - par.x);",
             "float edge = clamp((cone - par.x) / max(par.y - par.x, 0.00001), 0.0, 1.0);",
             "c *= decay(dir.w, d) * edge * pow(max(cone, 0.0), par.z);",
-            "c *= decay(dir.w, d) * max(dot(-l, dir.xyz), 0.0);",
+            // An area light's scale when it isn't normalised comes in par.y, as viewport_diffuse's half sides.
+            "c *= decay(dir.w, d) * max(dot(-l, dir.xyz), 0.0) * par.y;",
             "float fade = clamp(1.0 - reach, 0.0, 1.0);",
             "diff += c * nl;",
         ] {

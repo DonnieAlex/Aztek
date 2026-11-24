@@ -382,6 +382,10 @@ impl View {
         let (proj, ortho) = (self.vp.cam.proj(self.vp.aspect()).as_mat4(), self.vp.cam.ortho());
         self.gpu.begin_occlusion();
         self.post.draw_occlusion(&self.gpu, proj, ortho, &settings);
+        if settings.bounce > 0.0 {
+            self.gpu.begin_bounce();
+            self.post.draw_bounce(&self.gpu, proj, ortho, &settings);
+        }
         self.gpu.begin_post(index);
         self.post.draw(&self.gpu, proj, ortho, &settings);
         let ok = self.gpu.end_frame(index);

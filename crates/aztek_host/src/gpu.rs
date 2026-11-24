@@ -231,6 +231,12 @@ pub struct Gpu {
     pub ao_view: vk::ImageView,
     pub ao_alloc: Option<Allocation>,
     pub ao_framebuffer: vk::Framebuffer,
+    /// The bounce light's second pass: what the first found, sent round once more. The picture reads this when bounce
+    /// light is on.
+    pub bounce_image: vk::Image,
+    pub bounce_view: vk::ImageView,
+    pub bounce_alloc: Option<Allocation>,
+    pub bounce_framebuffer: vk::Framebuffer,
     /// The pass that puts the scene on the window, through the post effects.
     pub post_pass: vk::RenderPass,
     /// One per swapchain image, for the post pass.
@@ -334,6 +340,10 @@ impl Gpu {
             ao_view: vk::ImageView::null(),
             ao_alloc: None,
             ao_framebuffer: vk::Framebuffer::null(),
+            bounce_image: vk::Image::null(),
+            bounce_view: vk::ImageView::null(),
+            bounce_alloc: None,
+            bounce_framebuffer: vk::Framebuffer::null(),
             post_pass,
             framebuffers: Vec::new(),
             in_post: false,
@@ -358,6 +368,16 @@ impl Gpu {
             if self.scene_framebuffer != vk::Framebuffer::null() {
                 self.device.destroy_framebuffer(self.scene_framebuffer, None);
                 self.scene_framebuffer = vk::Framebuffer::null();
+            }
+            if self.bounce_framebuffer != vk::Framebuffer::null() {
+                self.device.destroy_framebuffer(self.bounce_framebuffer, None);
+                self.bounce_framebuffer = vk::Framebuffer::null();
+                self.device.destroy_image_view(self.bounce_view, None);
+                self.device.destroy_image(self.bounce_image, None);
+                if let Some(a) = self.bounce_alloc.take() {
+                    let _ = self.shared.allocator.lock().unwrap().free(a);
+                }
+                self.bounce_view = vk::ImageView::null();
             }
             if self.ao_framebuffer != vk::Framebuffer::null() {
                 self.device.destroy_framebuffer(self.ao_framebuffer, None);
@@ -607,6 +627,13 @@ impl Gpu {
                 &vk::FramebufferCreateInfo::default().render_pass(self.ao_pass).attachments(&ao_att).width(extent.width).height(extent.height).layers(1),
                 None,
             )?;
+            let (image, view, alloc) = self.color_image("bounce", AO_FORMAT, vk::SampleCountFlags::TYPE_1, vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED, extent)?;
+            (self.bounce_image, self.bounce_view, self.bounce_alloc) = (image, view, Some(alloc));
+            let bounce_att = [self.bounce_view];
+            self.bounce_framebuffer = self.device.create_framebuffer(
+                &vk::FramebufferCreateInfo::default().render_pass(self.ao_pass).attachments(&bounce_att).width(extent.width).height(extent.height).layers(1),
+                None,
+            )?;
             for &v in &self.views {
                 let att = [v];
                 self.framebuffers.push(self.device.create_framebuffer(
@@ -753,6 +780,23 @@ impl Gpu {
                 &vk::RenderPassBeginInfo::default()
                     .render_pass(self.ao_pass)
                     .framebuffer(self.ao_framebuffer)
+                    .render_area(vk::Rect2D { offset: vk::Offset2D::default(), extent: self.extent }),
+                vk::SubpassContents::INLINE,
+            );
+            self.device.cmd_set_viewport(self.cmd, 0, &[vk::Viewport { x: 0.0, y: 0.0, width: self.extent.width as f32, height: self.extent.height as f32, min_depth: 0.0, max_depth: 1.0 }]);
+            self.device.cmd_set_scissor(self.cmd, 0, &[vk::Rect2D { offset: vk::Offset2D::default(), extent: self.extent }]);
+        }
+    }
+
+    /// Ends the occlusion pass and begins the bounce light's second, into `bounce_image`.
+    pub fn begin_bounce(&mut self) {
+        unsafe {
+            self.device.cmd_end_render_pass(self.cmd);
+            self.device.cmd_begin_render_pass(
+                self.cmd,
+                &vk::RenderPassBeginInfo::default()
+                    .render_pass(self.ao_pass)
+                    .framebuffer(self.bounce_framebuffer)
                     .render_area(vk::Rect2D { offset: vk::Offset2D::default(), extent: self.extent }),
                 vk::SubpassContents::INLINE,
             );
