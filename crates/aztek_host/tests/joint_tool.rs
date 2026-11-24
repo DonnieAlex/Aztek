@@ -93,6 +93,8 @@ fn with_c_held_the_joint_goes_on_the_curve_under_the_cursor() {
     let mut c = Core::new();
     mel(&mut c, "curve -d 1 -p -5 3 0 -p 5 3 0;");
     mel(&mut c, "select -cl;");
+    // The view draws, and snaps to, the evaluated curve.
+    c.s.graph.evaluate();
     let mut vp = Viewport::new(CamKind::Persp);
     vp.rect = [0.0, 0.0, 800.0, 800.0];
     vp.cam.coi = DVec3::ZERO;
