@@ -1131,8 +1131,11 @@ void MainWindow::handle_ui_request(const QString& r) {
         const QString keep = payload.section('|', 0, 0);
         const bool hide_bars = payload.section('|', 1, 1) == "1";
         QSettings().setValue("workspaces_collapsed", saveState());
+        // The Time and Range Sliders count as bars, as the toolbars they once were.
         for (QDockWidget* d : findChildren<QDockWidget*>())
-            if (d->objectName() != keep && d->windowTitle() != keep && !d->isFloating()) d->hide();
+            if (d->objectName() != keep && d->windowTitle() != keep && !d->isFloating() &&
+                (hide_bars || (d->objectName() != "TimeSlider" && d->objectName() != "RangeSlider")))
+                d->hide();
         if (hide_bars)
             for (QToolBar* b : findChildren<QToolBar*>()) b->hide();
     } else if (name == "workspaceRestore") {
