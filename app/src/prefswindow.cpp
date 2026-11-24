@@ -191,6 +191,7 @@ Preferences::Preferences(QWidget* parent) : QDialog(parent) {
     check(f, "Shelf", "uiShelf", true);
     check(f, "Tool box", "uiToolbox", true);
     check(f, "Time slider", "uiTimeSlider", true);
+    check(f, "Range slider", "uiRangeSlider", true);
     check(f, "Command line", "uiCommandLine", true);
     check(f, "Help line", "helpLine", true);
     f = page("Display");
@@ -537,6 +538,7 @@ void MainWindow::apply_prefs() {
     bar("shelf", "uiShelf");
     bar("toolbox", "uiToolbox");
     bar("timeBar", "uiTimeSlider");
+    bar("rangeBar", "uiRangeSlider");
     bar("commandLine", "uiCommandLine");
     for (ViewportWidget* v : panels_->views()) {
         v->set("background", QString::number(s.value("prefs/background", 0.36).toDouble()));

@@ -1359,6 +1359,12 @@ void MainWindow::build_toolbox() {
 void MainWindow::lock_layout(bool on) {
     for (QDockWidget* d : findChildren<QDockWidget*>())
         d->setFeatures(on ? QDockWidget::DockWidgetClosable : QDockWidget::DockWidgetClosable | QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
+    // The slider bars lose their grab handles while locked; the margin keeps them as far off the window's edge.
+    for (const char* id : {"timeBar", "rangeBar"})
+        if (auto* bar = findChild<QToolBar*>(id, Qt::FindDirectChildrenOnly)) {
+            bar->setMovable(!on);
+            bar->setContentsMargins(on ? 8 : 0, 0, 0, 0);
+        }
 }
 
 void MainWindow::toggle_side(bool left, QToolButton* handle) {
@@ -1472,21 +1478,31 @@ void MainWindow::build_bottom() {
     connect(command_line_, &CommandLine::openScriptEditor, this, &MainWindow::show_script_editor);
     cl->addWidget(command_line_);
 
-    addToolBarBreak(Qt::BottomToolBarArea);
-    QToolBar* bottom = new QToolBar("Time Slider", this);
-    bottom->setObjectName("timeBar");
-    bottom->setMovable(false);
-    addToolBar(Qt::BottomToolBarArea, bottom);
-    auto* w = new QWidget(bottom);
-    auto* v = new QVBoxLayout(w);
-    v->setContentsMargins(0, 0, 0, 0);
-    v->setSpacing(2);
-    auto* time_row = new QWidget(w);
+    // The Time Slider and the Range Slider are bars of their own, as the reference's are: each has a grab handle on
+    // its left that keeps it off the window's edge, drags it above or below the views, or pulls it off as a window
+    // (#272). Lines in the bottom area stack upwards, so the Range Slider goes in before the Time Slider over it.
+    auto slider_bar = [this](const char* title, const char* id) {
+        auto* bar = new QToolBar(title, this);
+        bar->setObjectName(id);
+        bar->setAllowedAreas(Qt::TopToolBarArea | Qt::BottomToolBarArea);
+        bar->setFloatable(true);
+        // Pulled off, it opens as wide as half the window rather than squeezed to its least.
+        connect(bar, &QToolBar::topLevelChanged, bar, [this, bar](bool floating) {
+            if (floating) bar->resize(qMax(bar->width(), width() / 2), bar->sizeHint().height());
+        });
+        addToolBarBreak(Qt::BottomToolBarArea);
+        addToolBar(Qt::BottomToolBarArea, bar);
+        return bar;
+    };
+    QToolBar* range_bar = slider_bar("Range Slider", "rangeBar");
+    QToolBar* time_bar = slider_bar("Time Slider", "timeBar");
+    lock_layout(QSettings().value("window/uiLocked", false).toBool());
+    auto* time_row = new QWidget(time_bar);
     time_row->setObjectName("timeSliderRow");
     auto* row1 = new QHBoxLayout(time_row);
     row1->setContentsMargins(0, 0, 0, 0);
-    time_slider_ = new TimeSlider(w);
-    auto* current = new QSpinBox(w);
+    time_slider_ = new TimeSlider(time_row);
+    auto* current = new QSpinBox(time_row);
     current_frame_ = current;
     current->setRange(-100000, 100000);
     current->setValue(1);
@@ -1505,7 +1521,7 @@ void MainWindow::build_bottom() {
     });
     row1->addWidget(time_slider_, 1);
     row1->addWidget(current);
-    auto* play = new QToolBar(w);
+    auto* play = new QToolBar(time_row);
     play->setObjectName("playback");
     play->setIconSize(QSize(16, 16));
     play_timer_ = new QTimer(this);
@@ -1545,20 +1561,20 @@ void MainWindow::build_bottom() {
     play->addAction(icon("next"), "Step forward one frame", [this] { step_time(1); });
     play->addAction(icon("last"), "Go to end of playback range", [this] { go_to_time(time_slider_->end()); });
     row1->addWidget(play);
-    v->addWidget(time_row);
-    auto* range_row = new QWidget(w);
+    time_bar->addWidget(time_row);
+    auto* range_row = new QWidget(range_bar);
     range_row->setObjectName("rangeSliderRow");
     auto* row2 = new QHBoxLayout(range_row);
     row2->setContentsMargins(0, 0, 0, 0);
-    auto field = [w](double val) {
-        auto* s = new QSpinBox(w);
+    auto field = [range_row](double val) {
+        auto* s = new QSpinBox(range_row);
         s->setRange(-100000, 100000);
         s->setValue(int(val));
         s->setFixedWidth(64);
         return s;
     };
     anim_start_ = field(1), play_start_ = field(1), play_end_ = field(120), anim_end_ = field(200);
-    range_slider_ = new RangeSlider(w);
+    range_slider_ = new RangeSlider(range_row);
     auto push = [this] {
         exec_quiet("playbackOptions", QJsonObject{{"animationStartTime", anim_start_->value()},
                                                   {"minTime", play_start_->value()},
@@ -1587,7 +1603,7 @@ void MainWindow::build_bottom() {
     row2->addWidget(play_start_);
     row2->addWidget(range_slider_, 1);
     // The bookmark icon: a click makes one, a right-click has the manager and framing.
-    auto* bookmark = new QToolButton(w);
+    auto* bookmark = new QToolButton(range_row);
     bookmark->setText(QString::fromUtf8("\u2691"));
     bookmark->setToolTip("Create Bookmark (Alt+T); right-click for the Bookmark Manager");
     bookmark->setAutoRaise(true);
@@ -1615,7 +1631,7 @@ void MainWindow::build_bottom() {
     row2->addWidget(play_end_);
     row2->addWidget(anim_end_);
     // Time units by name, as the Settings have them.
-    auto* fps = new QComboBox(w);
+    auto* fps = new QComboBox(range_row);
     fps_box_ = fps;
     fps->setToolTip("Time unit");
     struct U { const char* label; double rate; };
@@ -1624,7 +1640,7 @@ void MainWindow::build_bottom() {
         exec("playbackOptions", QJsonObject{{"framesPerSecond", fps->itemData(i).toDouble()}});
     });
     row2->addWidget(fps);
-    auto* speed = new QComboBox(w);
+    auto* speed = new QComboBox(range_row);
     speed_box_ = speed;
     speed->setToolTip("Playback speed");
     speed->addItems({"Play every frame", "Real-time", "Half", "Twice"});
@@ -1634,7 +1650,7 @@ void MainWindow::build_bottom() {
         apply_prefs();
     });
     row2->addWidget(speed);
-    auto* loop = new QComboBox(w);
+    auto* loop = new QComboBox(range_row);
     loop->setToolTip("Looping");
     loop->addItems({"Once", "Oscillate", "Continuous"});
     loop->setCurrentText(QSettings().value("prefs/playbackLoop", "Continuous").toString());
@@ -1643,7 +1659,7 @@ void MainWindow::build_bottom() {
         loop_mode_ = loop->currentText();
     });
     row2->addWidget(loop);
-    auto* tb = new QToolBar(w);
+    auto* tb = new QToolBar(range_row);
     tb->setIconSize(QSize(16, 16));
     auto_key_ = tb->addAction(icon("autokey"), "Auto keyframe toggle", [this](bool on) {
         exec("autoKeyframe", QJsonObject{{"state", on}});
@@ -1651,8 +1667,7 @@ void MainWindow::build_bottom() {
     auto_key_->setCheckable(true);
     auto_key_->setObjectName("autoKey");
     row2->addWidget(tb);
-    v->addWidget(range_row);
-    bottom->addWidget(w);
+    range_bar->addWidget(range_row);
 
     help_line_ = new QLabel(this);
     statusBar()->addWidget(help_line_, 1);

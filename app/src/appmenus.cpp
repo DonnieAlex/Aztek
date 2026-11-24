@@ -781,7 +781,8 @@ QMenu* MainWindow::display_menu() {
     ui_item("Status Line", findChild<QToolBar*>("statusLine"));
     ui_item("Shelf", findChild<QToolBar*>("shelf"));
     ui_item("Tool Box", findChild<QToolBar*>("toolbox"));
-    ui_item("Time and Range Sliders", findChild<QToolBar*>("timeBar"));
+    ui_item("Time Slider", findChild<QToolBar*>("timeBar"));
+    ui_item("Range Slider", findChild<QToolBar*>("rangeBar"));
     ui_item("Command Line", findChild<QToolBar*>("commandLine"));
     ui_item("Help Line", statusBar());
     ui->addSeparator();
@@ -1066,7 +1067,7 @@ void MainWindow::apply_workspace(const QString& name) {
     auto shelf = [this](const QString& n) {
         if (shelf_bar_) shelf_bar_->select_shelf(n);
     };
-    for (const char* id : {"statusLine", "shelf", "toolbox", "timeBar", "commandLine"}) bar(id, true);
+    for (const char* id : {"statusLine", "shelf", "toolbox", "timeBar", "rangeBar", "commandLine"}) bar(id, true);
     panels_->set_layout(0);
     if (name == "General" || name == "Bicrust Fluids") {
         only(true, true, true, false);
@@ -1083,12 +1084,13 @@ void MainWindow::apply_workspace(const QString& name) {
             mtk_dock_->raise();
         }
         bar("timeBar", false);
+        bar("rangeBar", false);
         set_menus("Modeling");
         shelf("Poly Modeling");
     } else if (name == "Modeling - Expert") {
         // The view alone: no shelf, tool box, time slider or panels.
         only(false, false, false, false);
-        for (const char* id : {"shelf", "toolbox", "timeBar"}) bar(id, false);
+        for (const char* id : {"shelf", "toolbox", "timeBar", "rangeBar"}) bar(id, false);
         set_menus("Modeling");
     } else if (name == "Sculpting" || name == "Pose Sculpting") {
         // The Shape Editor over the Tool Settings on the right.
@@ -1106,6 +1108,7 @@ void MainWindow::apply_workspace(const QString& name) {
             tool_dock_->raise();
         }
         bar("timeBar", false);
+        bar("rangeBar", false);
         set_menus("Modeling");
         shelf("Sculpting");
     } else if (name == "UV Editing") {
@@ -1114,6 +1117,7 @@ void MainWindow::apply_workspace(const QString& name) {
         show_uv_editor();
         if (QDockWidget* d = dock_editor("uvEditor", uv_window_, "UV Editor", Qt::RightDockWidgetArea)) resizeDocks({d}, {width() / 2}, Qt::Horizontal);
         bar("timeBar", false);
+        bar("rangeBar", false);
         set_menus("Modeling");
         shelf("UV Editing");
     } else if (name == "XJEN" || name == "XJEN - Interactive Groom") {
@@ -1601,24 +1605,6 @@ QList<MarkItem> MainWindow::hotbox_zone(int zone, QPoint origin) {
             return [widget] { widget->setVisible(!widget->isVisible()); };
         };
         auto tool_bar = [this, toggle](const char* name) { return toggle(findChild<QToolBar*>(name)); };
-        auto slider = [this](const char* name, const char* other_name) {
-            auto* bar = findChild<QToolBar*>("timeBar");
-            auto* row = bar->findChild<QWidget*>(name);
-            auto* other = bar->findChild<QWidget*>(other_name);
-            return [bar, row, other] {
-                if (bar->isHidden()) {
-                    other->hide();
-                    row->show();
-                    bar->show();
-                } else {
-                    row->setVisible(row->isHidden());
-                    if (row->isHidden() && other->isHidden()) {
-                        bar->hide();
-                        row->show();
-                    }
-                }
-            };
-        };
         // The Channel Box and Layer Editor share a dock, as they do in the reference's combined mode.
         MarkItem attributes{"Attributes", 2};
         attributes.sub = {{"Tool Settings", 0, [] { mel("ToggleToolSettings;"); }},
@@ -1629,8 +1615,8 @@ QList<MarkItem> MainWindow::hotbox_zone(int zone, QPoint origin) {
                                else show_attribute_editor();
                            }}};
         return {{"Help Line", 0, toggle(statusBar())}, {"Status Line", 1, tool_bar("statusLine")}, attributes,
-                {"Tool Box", 3, tool_bar("toolbox")}, {"Time Slider", 4, slider("timeSliderRow", "rangeSliderRow")},
-                {"Range Slider", 5, slider("rangeSliderRow", "timeSliderRow")},
+                {"Tool Box", 3, tool_bar("toolbox")}, {"Time Slider", 4, tool_bar("timeBar")},
+                {"Range Slider", 5, tool_bar("rangeBar")},
                 {"Shelf", 6, tool_bar("shelf")}, {"Command Line", 7, tool_bar("commandLine")}};
     }
     case 2: {
