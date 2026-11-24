@@ -75,6 +75,12 @@ private:
     bool torn_ = false;
 };
 
+// The order the user has dragged the tabs into, kept while the editor runs.
+QStringList& tab_order() {
+    static QStringList order;
+    return order;
+}
+
 class AeTabWidget : public QTabWidget {
 public:
     explicit AeTabWidget(QWidget* parent = nullptr) : QTabWidget(parent) {}
@@ -464,7 +470,7 @@ QWidget* ranged_field(const QJsonObject& a, double lo, double hi, QWidget* paren
     h->setSpacing(4);
     auto* e = new QLineEdit(type == "int" ? QString::number(a["value"].toInteger()) : fmt3(value), row);
     e->setProperty("plugKey", plug);
-    e->setFixedWidth(54);
+    e->setFixedWidth(68);
     auto* s = new AttrSlider(Qt::Horizontal, row);
     s->setMinimumWidth(8);
     s->setRange(0, 1000);
@@ -527,7 +533,7 @@ QWidget* color_field(const QJsonObject& a, QWidget* parent) {
     h->setContentsMargins(0, 0, 0, 0);
     h->setSpacing(3);
     auto* swatch = new QPushButton(w);
-    swatch->setFixedSize(54, 18);
+    swatch->setFixedSize(40, 18);
     bool stored = a["displayColor"].toBool();
     QJsonArray value = a["value"].toArray();
     QColor shown = stored ? QColor::fromRgbF(value.at(0).toDouble(), value.at(1).toDouble(), value.at(2).toDouble()) : swatch_color(value);
@@ -699,7 +705,7 @@ QWidget* attr_field(const QJsonObject& a, QWidget* parent) {
             auto* e = new QLineEdit(fmt3(v.at(k).toDouble()), w);
             // Three to a row: thin padding, so a value shows whole at the panel's usual width.
             e->setStyleSheet("padding-left: 1px; padding-right: 0px;");
-            e->setMinimumWidth(38);
+            e->setMinimumWidth(34);
             // A locked part takes the locked shade. A driven or output-only part is read-only but is not locked, so it
             // keeps its own look instead of reading as a lock (#212 review).
             const bool locked = a["locked"].toBool() || childLocked.at(k).toBool();
@@ -745,7 +751,7 @@ QWidget* attr_field(const QJsonObject& a, QWidget* parent) {
         h->setContentsMargins(0, 0, 0, 0);
         h->setSpacing(4);
         e->setParent(w);
-        e->setFixedWidth(54);
+        e->setFixedWidth(68);
         h->addWidget(e);
         h->addStretch(1);
         h->addWidget(map_button(a, w));
@@ -773,7 +779,7 @@ QWidget* attr_field(const QJsonObject& a, QWidget* parent) {
 class RowLabel : public QLabel {
 public:
     RowLabel(const QString& text, QWidget* parent) : QLabel(text, parent) {
-        setFixedWidth(140);
+        setFixedWidth(160);
         setToolTip(text);
         setProperty("rowLabel", true);
     }
@@ -801,7 +807,7 @@ void fit_labels(QWidget* body) {
     // By a property: findChildren needs Q_OBJECT on the class it looks for, and newer Qt refuses to build without it.
     QList<QLabel*> labels = body->findChildren<QLabel*>();
     labels.removeIf([](QLabel* l) { return !l->property("rowLabel").toBool(); });
-    int need = 140;
+    int need = 160;
     for (QLabel* l : labels) need = std::max(need, l->fontMetrics().horizontalAdvance(l->text()) + 8);
     need = std::min(need, 240);
     for (QLabel* l : labels) l->setFixedWidth(need);
@@ -1648,7 +1654,7 @@ QWidget* light_header(const QString& type, QWidget* parent) {
     auto* label = new QLabel("Sample", row);
     label->setObjectName("aeRowLabel");
     label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-    label->setFixedWidth(140);
+    label->setFixedWidth(160);
     h->addWidget(label);
     QPixmap px(56, 56);
     px.fill(QColor(20, 20, 20));
@@ -1763,7 +1769,7 @@ QWidget* material_header(const QString& type, const QHash<QString, QJsonObject>&
     auto* sampleLabel = new QLabel("Sample", sampleRow);
     sampleLabel->setObjectName("aeRowLabel");
     sampleLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-    sampleLabel->setFixedWidth(140);
+    sampleLabel->setFixedWidth(160);
     sh->addWidget(sampleLabel);
     QPixmap px(56, 56);
     px.fill(QColor(70, 70, 70));
@@ -1790,7 +1796,7 @@ QWidget* material_header(const QString& type, const QHash<QString, QJsonObject>&
     auto* typeLabel = new QLabel("Type", typeRow);
     typeLabel->setObjectName("aeRowLabel");
     typeLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-    typeLabel->setFixedWidth(140);
+    typeLabel->setFixedWidth(160);
     th->addWidget(typeLabel);
     auto* combo = new QComboBox(typeRow);
     combo->addItem(names.value(type, type));
@@ -1830,7 +1836,7 @@ QFormLayout* add_section(QVBoxLayout* v, QWidget* parent, const QString& title) 
 }
 
 // The reference's greyed control for a feature Aztek does not have yet: present, and taking no typing.
-QLabel* ae_label(const QString& text, QWidget* parent, int width = 140) {
+QLabel* ae_label(const QString& text, QWidget* parent, int width = 160) {
     auto* l = new QLabel(parent);
     l->setObjectName("aeRowLabel");
     l->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
@@ -1936,7 +1942,7 @@ QWidget* ae_placeholder(const AeRow& r, const QJsonObject& a, QWidget* parent) {
         int count = kind == "color" ? 1 : 3;
         for (int k = 0; k < count; ++k) {
             auto* e = new QLineEdit(w);
-            e->setFixedSize(kind == "color" ? 148 : 72, 20);
+            e->setFixedSize(kind == "color" ? 148 : 68, 20);
             e->setEnabled(false);
             h->addWidget(e);
         }
@@ -1950,7 +1956,7 @@ QWidget* ae_placeholder(const AeRow& r, const QJsonObject& a, QWidget* parent) {
         h->setSpacing(4);
         auto* e = new QLineEdit(w);
         e->setFixedHeight(20);
-        e->setMinimumWidth(270);
+        e->setMinimumWidth(kind == "matrix" ? 250 : 225);
         e->setEnabled(false);
         h->addWidget(e, 1);
         if (kind == "text") {
@@ -1977,7 +1983,7 @@ QWidget* ae_placeholder(const AeRow& r, const QJsonObject& a, QWidget* parent) {
         h->setContentsMargins(0, 0, 0, 0);
         h->setSpacing(4);
         auto* e = new QLineEdit(w);
-        e->setFixedSize(72, 20);
+        e->setFixedSize(68, 20);
         e->setEnabled(false);
         auto* s = new QSlider(Qt::Horizontal, w);
         s->setRange(0, 1000);
@@ -1987,7 +1993,7 @@ QWidget* ae_placeholder(const AeRow& r, const QJsonObject& a, QWidget* parent) {
         return w;
     }
     auto* e = new QLineEdit(parent);
-    e->setFixedSize(72, 20);
+    e->setFixedSize(68, 20);
     e->setEnabled(false);
     return e;
 }
@@ -2026,7 +2032,7 @@ QWidget* ae_field(const AeRow& r, const QJsonObject& a, const QString& style, QW
         h->setSpacing(4);
         auto* e = new QLineEdit(w);
         e->setFixedHeight(20);
-        e->setMinimumWidth(270);
+        e->setMinimumWidth(225);
         if (type == "string") {
             e->setText(a["value"].toString());
             e->setReadOnly(ro);
@@ -2049,18 +2055,18 @@ QWidget* ae_field(const AeRow& r, const QJsonObject& a, const QString& style, QW
     int width = 0;
     if (r.kind == "matrix" || type == "matrix") width = 295;
     else if (r.kind == "combo" || type == "enum") width = r.attr == "rotateOrder" ? 72 : 148;
-    else if (type == "vec3") width = 224;
+    else if (type == "vec3") width = 212;
     else if (r.kind == "text") width = 0;
     else if (type == "float" || type == "int") {
         // Ranged numbers keep their slider, and the slider runs to the end of the value column.
-        width = (a["min"].isDouble() && a["max"].isDouble() && a["max"].toDouble() > a["min"].toDouble()) ? 254 : 72;
-        if (type == "int" && !(a["min"].isDouble() && a["max"].isDouble())) width = 72;
+        width = (a["min"].isDouble() && a["max"].isDouble() && a["max"].toDouble() > a["min"].toDouble()) ? 210 : 68;
+        if (type == "int" && !(a["min"].isDouble() && a["max"].isDouble())) width = 68;
     }
     if (width > 0) {
         if (type == "vec3") {
             field->setFixedWidth(width);
             // Three valued parts a row: each 72 wide, as the reference's fields.
-            for (QLineEdit* e : field->findChildren<QLineEdit*>()) e->setFixedSize(72, 20);
+            for (QLineEdit* e : field->findChildren<QLineEdit*>()) e->setFixedSize(68, 20);
         } else if (type == "enum") {
             field->setFixedWidth(width);
         } else {
@@ -2086,7 +2092,7 @@ QWidget* ae_vec3(const QJsonObject& a, QWidget* parent) {
     int count = a["pair"].toBool() ? 2 : 3;
     for (int k = 0; k < count; ++k) {
         auto* e = new QLineEdit(fmt3(v.at(k).toDouble()), w);
-        e->setFixedSize(72, 20);
+        e->setFixedSize(68, 20);
         const bool locked = a["locked"].toBool() || childLocked.at(k).toBool();
         e->setReadOnly(read_only(a) || locked);
         if (a["childKeyed"].toArray().at(k).toBool()) e->setObjectName("keyedField");
@@ -2326,7 +2332,7 @@ void ae_render_box(QVBoxLayout* v, QWidget* parent, const AeBox& b, const QHash<
         auto* hh = new QHBoxLayout(hw);
         hh->setContentsMargins(2, 0, 12, 0);
         auto* pad = new QWidget(hw);
-        pad->setFixedWidth(140);
+        pad->setFixedWidth(160);
         hh->addWidget(pad);
         hh->addWidget(ae_limit_header(hw));
         cv->addWidget(hw);
@@ -2374,7 +2380,7 @@ void ae_render_rows(QVBoxLayout* v, QWidget* parent, const QList<AeRow>& rows, c
             h->setContentsMargins(2, 0, 12, 0);
             h->setSpacing(4);
             auto* pad = new QWidget(rw);
-            pad->setFixedWidth(140);
+            pad->setFixedWidth(160);
             h->addWidget(pad);
             auto add_check = [&](const QString& name, const QString& text, bool enabled) {
                 QJsonObject at = by.value(name);
@@ -2453,7 +2459,7 @@ void ae_render_rows(QVBoxLayout* v, QWidget* parent, const QList<AeRow>& rows, c
             h->setContentsMargins(2, 0, 12, 0);
             h->setSpacing(4);
             auto* pad = new QWidget(rw);
-            pad->setFixedWidth(140);
+            pad->setFixedWidth(160);
             h->addWidget(pad);
             auto* cb = new QCheckBox(label, rw);
             cb->setChecked(a["value"].toBool());
@@ -2477,7 +2483,7 @@ void ae_render_rows(QVBoxLayout* v, QWidget* parent, const QList<AeRow>& rows, c
             for (const QString& name : {r.attr, secondName}) {
                 QJsonObject at = name.isEmpty() ? QJsonObject() : by.value(name);
                 auto* e = new QLineEdit(rw);
-                e->setFixedSize(72, 20);
+                e->setFixedSize(68, 20);
                 if (!at.isEmpty()) {
                     used.insert(name);
                     if (at["type"].toString() == "vec3") {
@@ -2561,7 +2567,7 @@ void ae_render_rows(QVBoxLayout* v, QWidget* parent, const QList<AeRow>& rows, c
         h->setSpacing(4);
         if (checklike) {
             auto* pad = new QWidget(rowWidget);
-            pad->setFixedWidth(140);
+            pad->setFixedWidth(160);
             h->addWidget(pad);
         } else {
             auto* lab = ae_label(label, rowWidget);
@@ -2882,6 +2888,11 @@ AttributeEditor::AttributeEditor(QWidget* parent, const QString& pinned) : Panel
     auto* tabBar = new AeTabBar(tabs_);
     tabWidget->use_bar(tabBar);
     tabs_->setMovable(true);
+    connect(tabBar, &QTabBar::tabMoved, this, [this](int, int) {
+        QStringList order;
+        for (int i = 0; i < tabs_->count(); ++i) order << tabs_->tabText(i);
+        tab_order() = order;
+    });
     tabBar->tearOff = [this](int index) {
         QWidget* w = index >= 0 ? tabs_->widget(index) : nullptr;
         if (!w) return;
@@ -3026,11 +3037,11 @@ void AttributeEditor::refresh() {
         auto* typeLabel = new QLabel(ae_type_label(node_type) + ":", nameRow);
         typeLabel->setObjectName("aeTypeLabel");
         typeLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-        typeLabel->setFixedWidth(140);
+        typeLabel->setFixedWidth(160);
         nh->addWidget(typeLabel);
         auto* name = new QLineEdit(nameRow);
         name->setObjectName("aeNameField");
-        name->setFixedSize(127, 20);
+        name->setFixedSize(152, 20);
         name->setText(QString());
         connect(name, &QLineEdit::editingFinished, name, [name, path] {
             if (!name->text().trimmed().isEmpty() && name->text().trimmed() != path.section('|', -1))
@@ -3383,8 +3394,24 @@ void AttributeEditor::refresh() {
         if (t["name"].toString() == focus_tab) focus_index = idx;
     }
     if (select < 0) select = focus_index;
+    // The order the tabs were dragged into, for the tabs still here.
+    if (!tab_order().isEmpty()) {
+        tabs_->blockSignals(true);
+        int at = 0;
+        for (const QString& name : tab_order()) {
+            for (int i = at; i < tabs_->count(); ++i)
+                if (tabs_->tabText(i) == name) {
+                    tabs_->tabBar()->moveTab(i, at++);
+                    break;
+                }
+        }
+        for (int i = 0; i < tabs_->count(); ++i)
+            if (tabs_->tabText(i) == keep) select = i;
+            else if (tabs_->tabText(i) == focus_tab) focus_index = i;
+        if (select < 0) select = focus_index;
+        tabs_->blockSignals(false);
+    }
     tabs_->setCurrentIndex(select);
-    tabs_->blockSignals(false);
     // Nothing selected: the reference's own message in the panel.
     if (tabs_->count() == 0) {
         tabs_->hide();
