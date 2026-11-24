@@ -13,7 +13,7 @@ static const char* const kIconNames[] = {
     "first", "four", "frameAll", "frameSel", "graph", "grid", "group", "highlightSel", "history", "humanIK",
     "hypershade", "ik", "influenceLocked", "influenceUnlocked", "insertLoop", "isolate", "joint", "key", "keyMove",
     "keyRotate", "keyScale", "lasso", "last", "lastTool", "layer", "lightsAll", "locator", "lockSel", "loft",
-    "maskCurve", "maskDeformer", "maskHandle", "maskJoint", "maskMisc", "maskSurface", "merge", "mesh", "mirror", "moveDown", "moveUp", "newLayerEmpty", "newLayerSelected",
+    "maskCurve", "maskDeformer", "maskHandle", "maskJoint", "maskMisc", "layerNormal", "layerReference", "layerTemplate", "maskSurface", "merge", "mesh", "mirror", "moveDown", "moveUp", "newLayerEmpty", "newLayerSelected",
     "modelingToolkit", "mtkEdge", "mtkFace", "mtkObject", "mtkUV", "mtkVertex", "move", "multiCut", "new", "next", "nextKey", "nurbsCurve", "nurbsSurface", "object",
     "objectSet", "offsetCurve", "offsetLoop", "open", "options", "orientCon", "outlinerIcon", "paintSelect",
     "paintSkin", "parentCon", "pause", "perspOutliner", "pipe", "planarSurface", "plane", "play", "playBack", "pointCon",

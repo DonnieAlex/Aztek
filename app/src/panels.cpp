@@ -26,6 +26,7 @@
 #include <QMenu>
 #include <QMenuBar>
 #include <QPlainTextEdit>
+#include <QPainter>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QScrollBar>
@@ -1048,6 +1049,7 @@ void ChannelBox::refresh() {
         manip_button_->setIcon(icon(m == 0 ? "channelBoxNoManips" : m == 1 ? "channelBoxInvisibleManips" : "channelBoxManips"));
         static const char* speed_icons[] = {"channelBoxSlowest", "channelBoxSlow", "channelBoxMedium", "channelBoxFast"};
         speed_button_->setIcon(icon(speed_icons[qBound(0, cb_setting("speed", 2).toInt(), 3)]));
+        hyperbolic_button_->setIcon(icon("channelBoxHyperbolic"));
         const QSignalBlocker block(hyperbolic_button_);
         hyperbolic_button_->setChecked(cb_setting("hyperbolic", false).toBool());
     }
@@ -1292,6 +1294,7 @@ LayerEditor::LayerEditor(QWidget* parent) : Panel(parent) {
         Host::get()->poke();
     });
     connect(list_, &QTreeWidget::itemClicked, this, [this](QTreeWidgetItem* it, int col) {
+        if (list_->itemWidget(it, col)) return;
         QString layer = it->data(0, Qt::UserRole).toString();
         if (col == 0) {
             bool vis = it->data(0, Qt::UserRole + 1).toBool();
@@ -1352,31 +1355,88 @@ void LayerEditor::refresh() {
             return a["name"].toString().compare(b["name"].toString(), Qt::CaseInsensitive) < 0;
         });
     const bool namespaces = QSettings().value("displayLayer/namespace", true).toBool();
+    auto centered = [](QWidget* w) {
+        auto* box = new QWidget;
+        auto* h = new QHBoxLayout(box);
+        h->setContentsMargins(0, 0, 0, 0);
+        h->addWidget(w, 0, Qt::AlignCenter);
+        return box;
+    };
+    auto layer_colour = [](const QJsonObject& l) -> QColor {
+        if (l["useRgb"].toBool()) {
+            const QJsonArray c = l["rgb"].toArray();
+            if (c.size() >= 3) return QColor::fromRgbF(c[0].toDouble(), c[1].toDouble(), c[2].toDouble());
+        }
+        const int index = l["colorIndex"].toInt();
+        return index > 0 ? palette_color(index) : QColor();
+    };
     for (const QJsonObject& l : rows) {
         auto* it = new QTreeWidgetItem(list_);
-        bool vis = l["visible"].toBool();
-        bool play = l.contains("playback") ? l["playback"].toBool() : true;
-        int type = l["displayType"].toInt();
-        const QString name = namespaces ? l["name"].toString() : l["name"].toString().section(':', -1);
-        it->setText(0, vis ? "V" : "");
-        it->setText(1, play ? "P" : "");
-        it->setText(2, type == 1 ? "T" : type == 2 ? "R" : "");
+        const bool vis = l["visible"].toBool();
+        const bool play = l.contains("playback") ? l["playback"].toBool() : true;
+        const int type = l["displayType"].toInt();
+        const QString layer = l["name"].toString();
+        const QString name = namespaces ? layer : layer.section(':', -1);
         it->setText(4, name);
-        it->setData(0, Qt::UserRole, l["name"].toString());
+        it->setData(0, Qt::UserRole, layer);
         it->setData(0, Qt::UserRole + 1, vis);
         it->setData(1, Qt::UserRole, play);
         it->setData(2, Qt::UserRole, type);
         it->setData(4, Qt::UserRole, l["members"].toArray());
-        for (int c = 0; c < 3; ++c) it->setTextAlignment(c, Qt::AlignCenter);
-        if (l["color"].isArray()) {
-            QJsonArray c = l["color"].toArray();
-            it->setBackground(3, QColor::fromRgbF(c[0].toDouble(), c[1].toDouble(), c[2].toDouble()));
-        }
-        QJsonArray rgb = l["rgb"].toArray();
-        it->setData(3, Qt::UserRole, l["colorIndex"].toInt());
-        it->setData(3, Qt::UserRole + 1, l["useRgb"].toBool());
-        it->setData(3, Qt::UserRole + 2, QColor::fromRgbF(rgb[0].toDouble(), rgb[1].toDouble(), rgb[2].toDouble()));
-        it->setToolTip(3, "Layer color. Click to choose.");
+        it->setSizeHint(0, QSize(0, 24));
+        auto* vcheck = new QCheckBox;
+        vcheck->setChecked(vis);
+        vcheck->setToolTip("Visible");
+        connect(vcheck, &QCheckBox::toggled, this, [layer](bool on) {
+            exec("setAttr", args(QJsonArray{layer + ".visibility", on}));
+            Host::get()->poke();
+        });
+        list_->setItemWidget(it, 0, centered(vcheck));
+        auto* pcheck = new QCheckBox;
+        pcheck->setChecked(play);
+        pcheck->setToolTip("Visible on playback");
+        connect(pcheck, &QCheckBox::toggled, this, [layer](bool on) {
+            exec("setAttr", args(QJsonArray{layer + ".hideOnPlayback", !on}));
+            Host::get()->poke();
+        });
+        list_->setItemWidget(it, 1, centered(pcheck));
+        auto* type_button = new QToolButton;
+        type_button->setAutoRaise(true);
+        type_button->setFixedSize(20, 20);
+        type_button->setIconSize(QSize(16, 16));
+        type_button->setIcon(icon(type == 1 ? "layerTemplate" : type == 2 ? "layerReference" : "layerNormal"));
+        type_button->setToolTip(type == 1 ? "Template" : type == 2 ? "Reference" : "Normal");
+        connect(type_button, &QToolButton::clicked, this, [layer, type] {
+            exec("setAttr", args(QJsonArray{layer + ".displayType", (type + 1) % 3}));
+            Host::get()->poke();
+        });
+        list_->setItemWidget(it, 2, centered(type_button));
+        const bool use_rgb = l["useRgb"].toBool();
+        const int index = l["colorIndex"].toInt();
+        const QColor colour = layer_colour(l);
+        auto* colour_button = new QToolButton;
+        colour_button->setAutoRaise(true);
+        colour_button->setFixedSize(20, 20);
+        colour_button->setIconSize(QSize(14, 14));
+        QPixmap swatch(14, 14);
+        swatch.fill(Qt::transparent);
+        QPainter sp(&swatch);
+        if (colour.isValid()) sp.fillRect(QRectF(1, 1, 12, 12), colour);
+        sp.setPen(QPen(QColor(40, 40, 40), 1));
+        sp.drawRect(QRectF(1, 1, 12, 12));
+        if (!colour.isValid()) sp.drawLine(QPointF(2, 12), QPointF(12, 2));
+        sp.end();
+        colour_button->setIcon(QIcon(swatch));
+        colour_button->setToolTip("Layer color. Click to choose.");
+        connect(colour_button, &QToolButton::clicked, this, [this, layer, index, use_rgb, colour] {
+            ColorChoice c = choose_display_color(this, "Layer Color", index, use_rgb, colour);
+            if (!c.accepted) return;
+            exec("setAttr", args(QJsonArray{layer + ".overrideRGBColors", c.use_rgb}));
+            if (c.use_rgb) exec("setAttr", QJsonObject{{"args", QJsonArray{layer + ".overrideColorRGB", c.rgb.redF(), c.rgb.greenF(), c.rgb.blueF()}}, {"type", "double3"}});
+            else exec("setAttr", args(QJsonArray{layer + ".color", c.index}));
+            Host::get()->poke();
+        });
+        list_->setItemWidget(it, 3, centered(colour_button));
         it->setFlags((it->flags() | Qt::ItemIsDragEnabled) & ~Qt::ItemIsDropEnabled);
         it->setToolTip(4, QString("%1 members. Double-click to select them.").arg(l["members"].toArray().size()));
     }

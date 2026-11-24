@@ -540,6 +540,19 @@ QPixmap draw(const QString& name, int size) {
         } else {
             p.drawPolygon(QPolygonF({{22, 6}, {30, 12}, {22, 18}}));
         }
+    } else if (name == "layerNormal" || name == "layerTemplate" || name == "layerReference") {
+        // A display layer's type: a filled layer, or an outlined one marked T or R.
+        p.setBrush(name == "layerNormal" ? QColor(70, 110, 170) : Qt::NoBrush);
+        p.setPen(QPen(kInk, 1.3));
+        p.drawRect(QRectF(6, 8, 20, 16));
+        if (name != "layerNormal") {
+            QFont f = p.font();
+            f.setPixelSize(9);
+            f.setBold(true);
+            p.setFont(f);
+            p.setPen(kInk);
+            p.drawText(QRectF(6, 8, 20, 16), Qt::AlignCenter, name == "layerTemplate" ? "T" : "R");
+        }
     } else if (name == "moveUp" || name == "moveDown") {
         p.setBrush(kInk);
         p.setPen(Qt::NoPen);
