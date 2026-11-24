@@ -516,19 +516,28 @@ QPixmap draw(const QString& name, int size) {
         p.drawLine(QPointF(16, 13), QPointF(21, 7));
         p.drawLine(QPointF(21, 7), QPointF(27, 5));
         p.drawEllipse(QPointF(16, 13), 1.8, 1.8);
-    } else if (name == "animZeroKey" || name == "animZeroWeight" || name == "animFullWeight") {
-        // Animation layer weight keys: a key and its value.
-        QFont f = p.font();
-        f.setPixelSize(10);
-        f.setBold(true);
-        p.setFont(f);
-        p.setPen(kInk);
-        p.drawText(QRectF(0, 0, 20, 32), Qt::AlignCenter, name == "animFullWeight" ? "1" : "0");
-        pen_color(name == "animZeroKey" ? kRed : kGreen, 1.8);
-        p.drawEllipse(QRectF(18, 16, 7, 7));
-        p.drawLine(QPointF(25, 19.5), QPointF(30, 19.5));
-        p.drawLine(QPointF(29, 19.5), QPointF(29, 23));
-    } else if (name == "newLayerEmpty" || name == "newLayerSelected") {
+    } else if (name == "animZeroKey") {
+        // A key, for a zero key at the current frame.
+        p.setBrush(Qt::NoBrush);
+        pen_color(kInk, 1.8);
+        p.drawEllipse(QRectF(5, 8, 9, 9));
+        p.drawLine(QPointF(14, 12.5), QPointF(27, 12.5));
+        p.drawLine(QPointF(23, 12.5), QPointF(23, 18));
+        p.drawLine(QPointF(27, 12.5), QPointF(27, 17));
+    } else if (name == "animZeroWeight" || name == "animFullWeight") {
+        // A weight slider with its handle at 0 or 1, and a key beside it.
+        const bool full = name == "animFullWeight";
+        p.setPen(QPen(kInk, 1.6, Qt::SolidLine, Qt::RoundCap));
+        p.drawLine(QPointF(3, 18), QPointF(18, 18));
+        p.setBrush(kBlue);
+        p.setPen(QPen(QColor(35, 35, 35), 1.0));
+        p.drawRect(QRectF(full ? 14 : 3, 13, 5, 10));
+        pen_color(kGreen, 1.5);
+        p.setBrush(Qt::NoBrush);
+        p.drawEllipse(QRectF(19, 4, 6, 6));
+        p.drawLine(QPointF(25, 7), QPointF(30, 7));
+        p.drawLine(QPointF(28, 7), QPointF(28, 11));
+    } else if (name == "newLayerEmpty" || name == "newLayerSelected") {    } else if (name == "newLayerEmpty" || name == "newLayerSelected") {
         p.setBrush(QColor(70, 110, 170));
         p.setPen(QPen(kInk, 1.0));
         p.drawRect(QRectF(5, 10, 16, 13));
@@ -554,10 +563,13 @@ QPixmap draw(const QString& name, int size) {
             p.drawText(QRectF(6, 8, 20, 16), Qt::AlignCenter, name == "layerTemplate" ? "T" : "R");
         }
     } else if (name == "moveUp" || name == "moveDown") {
+        p.setBrush(QColor(70, 110, 170));
+        p.setPen(QPen(kInk, 1.0));
+        p.drawRect(QRectF(4, 13, 15, 12));
         p.setBrush(kInk);
         p.setPen(Qt::NoPen);
-        if (name == "moveUp") p.drawPolygon(QPolygonF({{16, 6}, {26, 19}, {6, 19}}));
-        else p.drawPolygon(QPolygonF({{16, 26}, {6, 13}, {26, 13}}));
+        if (name == "moveUp") p.drawPolygon(QPolygonF({{25, 4}, {31, 12}, {19, 12}}));
+        else p.drawPolygon(QPolygonF({{25, 26}, {19, 18}, {31, 18}}));
     } else if (name == "stop") {
         p.setBrush(kInk);
         p.setPen(Qt::NoPen);

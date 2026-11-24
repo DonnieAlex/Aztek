@@ -148,9 +148,10 @@ AnimLayerEditor::AnimLayerEditor(QWidget* parent) : Panel(parent) {
         exec("animLayer", on_layer(layer, flag("weight", 1.0)));
         key_weight(layer);
     });
-    bl->addSpacing(70);
+    bl->addSpacing(78);
     tool("moveUp", "Move selection up in list", [move_layer] { move_layer(-1); });
     tool("moveDown", "Move selection down in list", [move_layer] { move_layer(1); });
+    bl->addSpacing(3);
     tool("newLayerEmpty", "Create Empty Layer", [this] { create(false, false); });
     tool("newLayerSelected", "Create Layer from Selected", [this] { create(true, false); });
     bl->addStretch(1);
@@ -522,6 +523,7 @@ QWidget* AnimLayerEditor::make_row(const QJsonObject& l) {
     h->addWidget(dot);
     auto* label = new QLabel(name);
     label->setMinimumWidth(40);
+    if (l["selected"].toBool()) label->setStyleSheet("color: #ffffff;");
     QString mode = l["override"].toBool() ? (l["passthrough"].toBool() ? "Override, passthrough" : "Override") : "Additive";
     label->setToolTip(base ? "The base animation" : mode + QString(", %1 channels").arg(l["channels"].toInt()));
     h->addWidget(label, 1);
