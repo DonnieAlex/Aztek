@@ -527,6 +527,21 @@ fn node_attrs(g: &Graph, id: NodeId) -> Value {
             weights.push(json!({"name": t.name, "index": t.index, "plug": plug, "value": value}));
         }
     }
+    // A deformer's input geometry, for its Deformer Attributes table.
+    let mut geometry = String::new();
+    if matches!(n.ty().name.as_str(), "skinCluster" | "blendShape" | "cluster" | "sculpt" | "wrap" | "shrinkWrap" | "softMod" | "nonLinear" | "lattice") {
+        for (src, dst) in g.connections() {
+            if dst.node != id || src.node == id {
+                continue;
+            }
+            if let Some(sn) = g.node(src.node) {
+                if sn.ty().is_a("shape") || sn.ty().name == "mesh" {
+                    geometry = g.path(src.node);
+                    break;
+                }
+            }
+        }
+    }
     // The first node this one reads from and the first it feeds, for the two buttons beside its name.
     let mut input_node = String::new();
     let mut output_node = String::new();
@@ -546,7 +561,7 @@ fn node_attrs(g: &Graph, id: NodeId) -> Value {
         }
     }
     json!({"name": n.name(), "path": path, "type": n.ty().name, "doc": n.ty().doc, "attrs": attrs, "weights": weights,
-           "inputNode": input_node, "outputNode": output_node})
+           "inputNode": input_node, "outputNode": output_node, "geometry": geometry})
 }
 
 /// The attribute editor's tabs for a node: the transform, its shape, and the shape's history, as the reference shows them.

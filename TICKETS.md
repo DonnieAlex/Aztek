@@ -23,7 +23,9 @@ Requests waiting or in progress, newest detail kept. Move to Done with the date 
   Deformed Geometry, blendShape's in-betweens and target management, Load Selected Attributes, the Show filters and a
   tab's right-click menu are not built; a material's Type list and a light's Type list are present (a light's changes
   the shape), samples are drawn rather than rendered, and a light's disk-based depth map names and fog shadows are
-  greyed; NURBS curves have no component table in their history, and a surface's advanced tessellation controls are
+  greyed; the skin cluster's tab strip does not add the history and bind pose tabs the reference tabifies, and
+  blendShape in-betweens have no separate sliders (the reference's Weight frame lists the target weights only);
+  NURBS curves have no component table in their history, and a surface's advanced tessellation controls are
   greyed; a cluster handle's Origin sits in a Cluster Attributes frame where the reference leaves it unframed, and
   the sculpt's advanced sculpt maps are not built. Translate and Scale limits are not attributes on a transform; Attribute
   Names' Short mode shows the long names, as Aztek keeps no short ones.

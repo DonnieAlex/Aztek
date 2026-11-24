@@ -141,3 +141,8 @@ QWidget#aePage QSlider::groove:horizontal { background: #5a5a5a; height: 4px; bo
 QWidget#aePage QSlider::sub-page:horizontal { background: #5a5a5a; height: 4px; }
 QWidget#aePage QSlider::handle:horizontal { background: #c4c4c4; width: 7px; margin: -4px 0; border: 1px solid #1a1a1a; }
 QLabel#aeEmpty { color: #e0e0e0; font-size: 11px; background: @window; }
+QTableWidget#aeInputTable { background: #232323; gridline-color: #3a3a3a; color: #d8d8d8; font-size: 11px; border: 1px solid #1a1a1a; }
+QTableWidget#aeInputTable QHeaderView::section { background: #4a4a4a; color: #e2e2e2; border: 1px solid #2a2a2a; padding: 1px 4px; font-size: 11px; }
+QToolButton#aeManageGeometry { background: transparent; border: none; color: #d8d8d8; font-size: 11px; }
+QToolButton#aeManageGeometry:hover { color: #ffffff; }
+QToolButton#aeManageGeometry::menu-indicator { image: none; width: 0; }

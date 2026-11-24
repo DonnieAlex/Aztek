@@ -37,6 +37,8 @@
 #include <QWheelEvent>
 #include <QTabBar>
 #include <QTabWidget>
+#include <QTableWidget>
+#include <QHeaderView>
 #include <QToolButton>
 #include <QVBoxLayout>
 #include <cmath>
@@ -44,6 +46,40 @@
 namespace az {
 
 namespace {
+
+// A tab dragged out of the strip tears off into a window of its own, and tabs drag to reorder, as the reference's do.
+class AeTabBar : public QTabBar {
+public:
+    explicit AeTabBar(QWidget* parent = nullptr) : QTabBar(parent) {
+        setMovable(true);
+        setExpanding(false);
+    }
+    std::function<void(int)> tearOff;
+
+protected:
+    void mouseMoveEvent(QMouseEvent* e) override {
+        if ((e->buttons() & Qt::LeftButton) && !torn_ && (e->position().y() < -40 || e->position().y() > height() + 40)) {
+            torn_ = true;
+            if (tearOff) tearOff(currentIndex());
+            e->accept();
+            return;
+        }
+        QTabBar::mouseMoveEvent(e);
+    }
+    void mouseReleaseEvent(QMouseEvent* e) override {
+        torn_ = false;
+        QTabBar::mouseReleaseEvent(e);
+    }
+
+private:
+    bool torn_ = false;
+};
+
+class AeTabWidget : public QTabWidget {
+public:
+    explicit AeTabWidget(QWidget* parent = nullptr) : QTabWidget(parent) {}
+    void use_bar(QTabBar* bar) { setTabBar(bar); }
+};
 
 QJsonObject args(const QJsonArray& a) {
     QJsonObject o;
@@ -1051,7 +1087,7 @@ QList<AeBox> blend_boxes() {
     l << box("Blend Shape Attributes", {row("origin")}, 1);
     AeBox weights = box("Weight", {shown("supportNegativeWeights", "Support Negative Weights", "check")}, 1);
     l << weights;
-    AeBox deformer = box("Deformer Attributes", {row("envelope")});
+    AeBox deformer = box("Deformer Attributes", {row("envelope"), shown("", "", "manageGeometry"), shown("", "", "inputTable")});
     deformer.subs << box("GPU", {shown("blockGPU", "Block GPU", "check")});
     l << deformer;
     l << box("Node Behavior", {row("caching"), row("nodeState")});
@@ -1064,16 +1100,16 @@ QList<AeBox> skin_boxes() {
     QList<AeBox> l;
     AeBox skin = box("Smooth Skin Attributes",
                      {shown("skinningMethod", "Skinning Method", "combo", "Classic Linear|Dual Quaternion|Weight Blended"),
-                      shown("useComponents", "Use Components", "check"), shown("deformUserNormals", "Deform User Normals", "check"),
-                      shown("relativeSpaceMode", "Relative Space Mode", "combo"),
+                      shown("useComponents", "Use Components", "check"), shown("deformUserNormals", "Deform User Normals", "check", "1"),
+                      shown("relativeSpaceMode", "Relative Space Mode", "combo", "World|Object|Custom"),
                       shown("relativeSpaceMatrix", "Relative Space Matrix", "matrix"),
-                      shown("dqsSupportNonRigid", "Support Non-Rigid Transformations", "check"), shown("dqsScale", "Scale", "float"),
+                      shown("dqsSupportNonRigid", "Support Non-Rigid Transformations", "check"), shown("dqsScale", "Scale", "vec3"),
                       shown("", "", "separator"), shown("normalizeWeights", "Normalize Weights", "combo", "None|Interactive"),
-                      shown("weightDistribution", "Weight Distribution", "combo", "None|Distance|Interactive"), shown("maxInfluences", "Max Influences", "int"),
+                      shown("weightDistribution", "Weight Distribution", "combo", "Neighbors|Distance"), shown("maxInfluences", "Max Influences", "int"),
                       shown("maintainMaxInfluences", "Maintain Max Influences", "check")},
                      1);
     l << skin;
-    AeBox deformer = box("Deformer Attributes", {row("envelope")});
+    AeBox deformer = box("Deformer Attributes", {row("envelope"), shown("", "", "manageGeometry"), shown("", "", "inputTable")});
     deformer.subs << box("GPU", {shown("blockGPU", "Block GPU", "check")});
     l << deformer;
     l << box("Node Behavior", {row("caching"), row("nodeState")});
@@ -1100,7 +1136,7 @@ QList<AeBox> deformer_boxes(const QString& type) {
         l << box("Weighted Node", {shown("", "Use Weighted Node", "check"), shown("", "Weighted Node", "text")}, 0);
     } else if (type == "cluster") {
         l << box("Cluster Attributes", {row("relative"), shown("angleInterpolation", "Angle Interpolation", "combo", "None|Quaternion")}, 1);
-        l << box("Deformer Attributes", {row("envelope")});
+        l << box("Deformer Attributes", {row("envelope"), shown("", "", "manageGeometry"), shown("", "", "inputTable")});
     } else if (type == "lattice" || type == "baseLattice") {
         l << box("Lattice History", {row("sDivisions"), row("tDivisions"), row("uDivisions")}, 1);
     } else if (type == "sculpt") {
@@ -1109,9 +1145,9 @@ QList<AeBox> deformer_boxes(const QString& type) {
                   shown("maximumDisplacement", "Maximum Displacement", "slider", "0,10"), shown("dropoffType", "Dropoff Type", "combo", "Linear|Cubic"),
                   shown("dropoffDistance", "Dropoff Distance", "slider", "0,10")},
                  1);
-        l << box("Deformer Attributes", {row("envelope")});
+        l << box("Deformer Attributes", {row("envelope"), shown("", "", "manageGeometry"), shown("", "", "inputTable")});
     } else {
-        l << box("Deformer Attributes", {row("envelope")});
+        l << box("Deformer Attributes", {row("envelope"), shown("", "", "manageGeometry"), shown("", "", "inputTable")});
     }
     AeBox display = box("Object Display",
                         {shown("visibility", "Visibility", "check2"), shown("lodVisibility", "LOD Visibility", "check2"),
@@ -1519,6 +1555,83 @@ void style_ae_menu(QMenu* m) {
                      "QMenu::separator { height: 1px; background: #3d3d3d; margin: 3px 4px; }");
 }
 
+// The reference's gear on the Manage Deformed Geometry button.
+QIcon gear_icon() {
+    QPixmap px(14, 14);
+    px.fill(Qt::transparent);
+    QPainter p(&px);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    p.setPen(QPen(QColor(210, 210, 210), 1.2));
+    p.setBrush(Qt::NoBrush);
+    p.drawEllipse(QRectF(4.5, 4.5, 5, 5));
+    for (int i = 0; i < 8; ++i) {
+        p.save();
+        p.translate(7, 7);
+        p.rotate(i * 45);
+        p.drawLine(0, -6, 0, -4);
+        p.restore();
+    }
+    return QIcon(px);
+}
+
+QWidget* manage_geometry_button(QWidget* parent) {
+    auto* b = new QToolButton(parent);
+    b->setObjectName("aeManageGeometry");
+    b->setText("Manage Deformed Geometry");
+    b->setIcon(gear_icon());
+    b->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    b->setPopupMode(QToolButton::InstantPopup);
+    b->setFixedHeight(22);
+    auto* menu = new QMenu(b);
+    style_ae_menu(menu);
+    menu->addAction("Add Selected Geometry")->setEnabled(false);
+    menu->addAction("Remove Selected Geometry")->setEnabled(false);
+    b->setMenu(menu);
+    return b;
+}
+
+// The Deformer Attributes input table: one row per deformed shape, as the reference shows it.
+QWidget* input_table(const QString& geometry, QWidget* parent) {
+    auto* table = new QTableWidget(4, 4, parent);
+    table->setObjectName("aeInputTable");
+    table->setHorizontalHeaderLabels({"Index", "Component Tag", "Falloff", "Geometry"});
+    table->verticalHeader()->setVisible(false);
+    table->horizontalHeader()->setFixedHeight(20);
+    table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Fixed);
+    table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
+    table->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Stretch);
+    table->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Stretch);
+    table->setColumnWidth(0, 42);
+    table->setFixedHeight(110);
+    table->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    table->setSelectionMode(QAbstractItemView::NoSelection);
+    table->setFocusPolicy(Qt::NoFocus);
+    table->setShowGrid(true);
+    table->setContextMenuPolicy(Qt::CustomContextMenu);
+    for (int r = 0; r < table->rowCount(); ++r) table->setRowHeight(r, 18);
+    if (!geometry.isEmpty()) {
+        table->setItem(0, 0, new QTableWidgetItem("0"));
+        table->setItem(0, 1, new QTableWidgetItem("* (All Components)"));
+        auto* falloff = new QTableWidgetItem("Right-click to Add");
+        QFont italic = falloff->font();
+        italic.setItalic(true);
+        falloff->setFont(italic);
+        falloff->setForeground(QColor(150, 150, 150));
+        table->setItem(0, 2, falloff);
+        table->setItem(0, 3, new QTableWidgetItem(geometry.section('|', -1)));
+    }
+    QObject::connect(table, &QTableWidget::customContextMenuRequested, table, [table](const QPoint& at) {
+        QMenu menu;
+        style_ae_menu(&menu);
+        menu.addAction("Select Geometry")->setEnabled(false);
+        menu.addAction("Select Components")->setEnabled(false);
+        menu.addSeparator();
+        menu.addAction("Remove Input")->setEnabled(false);
+        menu.exec(table->mapToGlobal(at));
+    });
+    return table;
+}
+
 // A light's sample box, as the reference draws it above the light's own frames.
 QWidget* light_header(const QString& type, QWidget* parent) {
     static const QHash<QString, QString> icons{{"ambientLight", "ambientLight"}, {"directionalLight", "directionalLight"},
@@ -1731,6 +1844,7 @@ QWidget* ae_placeholder(const AeRow& r, const QJsonObject& a, QWidget* parent) {
     const QString kind = r.kind.isEmpty() ? "float" : r.kind;
     if (kind == "check") {
         auto* cb = new QCheckBox(parent);
+        cb->setChecked(r.fallback == "1");
         cb->setEnabled(false);
         return cb;
     }
@@ -2298,6 +2412,21 @@ void ae_render_rows(QVBoxLayout* v, QWidget* parent, const QList<AeRow>& rows, c
                 a["max"] = bounds.at(1).toDouble();
             }
         }
+        if (r.kind == "manageGeometry" || r.kind == "inputTable") {
+            auto* rw = new QWidget(parent);
+            auto* h = new QHBoxLayout(rw);
+            h->setContentsMargins(2, 2, 12, 2);
+            h->setSpacing(4);
+            if (r.kind == "manageGeometry") {
+                h->addStretch(1);
+                h->addWidget(manage_geometry_button(rw));
+                h->addStretch(1);
+            } else {
+                h->addWidget(input_table(by.value("__geometry")["value"].toString(), rw));
+            }
+            v->addWidget(rw);
+            continue;
+        }
         if (r.kind == "lightType") {
             auto* rw = new QWidget(parent);
             auto* h = new QHBoxLayout(rw);
@@ -2745,10 +2874,25 @@ AttributeEditor::AttributeEditor(QWidget* parent, const QString& pinned) : Panel
     barLay->addWidget(pin);
     lay->addWidget(bar);
 
-    tabs_ = new QTabWidget(this);
+    auto* tabWidget = new AeTabWidget(this);
+    tabs_ = tabWidget;
     tabs_->setObjectName("aeTabs");
     tabs_->setDocumentMode(false);
     tabs_->setUsesScrollButtons(true);
+    auto* tabBar = new AeTabBar(tabs_);
+    tabWidget->use_bar(tabBar);
+    tabs_->setMovable(true);
+    tabBar->tearOff = [this](int index) {
+        QWidget* w = index >= 0 ? tabs_->widget(index) : nullptr;
+        if (!w) return;
+        auto* win = new AttributeEditor(main_window_widget(), w->property("nodePath").toString());
+        win->setAttribute(Qt::WA_DeleteOnClose);
+        win->setWindowFlags(editor_window_flags());
+        win->setWindowTitle(tabs_->tabText(index));
+        win->resize(480, 700);
+        win->move(QCursor::pos() - QPoint(240, 40));
+        win->show();
+    };
     lay->addWidget(tabs_, 1);
     empty_ = new QLabel("Select an object in the scene to view and edit its attributes", this);
     empty_->setObjectName("aeEmpty");
@@ -2851,6 +2995,12 @@ void AttributeEditor::refresh() {
             if (a["attr"].toString() == "notes") notes = a["value"];
         }
         QString notes_plug = path + ".notes";
+        if (t.contains("geometry")) {
+            QJsonObject g;
+            g["attr"] = "__geometry";
+            g["value"] = t["geometry"];
+            by.insert("__geometry", g);
+        }
         static const QSet<QString> light_node_types{"ambientLight", "directionalLight", "pointLight", "spotLight", "areaLight", "volumeLight"};
         if (light_node_types.contains(node_type)) {
             static const QStringList order{"ambientLight", "directionalLight", "pointLight", "spotLight", "areaLight", "volumeLight"};

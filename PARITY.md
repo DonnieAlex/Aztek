@@ -4238,7 +4238,8 @@ Projected Center sets snapMode -meshCenter while the viewport does not use that 
 
 ![The Attribute Editor](docs/attribute-editor.png)
 
-The Attribute Editor is rebuilt on the reference's own chrome: the menu bar with List, Selected, Focus, Attributes,
+Tabs drag to reorder, and a tab dragged out of the strip tears off into a window of its own. The Attribute Editor is
+rebuilt on the reference's own chrome: the menu bar with List, Selected, Focus, Attributes,
 Display, Show and Help and the pin at its right; the outlined tab strip with its scroll arrows; and the name row with
 the node type right-aligned, an empty name field, the input and output connection buttons, and Focus, Presets, Show
 and Hide stacked at the right; the connection arrows are live when the node reads from or feeds another. With
@@ -4269,6 +4270,8 @@ Environment, Special Effects and Display Options. A joint adds Joint (Draw Style
 Preferred Angle, Joint Orient, Segment Scale Compensate) and Joint Labelling, and drops Pivots as its template does.
 skinCluster lays out Smooth Skin Attributes and Deformer Attributes with GPU; blendShape lays out Blend Shape
 Attributes and Weight, whose sliders are named after the blend shape's targets and read and write their weight plugs.
+Both Deformer Attributes frames carry the reference's Manage Deformed Geometry button and its input table (Index,
+Component Tag, Falloff, Geometry), filled with the deformed shape.
 A material is headed by the reference's sample sphere and its Type list, then its own frames: the OpenPBR surface has
 Base, Specular, Transmission, Subsurface, Fuzz, Coat, Thin Film, Emission, Geometry and Hardware Shading as
 AEopenPBRSurfaceTemplate orders them. Deformers follow their templates: a cluster handle has its Origin and Weighted Node, a cluster its Cluster Attributes
