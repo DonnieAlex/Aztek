@@ -92,6 +92,8 @@ private:
     // Menus.
     void build_menus();
     void build_menu_set(const QString& set);
+    QStringList menu_set_names() const;
+    void set_menu_set(const QString& set);
     QMenu* file_menu();
     QMenu* edit_menu();
     QMenu* create_menu();
@@ -178,6 +180,7 @@ private:
     QString panels_synced_;
     // statusline.cpp.
     void input_entered(const QString& text);
+    void numeric_input_entered();
     void sync_status_line();
     // appmenus.cpp: helpers the menus and hotkeys share.
     void toggle_main_pane();
@@ -270,7 +273,8 @@ private:
     QLabel* help_line_ = nullptr;
     ToolSettings* tool_settings_ = nullptr;
     QDockWidget* tool_dock_ = nullptr;
-    QComboBox* menu_set_ = nullptr;
+    QString menu_set_ = "Modeling";
+    QToolButton* menu_set_button_ = nullptr;
     QList<QMenu*> set_menus_;
     QList<QMenu*> hotbox_menus_;
     QHash<QString, QAction*> mode_buttons_;
@@ -278,14 +282,23 @@ private:
     QHash<QString, QAction*> scope_buttons_;
     void sync_object_masks();
     QList<QAction*> object_masks_;
+    QList<QAction*> component_masks_;
+    // The three mask sets the selection mode swaps between, as the reference's selectMaskForm does.
+    QWidget *hierarchy_masks_ = nullptr, *object_masks_widget_ = nullptr, *component_masks_widget_ = nullptr;
     QSet<QString> snap_on_;
+    QList<QAction*> snap_actions_;
     QString snap_held_;
-    QComboBox* symmetry_ = nullptr;
-    QComboBox* input_mode_ = nullptr;
-    QLineEdit* input_field_ = nullptr;
-    QAction* soft_button_ = nullptr;
+    QLineEdit* symmetry_text_ = nullptr;
+    QString input_mode_ = "Select";
+    QToolButton* input_mode_button_ = nullptr;
+    QLineEdit *input_field_ = nullptr, *num_x_ = nullptr, *num_y_ = nullptr, *num_z_ = nullptr;
     QAction* home_button_ = nullptr;
     QAction* live_button_ = nullptr;
+    QAction* lock_action_ = nullptr;
+    QLineEdit* live_text_ = nullptr;
+    // The far right's editor toggles, in the reference's order.
+    QAction *mtk_button_ = nullptr, *hik_button_ = nullptr, *ae_button_ = nullptr, *tool_settings_button_ = nullptr,
+            *channel_box_button_ = nullptr, *layer_editor_button_ = nullptr;
     ShelfBar* shelf_bar_ = nullptr;
     QHash<QString, RuntimeCommand> runtime_;
     QList<HotkeyBinding> hotkeys_;

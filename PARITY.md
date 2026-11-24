@@ -4177,3 +4177,25 @@ plug-ins Aztek ships:
 - `progressWindow` answers false while one is showing, as the reference's, rather than failing.
 Not done: a plug-in locator under the transform it drives (mGear's weightDriver under its driven node) is read as a
 cycle and its outputs are left unconnected; ikSpringSolver.
+
+### The status line to the reference's own definition (23/11/2026)
+
+![The status line](docs/status-line.png)
+
+The bar under the main menu is rebuilt to the reference's status line: the 100 pixel menu set menu (Modeling, Rigging,
+Animation, FX, Rendering and a Customize entry), the New, Open, Save, Undo and Redo icons, the hierarchy, object and
+component scopes, the hierarchy, object and component masks in the reference's order and with its tooltips, Lock and
+Highlight Selection, the five snapping icons (including Snap to Projected Center), Make Live with its menu and live
+object's name, the symmetry arrow and its text field, Inputs, Outputs and Construction History, Render View, Render,
+IPR, Render Settings, Hypershade, Render Setup, Light Editor and the viewport pause, and the quick input button with
+its four modes and the text and X, Y, Z fields. Each group folds behind the 9 pixel handle before it, the separators
+are the reference's 5 pixels, buttons are 22 pixels with 20 pixel icons, and the bar is 23 pixels high. The editor
+toggles at the far right are the reference's five, with the separate Layer Editor button hidden while the Channel Box
+and Layer Editor share a dock.
+The mode menu's text is Absolute transform, Relative transform, Rename or Select by name; Select by name takes
+wildcards, Rename renames the selection, and the numeric fields move, rotate or scale by the current tool.
+Not done: the Customize entry has no menu set editor behind it and is greyed; Render Setup, Light Editor and the
+viewport pause have no feature in Aztek yet and are greyed; the right-click pick-mask menus offer All On, All Off and
+each mask, where the reference divides the object and component masks into their long category lists. The hierarchy
+Leaf and Template buttons set the modes selectMode accepts for scripts, but selection stays at the roots, and Snap to
+Projected Center sets snapMode -meshCenter while the viewport does not use that snap yet.
