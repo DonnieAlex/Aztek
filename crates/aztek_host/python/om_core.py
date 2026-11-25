@@ -2444,6 +2444,8 @@ class MPlug:
         o = MObject()
         o._kind = "data"
         o._data = v
+        # Where the value came from, for geometry data asked about its components.
+        o._source = self.name()
         if i["type"] == "matrix":
             o._fn = MFn.kMatrixData
             o._data = MMatrix(v)

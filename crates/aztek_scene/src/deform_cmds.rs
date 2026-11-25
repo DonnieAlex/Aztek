@@ -141,6 +141,21 @@ fn deformer_cmd(s: &mut Session, a: &Args) -> CmdResult {
     if a.bool("query") {
         let Some(name) = a.named().into_iter().next() else { fail!("deformer: name a deformer to query") };
         let g = &s.graph;
+        // A skinCluster is a deformer too: its one shape.
+        if let Ok(id) = crate::rig::find(g, &name, "deformer") {
+            if g.node(id).is_some_and(|x| x.ty().name == crate::skin::SKIN_TYPE) {
+                let shapes: Vec<String> = crate::skin::skin_geometry(g, id).map(|m| g.path(m)).into_iter().collect();
+                if asked(a, "geometryIndices") {
+                    return Ok(json!((0..shapes.len()).collect::<Vec<_>>()));
+                }
+                if asked(a, "geometry") {
+                    return Ok(json!(shapes));
+                }
+                if asked(a, "envelope") {
+                    return Ok(json!(g.node(id).and_then(|x| x.ty().attr_index("envelope")).map(|i| g.node(id).unwrap().data().float(i)).unwrap_or(1.0)));
+                }
+            }
+        }
         let n = deformer_named(g, &name, "deformer")?;
         let tools: Vec<NodeId> = g.source(&plug(n, deform::HANDLE)).map(|p| p.node).into_iter().collect();
         if let Some(v) = crate::deform_common::query(&mut s.graph, n, a, &tools) {

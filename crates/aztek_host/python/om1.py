@@ -494,6 +494,7 @@ MFloatVectorArray = _v1(_om2.MFloatVectorArray, dict(_array_body(), _item=static
 MMatrixArray = _v1(_om2.MMatrixArray, dict(_array_body(), _item=staticmethod(lambda x: MMatrix(x)), _blank=staticmethod(MMatrix)))
 MColorArray = _v1(_om2.MColorArray, dict(_array_body(), _item=staticmethod(lambda x: MColor(x)), _blank=staticmethod(MColor)))
 MAngle = _v1(_om2.MAngle)
+MFnGeometryData = _v1(_om2.MFnGeometryData)
 MDistance = _v1(_om2.MDistance)
 MTime = _v1(_om2.MTime)
 MTimeArray = _v1(_om2.MTimeArray, dict(_array_body(), _item=staticmethod(lambda x: MTime(x)), _blank=staticmethod(MTime)))

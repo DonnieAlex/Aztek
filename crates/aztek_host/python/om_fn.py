@@ -2100,6 +2100,56 @@ def _mesh_value_object(key):
     return o
 
 
+class MFnGeometryData(MFnBase):
+    """Geometry as a value: its component tags, resolved to components."""
+
+    def __init__(self, obj=None):
+        self._obj = obj if obj is not None else MObject()
+
+    def _node(self):
+        src = getattr(self._obj, "_source", None) or ""
+        return src.partition(".")[0]
+
+    def resolveComponentTagExpression(self, expression, componentType=None):
+        node = self._node()
+        if not node:
+            _fail(message="no geometry to resolve components on")
+        expr = (expression or "*").strip()
+        n = _cmds.polyEvaluate(node, vertex=True)
+        if expr in ("*", ""):
+            ids = list(range(int(n)))
+        else:
+            # A named tag: the points it holds.
+            got = _cmds.geometryAttrInfo(node + "." + expr, components=True) if hasattr(_cmds, "geometryAttrInfo") else []
+            ids = []
+            for c in got or []:
+                inner = c.rpartition("[")[2].rstrip("]")
+                if ":" in inner:
+                    a, b = inner.split(":")
+                    ids.extend(range(int(a), int(b) + 1))
+                elif inner == "*":
+                    ids.extend(range(int(n)))
+                elif inner:
+                    ids.append(int(inner))
+        fn = MFnSingleIndexedComponent()
+        comp = fn.create(MFn.kMeshVertComponent)
+        if expr in ("*", ""):
+            fn.setCompleteData(int(n))
+        else:
+            fn.addElements(ids)
+        return comp
+
+    def hasComponentTag(self, key):
+        return key in (self.componentTags() or [])
+
+    def componentTags(self):
+        node = self._node()
+        try:
+            return _cmds.geometryAttrInfo(node + ".outMesh", componentTagNames=True) or []
+        except Exception:
+            return []
+
+
 class MFnMeshData(MFnBase):
     def create(self):
         o = MObject()
