@@ -763,12 +763,13 @@ void fill_edit_menu(QMenu* m, const QString& node, std::function<void()> refresh
     m->addAction("Delete Node", [node] { exec("delete", QJsonObject{{"args", QJsonArray{node}}}); })->setEnabled(have);
     m->addAction("Delete History", [node] { exec("delete", QJsonObject{{"args", QJsonArray{node}}, {"constructionHistory", true}}); })->setEnabled(have);
     QMenu* settings = m->addMenu("Settings");
-    auto radio = [settings, refresh](const QString& key, int fallback, const QStringList& labels) {
+    auto radio = [settings, refresh](const QString& key, int fallback, const QStringList& labels, bool enabled = true) {
         auto* group = new QActionGroup(settings);
         for (int i = 0; i < labels.size(); ++i) {
             QAction* a = settings->addAction(labels[i]);
             a->setCheckable(true);
             a->setChecked(cb_setting(key, fallback).toInt() == i);
+            a->setEnabled(enabled);
             group->addAction(a);
             QObject::connect(a, &QAction::triggered, [key, i, refresh] {
                 cb_store(key, i);
@@ -788,7 +789,9 @@ void fill_edit_menu(QMenu* m, const QString& node, std::function<void()> refresh
         });
     }
     settings->addSeparator();
-    radio("manipulators", 2, {"No Manipulators", "Invisible Manipulators", "Standard Manipulators"});
+    // The reference shows the manipulator of the channel selected in the Channel Box. Aztek has no per-attribute
+    // manipulators yet, so the switch is greyed until they exist (#310).
+    radio("manipulators", 2, {"No Manipulators", "Invisible Manipulators", "Standard Manipulators"}, false);
     settings->addSeparator();
     settings->addAction("Change Precision...", [refresh] {
         bool ok = false;
@@ -840,6 +843,8 @@ ChannelBox::ChannelBox(QWidget* parent, const QString& name) : Panel(parent), na
         return b;
     };
     manip_button_ = top_button("cbManipsButton", "Switch between using standard manipulators, no manipulators, or invisible manipulators when attributes are selected in the Channel Box");
+    // Nothing yet answers this switch: the reference draws the selected channel's own manipulator, and Aztek has none.
+    manip_button_->setEnabled(false);
     speed_button_ = top_button("cbSpeedButton", "Switch between slowest / slow / medium / fast channel slider setting\nHold Ctrl, Ctrl+Shift or Shift while dragging to further slow down or speed up the current drag speed setting");
     hyperbolic_button_ = top_button("cbHyperbolicButton", "Switch between linear and hyperbolic channel slider setting");
     hyperbolic_button_->setCheckable(true);

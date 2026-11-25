@@ -4235,7 +4235,9 @@ Not done: the Show menu's Selected Type(s), Select Attributes, Create Entry and 
 attribute filters are the four above rather than the reference's dynamic filter list. `Add New Objects to Current
 Layer`, `Auto Overrides`, the Anim Export Layer/Branch, Membership, Template Curves of Locked Layers, Buttons on Right,
 the ghost modes and Package into Assets are greyed because the feature is not in Aztek. The Display layer list has no
-current-layer marker or membership count, and a channel's label and value widths are not draggable.
+current-layer marker or membership count, and a channel's label and value widths are not draggable. The
+manipulator switch above the channels is greyed: the reference draws the manipulator of the channel selected in the
+Channel Box, and Aztek has no per-attribute manipulators yet (#310).
 
 ### The status line to the reference's own definition (23/11/2026)
 
