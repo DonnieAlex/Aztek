@@ -182,6 +182,7 @@ protected:
 private:
     QTabWidget* tabs_;
     QLabel* empty_ = nullptr;
+    // The tab on show and the node the selection last focused, by UUID (or path): a rename keeps both.
     QString current_tab_;
     QString last_focus_;
     QString pinned_;
