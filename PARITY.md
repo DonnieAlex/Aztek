@@ -4417,3 +4417,8 @@ of field, ambient occlusion, contact shadows and bounce light no longer blur, da
 keeps its HUD and gates on top of its screen effects. They are still anti-aliased: the overlay pass draws at the
 view's sample count and resolves like the scene. Manipulators, handles and the grid are part of the scene and are
 treated as before.
+
+### What changed (25/11/2026, #280)
+
+A Move drag with Snap to Curve enabled follows the nearest point on the curve even when the cursor moves farther
+than 40 pixels away. This applies to the C shortcut and the Snap to Curves toggle.
