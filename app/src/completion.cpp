@@ -995,6 +995,8 @@ bool ScriptCompletion::key_press(QKeyEvent* e, QPlainTextEdit* editor) {
         return true;
     case Qt::Key_Return:
     case Qt::Key_Enter:
+        // Ctrl+Enter runs the tab and the keypad Enter runs and clears it; neither is an acceptance.
+        if (e->modifiers() & (Qt::ControlModifier | Qt::AltModifier | Qt::ShiftModifier | Qt::KeypadModifier)) return false;
         accept();
         return true;
     case Qt::Key_Tab:

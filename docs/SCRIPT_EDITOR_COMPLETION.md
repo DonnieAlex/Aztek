@@ -42,7 +42,8 @@ entry keeps its fit, after enabled entries of the same fit and before a worse fi
 
 - Up and Down move the selection by one row, without wrapping.
 - Page Up and Page Down move by a page.
-- Enter or Tab accepts the selection; Tab indents as usual when no popup is up.
+- Enter or Tab accepts the selection. Ctrl+Enter still runs the tab, the keypad Enter still runs and clears it, and Tab
+  indents as usual when no popup is up.
 - Escape dismisses the popup and nothing else.
 - Moving the caret with the keyboard re-evaluates the context; clicking in the text dismisses the popup.
 - Hovering a row selects it; a click accepts it.

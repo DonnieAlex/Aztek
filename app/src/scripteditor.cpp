@@ -1363,6 +1363,7 @@ bool ScriptEditor::eventFilter(QObject* o, QEvent* ev) {
             return true;
         }
         if (k->key() == Qt::Key_Enter && (k->modifiers() & Qt::KeypadModifier)) {
+            if (completion_) completion_->dismiss();
             run(true);
             return true;
         }
