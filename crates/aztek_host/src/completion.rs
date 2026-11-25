@@ -6,6 +6,20 @@ use serde_json::{json, Value};
 
 use crate::core::Core;
 
+/// The commands MEL has and maya.cmds deliberately leaves out, as bootstrap.py's `_MEL_ONLY` says. The editor greys
+/// them in the maya.cmds list rather than hiding them.
+pub const MEL_ONLY: &[&str] = &[
+    "isParentOf",
+    "lsType",
+    "listTransforms",
+    "findRelatedDeformer",
+    "getChain",
+    "getAllChains",
+    "gotoBindPose",
+    "setConstraintRestPosition",
+    "moveIKtoFK",
+];
+
 fn arg_type(t: aztek_ops::ArgType) -> &'static str {
     match t {
         aztek_ops::ArgType::Bool => "bool",
@@ -91,5 +105,6 @@ pub fn core_index(core: &Core) -> Value {
         "commands": commands(core),
         "procedures": procs,
         "builtins": builtins,
+        "melOnly": MEL_ONLY,
     })
 }

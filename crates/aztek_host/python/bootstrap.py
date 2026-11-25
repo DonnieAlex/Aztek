@@ -879,7 +879,6 @@ def _aztek_completion_modules():
             "doc": _aztek_completion_doc(mod) if mod is not None else "",
             "children": sorted(kids),
         }
-    out["melOnly"] = sorted(_MEL_ONLY)
     return json.dumps(out)
 
 

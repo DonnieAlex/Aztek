@@ -280,10 +280,10 @@ void ScriptCompletion::ensure_index() {
         builtins_ << o.value("name").toString();
     }
     builtins_.sort(Qt::CaseInsensitive);
+    for (const QJsonValue& mv : v.value("melOnly").toArray()) mel_only_.insert(mv.toString());
 }
 
 void ScriptCompletion::load_python(const QJsonObject& py) {
-    for (const QJsonValue& v : py.value("melOnly").toArray()) mel_only_.insert(v.toString());
     const QJsonObject modules = py.value("modules").toObject();
     for (auto it = modules.constBegin(); it != modules.constEnd(); ++it) {
         const QJsonObject o = it.value().toObject();
