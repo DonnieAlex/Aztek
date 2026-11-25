@@ -193,6 +193,12 @@ pub fn find_camera(g: &Graph, name: Option<&str>) -> Option<NodeId> {
     cams.iter().copied().find(|&c| renderable(c) && !crate::cameras::is_startup(g, c)).or_else(|| cams.iter().copied().find(|&c| renderable(c))).or_else(|| g.find("perspShape").ok().flatten())
 }
 
+/// A camera's lens as Harold renders through it: its radius in scene units and the distance in focus, or None without
+/// depth of field. The viewport's depth of field reads this so the two agree.
+pub fn camera_lens(g: &mut Graph, shape: NodeId) -> Option<(f32, f32)> {
+    camera_at(g, shape).lens()
+}
+
 fn camera_at(g: &mut Graph, shape: NodeId) -> aztek_render::camera::Camera {
     use aztek_render::camera::{Camera, FilmFit};
     let world = g.node(shape).map(|n| n.data().matrix(DagNode::WORLD_MATRIX)).unwrap_or_default();

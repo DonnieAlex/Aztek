@@ -535,6 +535,8 @@ void ModelPanel::build_menus() {
         v->set("disp", QString("{\"ambientOcclusion\":%1}").arg(on ? "true" : "false"));
         QSettings().setValue("viewport/ambientOcclusion", on);
     });
+    // The camera's depth of field, as Harold renders it; off until turned on, and only where the camera has it.
+    bar_flag("depthOfField", "Depth of Field", "depthOfField");
     // Anti-aliasing, as the reference's toolbar has it: on at the count last chosen, or off.
     QAction* aa_button = bar_->addAction(icon("antiAlias"), "Multisample Anti-aliasing");
     aa_button->setCheckable(true);

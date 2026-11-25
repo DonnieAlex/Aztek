@@ -215,6 +215,24 @@ bool draw_more(const QString& name, QPainter& p) {
         p.drawLine(QPointF(26, 5), QPointF(26.2, 9.4));
         return true;
     }
+    if (name == "depthOfField") {
+        // Three posts going away, the middle one in focus and the near and far ones soft: depth of field.
+        p.setPen(Qt::NoPen);
+        auto soft = [&p](QPointF at, double r) {
+            QRadialGradient g(at, r);
+            g.setColorAt(0, QColor(kYellow.red(), kYellow.green(), kYellow.blue(), 230));
+            g.setColorAt(0.45, QColor(kYellow.red(), kYellow.green(), kYellow.blue(), 150));
+            g.setColorAt(1, QColor(kYellow.red(), kYellow.green(), kYellow.blue(), 0));
+            p.setBrush(g);
+            p.drawEllipse(at, r, r);
+        };
+        soft(QPointF(25, 8), 5.5);
+        soft(QPointF(8, 23), 8);
+        p.setPen(QPen(QColor(40, 40, 40), 1.0));
+        p.setBrush(kYellow);
+        p.drawRect(QRectF(13.5, 9, 5, 13));
+        return true;
+    }
     if (name == "shadows") {
         p.setPen(Qt::NoPen);
         p.setBrush(QColor(40, 40, 40, 200));

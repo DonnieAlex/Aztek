@@ -105,6 +105,16 @@ impl Camera {
         lerp_mat(&self.xforms[a], &self.xforms[b], f)
     }
 
+    /// The lens's radius in scene units and the distance in focus, with depth of field on; None for a pinhole.
+    /// Orthographic cameras have no depth of field.
+    pub fn lens(&self) -> Option<(f32, f32)> {
+        if !self.dof || self.orthographic || self.f_stop <= 0.0 || self.focus_distance <= 0.0 {
+            return None;
+        }
+        // Aperture diameter = focal length / f-stop, in mm, into scene units.
+        Some((0.5 * self.focal_mm / self.f_stop * 0.1 * self.units_per_cm, self.focus_distance))
+    }
+
     /// A ray through a point of the image in [0,1]^2 from the top left, with a lens sample and a shutter time.
     pub fn ray(&self, ndc: Vec2, aspect: f32, lens: Vec2, time: f32) -> Ray {
         let m = self.xform_at(time);
@@ -119,11 +129,9 @@ impl Camera {
         // Film offset in inches, relative to the film's half width.
         let off = self.film_offset * 25.4 / self.focal_mm;
         let dir = Vec3::new(sx * win.x + off.x, sy * win.y + off.y, -1.0);
-        if self.dof && self.f_stop > 0.0 && self.focus_distance > 0.0 {
-            // Aperture diameter = focal length / f-stop, in mm, into scene units.
-            let radius = 0.5 * self.focal_mm / self.f_stop * 0.1 * self.units_per_cm;
+        if let Some((radius, focus_distance)) = self.lens() {
             let d = concentric_disk(lens) * radius;
-            let focus = dir * self.focus_distance;
+            let focus = dir * focus_distance;
             let o = Vec3::new(d.x, d.y, 0.0);
             let nd = (focus - o).normalize();
             return Ray::new(m.transform_point3(o), m.transform_vector3(nd).normalize(), time);
