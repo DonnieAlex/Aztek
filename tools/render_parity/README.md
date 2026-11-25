@@ -73,6 +73,10 @@ build/Aztek/AppRun --batch --script examples/tools/make_rendering_parity.py
 ## Known gaps
 
 - A reflection of something the view does not show anywhere falls back to the sky; the Render View sees it.
+- The reflection image is low-passed and copied down a mip chain; the gather samples a level from the roughness, so a
+  speckle is spread rather than shown. The planar and screen-space tiers share one brightness and the same filtered
+  copy, and their weights sum to one.
+- The viewport's planar reflection of a standing sphere is smaller and sharper than the Render View's soft full one.
 - Only the widest flat mesh at the world's ground is mirrored. Sloped or raised reflecting planes use the
   screen-space march.
 - Aztek's standard surface has no transmission depth. The distance the refraction lookup travels stands in for it, and

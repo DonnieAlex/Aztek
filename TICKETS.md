@@ -22,7 +22,11 @@ Requests waiting or in progress, newest detail kept. Move to Done with the date 
   transmission depth (the lookup distance stands in, and the glass is bent as a lens rather than traced through its
   back faces); the sky dome is not drawn as the viewport's background; the viewport frames about 12% tighter than the
   Render View at the same focal length; and Harold reflects one large single-face floor onto itself, so the parity
-  floors are subdivided. The suite and its capture steps are in `tools/render_parity/README.md`.
+  floors are subdivided. The suite and its capture steps are in `tools/render_parity/README.md`. 25/11/2026: the
+  reflection gather is a low-passed mip chain with a fixed disc and outlier clamp, and the planar and screen-space
+  tiers share a brightness and blur with weights that sum to one; the viewport's planar reflection is still smaller
+  and sharper than the render's, the sky is still not drawn as the background, and a point light close to a large
+  floor can leave a cube shadow seam.
 - Script Editor completion (25/11/2026): the feature is in (PARITY.md, docs/SCRIPT_EDITOR_COMPLETION.md). Left: object
   path completion; a Quick Help side bar; completion across a multi-line expression; type inference for an arbitrary
   expression before a dot; docstrings for the Python API's members, which the embedded modules do not carry;

@@ -281,6 +281,15 @@ pub struct Gpu {
     pub refl_view: vk::ImageView,
     pub refl_alloc: Option<Allocation>,
     pub refl_framebuffer: vk::Framebuffer,
+    /// The reflection image low-passed over a few pixels, so one bright texel does not speckle a reflection (#302).
+    pub refl_soft_image: vk::Image,
+    pub refl_soft_view: vk::ImageView,
+    pub refl_soft_alloc: Option<Allocation>,
+    pub refl_soft_framebuffer: vk::Framebuffer,
+    /// A mip chain of the reflection image: each level a filtered copy, so a gather at any roughness is smooth (#302).
+    pub refl_chain_image: vk::Image,
+    pub refl_chain_view: vk::ImageView,
+    pub refl_chain_alloc: Option<Allocation>,
     /// The scene drawn mirrored about the ground plane, for the floor's reflection (#302).
     pub planar_pass: vk::RenderPass,
     pub planar_image: vk::Image,
@@ -437,6 +446,13 @@ impl Gpu {
             refl_view: vk::ImageView::null(),
             refl_alloc: None,
             refl_framebuffer: vk::Framebuffer::null(),
+            refl_soft_image: vk::Image::null(),
+            refl_soft_view: vk::ImageView::null(),
+            refl_soft_alloc: None,
+            refl_soft_framebuffer: vk::Framebuffer::null(),
+            refl_chain_image: vk::Image::null(),
+            refl_chain_view: vk::ImageView::null(),
+            refl_chain_alloc: None,
             planar_pass,
             planar_image: vk::Image::null(),
             planar_view: vk::ImageView::null(),
@@ -507,12 +523,24 @@ impl Gpu {
             if self.refl_framebuffer != vk::Framebuffer::null() {
                 self.device.destroy_framebuffer(self.refl_framebuffer, None);
                 self.refl_framebuffer = vk::Framebuffer::null();
-                self.device.destroy_image_view(self.refl_view, None);
-                self.device.destroy_image(self.refl_image, None);
-                if let Some(a) = self.refl_alloc.take() {
-                    let _ = self.shared.allocator.lock().unwrap().free(a);
+            }
+            if self.refl_soft_framebuffer != vk::Framebuffer::null() {
+                self.device.destroy_framebuffer(self.refl_soft_framebuffer, None);
+                self.refl_soft_framebuffer = vk::Framebuffer::null();
+            }
+            for (view, image, alloc) in [
+                (&mut self.refl_view, self.refl_image, &mut self.refl_alloc),
+                (&mut self.refl_soft_view, self.refl_soft_image, &mut self.refl_soft_alloc),
+                (&mut self.refl_chain_view, self.refl_chain_image, &mut self.refl_chain_alloc),
+            ] {
+                if *view != vk::ImageView::null() {
+                    self.device.destroy_image_view(*view, None);
+                    self.device.destroy_image(image, None);
+                    if let Some(a) = alloc.take() {
+                        let _ = self.shared.allocator.lock().unwrap().free(a);
+                    }
+                    *view = vk::ImageView::null();
                 }
-                self.refl_view = vk::ImageView::null();
             }
             if self.planar_framebuffer != vk::Framebuffer::null() {
                 self.device.destroy_framebuffer(self.planar_framebuffer, None);
@@ -847,6 +875,15 @@ impl Gpu {
                 &vk::FramebufferCreateInfo::default().render_pass(self.ao_pass).attachments(&refl_att).width(extent.width).height(extent.height).layers(1),
                 None,
             )?;
+            let (image, view, alloc) = self.color_image("reflection soft", AO_FORMAT, vk::SampleCountFlags::TYPE_1, vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED, extent)?;
+            (self.refl_soft_image, self.refl_soft_view, self.refl_soft_alloc) = (image, view, Some(alloc));
+            let soft_att = [self.refl_soft_view];
+            self.refl_soft_framebuffer = self.device.create_framebuffer(
+                &vk::FramebufferCreateInfo::default().render_pass(self.ao_pass).attachments(&soft_att).width(extent.width).height(extent.height).layers(1),
+                None,
+            )?;
+            let (image, view, alloc) = self.mip_image("reflection mips", AO_FORMAT, 6, vk::ImageUsageFlags::SAMPLED | vk::ImageUsageFlags::TRANSFER_SRC | vk::ImageUsageFlags::TRANSFER_DST, extent)?;
+            (self.refl_chain_image, self.refl_chain_view, self.refl_chain_alloc) = (image, view, Some(alloc));
             // The ground plane's reflection: the mirrored scene, at one sample a pixel.
             let (image, view, alloc) = self.color_image("planar", AO_FORMAT, vk::SampleCountFlags::TYPE_1, vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED, extent)?;
             (self.planar_image, self.planar_view, self.planar_alloc) = (image, view, Some(alloc));
@@ -955,6 +992,33 @@ impl Gpu {
         })?;
         self.device.bind_image_memory(image, alloc.memory(), alloc.offset())?;
         let view = self.device.create_image_view(&vk::ImageViewCreateInfo::default().image(image).view_type(vk::ImageViewType::TYPE_2D).format(format).subresource_range(color_range()), None)?;
+        Ok((image, view, alloc))
+    }
+
+    /// A colour image the view's size with a mip chain, its memory and a view of every level.
+    unsafe fn mip_image(&self, name: &str, format: vk::Format, levels: u32, usage: vk::ImageUsageFlags, extent: vk::Extent2D) -> Res<(vk::Image, vk::ImageView, Allocation)> {
+        let image = self.device.create_image(
+            &vk::ImageCreateInfo::default()
+                .image_type(vk::ImageType::TYPE_2D)
+                .format(format)
+                .extent(vk::Extent3D { width: extent.width, height: extent.height, depth: 1 })
+                .mip_levels(levels)
+                .array_layers(1)
+                .samples(vk::SampleCountFlags::TYPE_1)
+                .usage(usage),
+            None,
+        )?;
+        let req = self.device.get_image_memory_requirements(image);
+        let alloc = self.shared.allocator.lock().unwrap().allocate(&AllocationCreateDesc {
+            name,
+            requirements: req,
+            location: MemoryLocation::GpuOnly,
+            linear: false,
+            allocation_scheme: AllocationScheme::GpuAllocatorManaged,
+        })?;
+        self.device.bind_image_memory(image, alloc.memory(), alloc.offset())?;
+        let range = vk::ImageSubresourceRange::default().aspect_mask(vk::ImageAspectFlags::COLOR).level_count(levels).layer_count(1);
+        let view = self.device.create_image_view(&vk::ImageViewCreateInfo::default().image(image).view_type(vk::ImageViewType::TYPE_2D).format(format).subresource_range(range), None)?;
         Ok((image, view, alloc))
     }
 
@@ -1088,8 +1152,13 @@ impl Gpu {
 
     /// Ends the scene pass (or the overlay pass after it) and begins the one that works out the occlusion from its depth.
     pub fn begin_occlusion(&mut self) {
+        unsafe { self.device.cmd_end_render_pass(self.cmd) };
+        self.begin_occlusion_after();
+    }
+
+    /// Begins the occlusion pass where the caller has already ended the pass before it.
+    pub fn begin_occlusion_after(&mut self) {
         unsafe {
-            self.device.cmd_end_render_pass(self.cmd);
             self.device.cmd_begin_render_pass(
                 self.cmd,
                 &vk::RenderPassBeginInfo::default()
@@ -1100,6 +1169,136 @@ impl Gpu {
             );
             self.device.cmd_set_viewport(self.cmd, 0, &[vk::Viewport { x: 0.0, y: 0.0, width: self.extent.width as f32, height: self.extent.height as f32, min_depth: 0.0, max_depth: 1.0 }]);
             self.device.cmd_set_scissor(self.cmd, 0, &[vk::Rect2D { offset: vk::Offset2D::default(), extent: self.extent }]);
+        }
+    }
+
+    /// Ends the reflection pass, so the image can be read and low-passed.
+    pub fn end_reflection(&mut self) {
+        unsafe { self.device.cmd_end_render_pass(self.cmd) };
+    }
+
+    /// Begins the low-pass of the reflection image, into `refl_soft_image`.
+    pub fn begin_refl_blur(&mut self) {
+        unsafe {
+            self.device.cmd_begin_render_pass(
+                self.cmd,
+                &vk::RenderPassBeginInfo::default()
+                    .render_pass(self.ao_pass)
+                    .framebuffer(self.refl_soft_framebuffer)
+                    .render_area(vk::Rect2D { offset: vk::Offset2D::default(), extent: self.extent }),
+                vk::SubpassContents::INLINE,
+            );
+            self.device.cmd_set_viewport(self.cmd, 0, &[vk::Viewport { x: 0.0, y: 0.0, width: self.extent.width as f32, height: self.extent.height as f32, min_depth: 0.0, max_depth: 1.0 }]);
+            self.device.cmd_set_scissor(self.cmd, 0, &[vk::Rect2D { offset: vk::Offset2D::default(), extent: self.extent }]);
+        }
+    }
+
+    /// Ends the reflection low-pass.
+    pub fn end_refl_blur(&mut self) {
+        unsafe { self.device.cmd_end_render_pass(self.cmd) };
+    }
+
+    /// Builds the reflection mip chain from the reflection image just drawn (#302): level 1 is a bilinear half, level 2
+    /// a quarter, and so on. The composite picks a level from the surface's roughness, so a gather is as smooth as the
+    /// blur it stands for.
+    pub fn build_reflection_mips(&mut self) {
+        unsafe {
+            let d = &self.device;
+            let cmd = self.cmd;
+            let range = |level: u32| vk::ImageSubresourceRange {
+                aspect_mask: vk::ImageAspectFlags::COLOR,
+                base_mip_level: level,
+                level_count: 1,
+                base_array_layer: 0,
+                layer_count: 1,
+            };
+            let barrier = |image: vk::Image, level: u32, old: vk::ImageLayout, new: vk::ImageLayout, src: vk::PipelineStageFlags, dst: vk::PipelineStageFlags, src_access: vk::AccessFlags, dst_access: vk::AccessFlags| {
+                let b = vk::ImageMemoryBarrier::default()
+                    .old_layout(old)
+                    .new_layout(new)
+                    .src_access_mask(src_access)
+                    .dst_access_mask(dst_access)
+                    .image(image)
+                    .subresource_range(range(level));
+                d.cmd_pipeline_barrier(cmd, src, dst, vk::DependencyFlags::empty(), &[], &[], &[b]);
+            };
+            // What the low-pass wrote is a transfer source now.
+            barrier(
+                self.refl_soft_image,
+                0,
+                vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+                vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
+                vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+                vk::PipelineStageFlags::TRANSFER,
+                vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
+                vk::AccessFlags::TRANSFER_READ,
+            );
+            let levels = 6u32;
+            for level in 0..levels {
+                let (src, src_image) = if level == 0 { (0, self.refl_soft_image) } else { (level - 1, self.refl_chain_image) };
+                barrier(
+                    self.refl_chain_image,
+                    level,
+                    vk::ImageLayout::UNDEFINED,
+                    vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+                    vk::PipelineStageFlags::TRANSFER,
+                    vk::PipelineStageFlags::TRANSFER,
+                    vk::AccessFlags::empty(),
+                    vk::AccessFlags::TRANSFER_WRITE,
+                );
+                let (sw, sh) = (self.extent.width.max(1), self.extent.height.max(1));
+                let src_extent = vk::Extent3D { width: (sw >> src).max(1), height: (sh >> src).max(1), depth: 1 };
+                let dst_extent = vk::Extent3D { width: (sw >> level).max(1), height: (sh >> level).max(1), depth: 1 };
+                let blit = vk::ImageBlit::default()
+                    .src_subresource(vk::ImageSubresourceLayers::default().aspect_mask(vk::ImageAspectFlags::COLOR).mip_level(src).layer_count(1))
+                    .src_offsets([vk::Offset3D { x: 0, y: 0, z: 0 }, vk::Offset3D { x: src_extent.width as i32, y: src_extent.height as i32, z: 1 }])
+                    .dst_subresource(vk::ImageSubresourceLayers::default().aspect_mask(vk::ImageAspectFlags::COLOR).mip_level(level).layer_count(1))
+                    .dst_offsets([vk::Offset3D { x: 0, y: 0, z: 0 }, vk::Offset3D { x: dst_extent.width as i32, y: dst_extent.height as i32, z: 1 }]);
+                d.cmd_blit_image(
+                    cmd,
+                    src_image,
+                    vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
+                    self.refl_chain_image,
+                    vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+                    &[blit],
+                    vk::Filter::LINEAR,
+                );
+                // It is the next level's source, and in the end read by the post pass.
+                let next = if level + 1 < levels { vk::ImageLayout::TRANSFER_SRC_OPTIMAL } else { vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL };
+                barrier(
+                    self.refl_chain_image,
+                    level,
+                    vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+                    next,
+                    vk::PipelineStageFlags::TRANSFER,
+                    if level + 1 < levels { vk::PipelineStageFlags::TRANSFER } else { vk::PipelineStageFlags::FRAGMENT_SHADER },
+                    vk::AccessFlags::TRANSFER_WRITE,
+                    if level + 1 < levels { vk::AccessFlags::TRANSFER_READ } else { vk::AccessFlags::SHADER_READ },
+                );
+            }
+            // Levels 0 to 4 were left as sources; the post pass reads them.
+            for level in 0..levels - 1 {
+                barrier(
+                    self.refl_chain_image,
+                    level,
+                    vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
+                    vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+                    vk::PipelineStageFlags::TRANSFER,
+                    vk::PipelineStageFlags::FRAGMENT_SHADER,
+                    vk::AccessFlags::TRANSFER_READ,
+                    vk::AccessFlags::SHADER_READ,
+                );
+            }
+            barrier(
+                self.refl_soft_image,
+                0,
+                vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
+                vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+                vk::PipelineStageFlags::TRANSFER,
+                vk::PipelineStageFlags::FRAGMENT_SHADER,
+                vk::AccessFlags::TRANSFER_READ,
+                vk::AccessFlags::SHADER_READ,
+            );
         }
     }
 

@@ -436,7 +436,16 @@ impl View {
         // Reflections and refraction, from the scene's colour, depth and material, before the picture is put together.
         self.gpu.begin_reflection();
         self.post.draw_reflection(&self.gpu, proj, ortho, &settings);
-        self.gpu.begin_occlusion();
+        self.gpu.end_reflection();
+        // A small low-pass of the reflection image, so one bright texel does not come back as a speckle (#302), and
+        // the filtered copies the gather picks a level from by the surface's roughness.
+        if settings.reflections {
+            self.gpu.begin_refl_blur();
+            self.post.draw_reflection_blur(&self.gpu, proj, ortho, &settings);
+            self.gpu.end_refl_blur();
+            self.gpu.build_reflection_mips();
+        }
+        self.gpu.begin_occlusion_after();
         self.post.draw_occlusion(&self.gpu, proj, ortho, &settings);
         if settings.bounce > 0.0 {
             self.gpu.begin_bounce();

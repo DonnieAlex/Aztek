@@ -117,7 +117,8 @@ def _():
     floor(30, color=(0.55, 0.57, 0.60), rough=0.04, metal=0.75)
     sphere("redSphere", (-2.0, 1.5, 0.0), 1.5, (0.8, 0.03, 0.02), specularRoughness=0.10)
     sphere("whiteSphere", (2.4, 1.5, 0.6), 1.5, (0.8, 0.8, 0.78), specularRoughness=0.10)
-    point("keyPoint", (-4.5, 7.5, 4.5), 40.0)
+    key = mc.directionalLight(n="keyLight", rotation=(-45, 35, 0), intensity=2.5)
+    mc.setAttr(key + ".useRayTraceShadows", 1)
     camera((0, 3.7, 12.0), (-15, 0, 0), 42, 10.0)
 
 

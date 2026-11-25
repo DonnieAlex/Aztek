@@ -40,6 +40,9 @@ layout(set = 0, binding = 9) uniform texture2D t_refl;
 layout(set = 0, binding = 10) uniform texture2D t_planar;
 // The scene without its transmissive surfaces, for glass to see what it lets through (#302).
 layout(set = 0, binding = 11) uniform texture2D t_back;
+// The reflection image low-passed over a few pixels, so one bright texel does not speckle (#302).
+layout(set = 0, binding = 12) uniform texture2D t_refl_soft;
+layout(set = 0, binding = 13) uniform sampler s_refl;
 // The view's sky dome, which reflections fall back on where the view shows nothing to reflect.
 layout(set = 1, binding = 0) uniform texture2D t_env;
 layout(set = 1, binding = 1) uniform sampler s_env;
@@ -305,10 +308,28 @@ vec3 planar_at(vec2 c, vec3 p, vec3 n, vec3 r, float rough, out float cover) {
     vec3 wn = normalize((pp.view_to_world * vec4(n, 0.0)).xyz);
     vec3 up = normalize(pp.extra.yzw);
     cover = smoothstep(0.86, 0.98, dot(wn, up)) * (1.0 - smoothstep(0.04, 0.25, abs(dot(wp, up))));
+    float planarity = cover;
     if (pp.extra.x < 0.5 || cover <= 0.001) return vec3(0.0);
-    vec3 plane = pow(max(texelFetch(sampler2D(t_planar, s_point), ivec2(c), 0).rgb, vec3(0.0)), vec3(2.2));
-    float has = smoothstep(0.002, 0.03, dot(plane, vec3(0.3333)));
-    return mix(env_lookup(r, rough), plane * 1.3, has);
+    // A few pixels around the sample: the planar image's edge is a hard silhouette, and the weight that hands over to
+    // the screen-space reflection has to cross it gradually.
+    ivec2 at = ivec2(c);
+    ivec2 top = ivec2(pc.size.xy) - 1;
+    vec3 plane = vec3(0.0);
+    for (int y = -1; y <= 1; ++y) {
+        for (int x = -1; x <= 1; ++x) {
+            ivec2 q = clamp(at + ivec2(x, y), ivec2(0), top);
+            plane += pow(max(texelFetch(sampler2D(t_planar, s_point), q, 0).rgb, vec3(0.0)), vec3(2.2));
+        }
+    }
+    plane /= 9.0;
+    // Where the planar image has nothing, the screen-space reflection stands in: the weight falls away with the
+    // image's own light and with roughness, and the two are mixed by one minus the other in the caller.
+    float data = smoothstep(0.0, 0.35, dot(plane, vec3(0.2126, 0.7152, 0.0722)));
+    float rough_w = 1.0 - 0.5 * smoothstep(0.15, 0.7, rough);
+    // The plane itself takes the planar image, fading to the sky where the image has nothing. The screen-space march
+    // fills in on surfaces that are not the mirror, and only partly here where the surface is rough.
+    cover = planarity * rough_w;
+    return mix(env_lookup(r, rough), plane, data);
 }
 // Where a view-space ray first goes behind what the view shows. Glass is passed through: a refracted ray starts behind
 // it, and a reflected one sees what is behind glass too. colour comes back in linear light.
@@ -438,9 +459,29 @@ void main() {
         o = vec4(vec3(planar_cover), 1.0);
         return;
     }
-    refl = mix(refl, planar, planar_cover);
+    // The two tiers are mixed by one weight, so their sum is the one reflection. Both take the same brightness scale
+    // and go through the same filtered copy by the surface's roughness.
+    refl = mix(refl, planar, planar_cover) * 1.3;
     sum += refl * coeff;
     o = vec4(sum, 1.0);
+}
+"#;
+
+/// A small low-pass of the reflection image: a bright texel from a mirrored specular highlight is spread over its
+/// neighbours before a rough surface gathers it, so it does not come back as a speckle (#302).
+const REFL_BLUR_MAIN: &str = r#"
+void main() {
+    vec2 c = floor(gl_FragCoord.xy) + 0.5;
+    ivec2 at = ivec2(c);
+    ivec2 top = ivec2(pc.size.xy) - 1;
+    vec3 sum = vec3(0.0);
+    for (int y = -1; y <= 1; ++y) {
+        for (int x = -1; x <= 1; ++x) {
+            ivec2 q = clamp(at + ivec2(x, y), ivec2(0), top);
+            sum += clamp(texelFetch(sampler2D(t_refl, s_point), q, 0).rgb, vec3(0.0), vec3(8.0));
+        }
+    }
+    o = vec4(sum / 9.0, 1.0);
 }
 "#;
 
@@ -466,25 +507,30 @@ bool effects_off() {
 // keeps one ray, a rough metal gathers its neighbourhood. Neighbouring pixels on another surface are left out, so an
 // edge stays an edge.
 vec3 reflection_at(ivec2 at, float d) {
-    vec3 base = texelFetch(sampler2D(t_refl, s_point), at, 0).rgb;
     float rough = texelFetch(sampler2D(t_mat, s_point), at, 0).a - 0.002;
-    if (d <= 0.0 || rough <= 0.02) return base;
-    float radius = clamp(rough * rough * 120.0, 0.0, 32.0);
-    if (radius < 1.0) return base;
+    vec2 uv = (vec2(at) + 0.5) / pc.size.xy;
+    if (d <= 0.0) return textureLod(sampler2D(t_refl_soft, s_refl), uv, 0.0).rgb;
+    // The mip chain is the filtered copy: one bright texel of a mirrored highlight is spread over the level the
+    // roughness asks for, so a rough gather is smooth and a mirror stays a mirror.
+    float radius = clamp(rough * rough * 120.0, 3.0, 32.0);
+    float lod = clamp(log2(radius), 1.0, 5.0);
     float z = -point_at(vec2(at) + 0.5, d).z;
+    vec3 base = clamp(textureLod(sampler2D(t_refl_soft, s_refl), uv, lod).rgb, vec3(0.0), vec3(8.0));
     vec3 sum = base;
     float total = 1.0;
     ivec2 top = ivec2(pc.size.xy) - 1;
-    for (int i = 0; i < 24; ++i) {
-        float t = (float(i) + 0.5) / 24.0;
+    // A fixed disc inside the reflection ray's footprint: golden-angle taps, no per-frame or per-pixel noise.
+    for (int i = 0; i < 8; ++i) {
+        float t = (float(i) + 0.5) / 8.0;
         float a = float(i) * 2.39996323;
-        vec2 q = vec2(at) + 0.5 + vec2(cos(a), sin(a)) * sqrt(t) * radius;
+        vec2 q = vec2(at) + 0.5 + vec2(cos(a), sin(a)) * sqrt(t) * radius * 0.5;
         ivec2 qa = clamp(ivec2(q), ivec2(0), top);
         float dq = depth_at(vec2(qa) + 0.5);
         if (dq <= 0.0) continue;
         float zq = -point_at(vec2(qa) + 0.5, dq).z;
         float w = exp(-abs(zq - z) / (0.02 * z + 0.1));
-        sum += texelFetch(sampler2D(t_refl, s_point), qa, 0).rgb * w;
+        vec2 quv = (vec2(qa) + 0.5) / pc.size.xy;
+        sum += clamp(textureLod(sampler2D(t_refl_soft, s_refl), quv, lod).rgb, vec3(0.0), vec3(8.0)) * w;
         total += w;
     }
     return sum / total;
@@ -511,6 +557,10 @@ vec3 lit(vec3 color, vec4 got, ivec2 at, float d) {
         if (dbg == 6) return texelFetch(sampler2D(t_planar, s_point), at, 0).rgb;
         if (dbg == 7) return vec3(texelFetch(sampler2D(t_mat_aux, s_point), at, 0).r);
         if (dbg == 8) return texelFetch(sampler2D(t_albedo, s_point), at, 0).rgb;
+        if (dbg == 13) return texelFetch(sampler2D(t_refl_soft, s_point), at, 0).rgb;
+        if (dbg == 14) return texelFetch(sampler2D(t_refl, s_point), at, 0).rgb;
+        if (dbg == 15) return reflection_at(at, d);
+        if (dbg == 16) return textureLod(sampler2D(t_refl_soft, s_refl), (vec2(at) + 0.5) / pc.size.xy, 3.0).rgb;
         shaded = pow(pow(shaded, vec3(2.2)) + refl, vec3(1.0 / 2.2));
     }
     return shaded;
@@ -712,6 +762,7 @@ pub struct Post {
     pipeline: vk::Pipeline,
     ao_pipeline: vk::Pipeline,
     reflection_pipeline: vk::Pipeline,
+    reflection_blur_pipeline: vk::Pipeline,
     layout: vk::PipelineLayout,
     set_layout: vk::DescriptorSetLayout,
     env_layout: vk::DescriptorSetLayout,
@@ -725,6 +776,7 @@ pub struct Post {
     /// The sky dome's textures, bound at set 1; white when the scene has none.
     env_set: vk::DescriptorSet,
     sampler: vk::Sampler,
+    refl_sampler: vk::Sampler,
     params: crate::gpu::Buffer,
 }
 
@@ -757,6 +809,7 @@ impl Post {
             let fs = module(&compile(&fragment_source(COMPOSITE_MAIN, multisampled), naga::ShaderStage::Fragment));
             let ao_fs = module(&compile(&fragment_source(AO_MAIN, multisampled), naga::ShaderStage::Fragment));
             let reflect_fs = module(&compile(&fragment_source(REFLECT_MAIN, multisampled), naga::ShaderStage::Fragment));
+            let blur_fs = module(&compile(&fragment_source(REFL_BLUR_MAIN, multisampled), naga::ShaderStage::Fragment));
             let bindings = vec![
                 vk::DescriptorSetLayoutBinding::default().binding(0).descriptor_type(vk::DescriptorType::SAMPLED_IMAGE).descriptor_count(1).stage_flags(vk::ShaderStageFlags::FRAGMENT),
                 vk::DescriptorSetLayoutBinding::default().binding(1).descriptor_type(vk::DescriptorType::SAMPLED_IMAGE).descriptor_count(1).stage_flags(vk::ShaderStageFlags::FRAGMENT),
@@ -770,13 +823,15 @@ impl Post {
                 vk::DescriptorSetLayoutBinding::default().binding(9).descriptor_type(vk::DescriptorType::SAMPLED_IMAGE).descriptor_count(1).stage_flags(vk::ShaderStageFlags::FRAGMENT),
                 vk::DescriptorSetLayoutBinding::default().binding(10).descriptor_type(vk::DescriptorType::SAMPLED_IMAGE).descriptor_count(1).stage_flags(vk::ShaderStageFlags::FRAGMENT),
                 vk::DescriptorSetLayoutBinding::default().binding(11).descriptor_type(vk::DescriptorType::SAMPLED_IMAGE).descriptor_count(1).stage_flags(vk::ShaderStageFlags::FRAGMENT),
+                vk::DescriptorSetLayoutBinding::default().binding(12).descriptor_type(vk::DescriptorType::SAMPLED_IMAGE).descriptor_count(1).stage_flags(vk::ShaderStageFlags::FRAGMENT),
+                vk::DescriptorSetLayoutBinding::default().binding(13).descriptor_type(vk::DescriptorType::SAMPLER).descriptor_count(1).stage_flags(vk::ShaderStageFlags::FRAGMENT),
             ];
             let set_layout = d.create_descriptor_set_layout(&vk::DescriptorSetLayoutCreateInfo::default().bindings(&bindings), None).unwrap();
             // The sky dome is a texture set of its own, bound at set 1, as the material pipelines bind it.
             let env_layout = crate::textures::set_layout(gpu);
             let sizes = [
                 vk::DescriptorPoolSize::default().ty(vk::DescriptorType::SAMPLED_IMAGE).descriptor_count(56),
-                vk::DescriptorPoolSize::default().ty(vk::DescriptorType::SAMPLER).descriptor_count(4),
+                vk::DescriptorPoolSize::default().ty(vk::DescriptorType::SAMPLER).descriptor_count(10),
                 vk::DescriptorPoolSize::default().ty(vk::DescriptorType::UNIFORM_BUFFER).descriptor_count(5),
             ];
             let pool = d.create_descriptor_pool(&vk::DescriptorPoolCreateInfo::default().max_sets(5).pool_sizes(&sizes), None).unwrap();
@@ -787,6 +842,20 @@ impl Post {
                     &vk::SamplerCreateInfo::default()
                         .mag_filter(vk::Filter::NEAREST)
                         .min_filter(vk::Filter::NEAREST)
+                        .address_mode_u(vk::SamplerAddressMode::CLAMP_TO_EDGE)
+                        .address_mode_v(vk::SamplerAddressMode::CLAMP_TO_EDGE)
+                        .address_mode_w(vk::SamplerAddressMode::CLAMP_TO_EDGE),
+                    None,
+                )
+                .unwrap();
+            let refl_sampler = d
+                .create_sampler(
+                    &vk::SamplerCreateInfo::default()
+                        .mag_filter(vk::Filter::LINEAR)
+                        .min_filter(vk::Filter::LINEAR)
+                        .mipmap_mode(vk::SamplerMipmapMode::LINEAR)
+                        .min_lod(0.0)
+                        .max_lod(5.0)
                         .address_mode_u(vk::SamplerAddressMode::CLAMP_TO_EDGE)
                         .address_mode_v(vk::SamplerAddressMode::CLAMP_TO_EDGE)
                         .address_mode_w(vk::SamplerAddressMode::CLAMP_TO_EDGE),
@@ -850,6 +919,13 @@ impl Post {
             ];
             let reflect_info = info.stages(&reflect_stages).render_pass(gpu.ao_pass);
             let reflection_pipeline = d.create_graphics_pipelines(vk::PipelineCache::null(), &[reflect_info], None).map_err(|e| e.1).unwrap()[0];
+            // The low-pass of that image: the same triangle, its own shader.
+            let blur_stages = [
+                vk::PipelineShaderStageCreateInfo::default().stage(vk::ShaderStageFlags::VERTEX).module(vs).name(c"main"),
+                vk::PipelineShaderStageCreateInfo::default().stage(vk::ShaderStageFlags::FRAGMENT).module(blur_fs).name(c"main"),
+            ];
+            let blur_info = info.stages(&blur_stages).render_pass(gpu.ao_pass);
+            let reflection_blur_pipeline = d.create_graphics_pipelines(vk::PipelineCache::null(), &[blur_info], None).map_err(|e| e.1).unwrap()[0];
             // The occlusion and reflection passes can't read the image they write: their sets have another image there.
             let allocate = || d.allocate_descriptor_sets(&vk::DescriptorSetAllocateInfo::default().descriptor_pool(pool).set_layouts(&layouts)).unwrap()[0];
             let ao_set = allocate();
@@ -861,7 +937,8 @@ impl Post {
             d.destroy_shader_module(fs, None);
             d.destroy_shader_module(ao_fs, None);
             d.destroy_shader_module(reflect_fs, None);
-            Post { pipeline, ao_pipeline, reflection_pipeline, layout, set_layout, env_layout, pool, set, ao_set, bounce_set, bounced_set, reflection_set, env_set, sampler, params }
+            d.destroy_shader_module(blur_fs, None);
+            Post { pipeline, ao_pipeline, reflection_pipeline, reflection_blur_pipeline, layout, set_layout, env_layout, pool, set, ao_set, bounce_set, bounced_set, reflection_set, env_set, sampler, refl_sampler, params }
         }
     }
 
@@ -885,6 +962,8 @@ impl Post {
         let reflection = [vk::DescriptorImageInfo::default().image_view(gpu.refl_view).image_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)];
         let planar = [vk::DescriptorImageInfo::default().image_view(gpu.planar_view).image_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)];
         let back = [vk::DescriptorImageInfo::default().image_view(gpu.back_view).image_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)];
+        let refl_soft = [vk::DescriptorImageInfo::default().image_view(gpu.refl_chain_view).image_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)];
+        let refl_sampler = [vk::DescriptorImageInfo::default().sampler(self.refl_sampler)];
         let params = [vk::DescriptorBufferInfo::default().buffer(self.params.buffer).offset(0).range(std::mem::size_of::<PostParams>() as u64)];
         let mut writes = Vec::new();
         for (set, last, refl) in [
@@ -907,6 +986,8 @@ impl Post {
             writes.push(vk::WriteDescriptorSet::default().dst_set(set).dst_binding(9).descriptor_type(vk::DescriptorType::SAMPLED_IMAGE).image_info(refl));
             writes.push(vk::WriteDescriptorSet::default().dst_set(set).dst_binding(10).descriptor_type(vk::DescriptorType::SAMPLED_IMAGE).image_info(&planar));
             writes.push(vk::WriteDescriptorSet::default().dst_set(set).dst_binding(11).descriptor_type(vk::DescriptorType::SAMPLED_IMAGE).image_info(&back));
+            writes.push(vk::WriteDescriptorSet::default().dst_set(set).dst_binding(12).descriptor_type(vk::DescriptorType::SAMPLED_IMAGE).image_info(&refl_soft));
+            writes.push(vk::WriteDescriptorSet::default().dst_set(set).dst_binding(13).descriptor_type(vk::DescriptorType::SAMPLER).image_info(&refl_sampler));
         }
         unsafe { gpu.device.update_descriptor_sets(&writes, &[]) };
     }
@@ -976,6 +1057,13 @@ impl Post {
         }
     }
 
+    /// The low-pass of the reflection image. Between `Gpu::begin_refl_blur` and `Gpu::end_refl_blur`.
+    pub fn draw_reflection_blur(&self, gpu: &Gpu, proj: Mat4, orthographic: bool, s: &PostSettings) {
+        if s.reflections {
+            self.pass(gpu, self.reflection_blur_pipeline, self.set, &self.push(gpu, proj, orthographic, s));
+        }
+    }
+
     /// Draws the scene's picture onto the window's image. Between `Gpu::begin_post` and `Gpu::end_frame`.
     pub fn draw(&self, gpu: &Gpu, proj: Mat4, orthographic: bool, s: &PostSettings) {
         let set = if s.bounce > 0.0 { self.bounced_set } else { self.set };
@@ -988,11 +1076,13 @@ impl Post {
             d.destroy_pipeline(self.pipeline, None);
             d.destroy_pipeline(self.ao_pipeline, None);
             d.destroy_pipeline(self.reflection_pipeline, None);
+            d.destroy_pipeline(self.reflection_blur_pipeline, None);
             d.destroy_pipeline_layout(self.layout, None);
             d.destroy_descriptor_pool(self.pool, None);
             d.destroy_descriptor_set_layout(self.set_layout, None);
             d.destroy_descriptor_set_layout(self.env_layout, None);
             d.destroy_sampler(self.sampler, None);
+            d.destroy_sampler(self.refl_sampler, None);
             d.destroy_buffer(self.params.buffer, None);
             if let Some(a) = self.params.alloc.take() {
                 let _ = gpu.shared.allocator.lock().unwrap().free(a);
@@ -1023,10 +1113,16 @@ fn refracted(i: [f32; 3], n: [f32; 3], eta: f32) -> Option<[f32; 3]> {
 /// The radius in pixels a roughness blurs a reflection over, as `reflection_at` gathers it.
 #[cfg(test)]
 fn roughness_pixels(rough: f32) -> f32 {
-    (rough * rough * 120.0).clamp(0.0, 32.0)
+    (rough * rough * 120.0).clamp(3.0, 32.0)
 }
 
 /// How much a surface is the ground plane's reflection, as `planar_at`: 1 flat on the ground, 0 upright or off it.
+/// The mip level the reflection gather samples for a roughness, as `reflection_at`.
+#[cfg(test)]
+fn reflection_lod(rough: f32) -> f32 {
+    roughness_pixels(rough).log2().clamp(1.0, 5.0)
+}
+
 #[cfg(test)]
 fn planar_cover(up: f32, height: f32) -> f32 {
     fn smoothstep(a: f32, b: f32, x: f32) -> f32 {
@@ -1044,7 +1140,7 @@ mod tests {
     fn the_post_shaders_compile_for_one_sample_and_for_several() {
         assert!(!compile(POST_VS, naga::ShaderStage::Vertex).is_empty());
         for multisampled in [false, true] {
-            for main in [AO_MAIN, REFLECT_MAIN, COMPOSITE_MAIN] {
+            for main in [AO_MAIN, REFLECT_MAIN, REFL_BLUR_MAIN, COMPOSITE_MAIN] {
                 assert!(!compile(&fragment_source(main, multisampled), naga::ShaderStage::Fragment).is_empty(), "multisampled {multisampled}");
             }
         }
@@ -1081,12 +1177,14 @@ mod tests {
         assert_eq!(std::mem::size_of::<PostPush>(), 128);
         // The reflection pass reads the material, the planar image and the behind-glass image: they are what the shader
         // declares, and what the post sets bind.
-        for b in [7, 8, 9, 10, 11] {
+        for b in [7, 8, 9, 10, 11, 12, 13] {
             assert!(POST_HEAD.contains(&format!("binding = {b}")), "binding {b}");
         }
         assert!(REFLECT_MAIN.contains("t_mat_aux"));
         assert!(REFLECT_MAIN.contains("t_planar"));
         assert!(REFLECT_MAIN.contains("t_back"));
+        assert!(REFL_BLUR_MAIN.contains("t_refl"));
+        assert!(COMPOSITE_MAIN.contains("t_refl_soft"));
     }
 
     #[test]
@@ -1115,12 +1213,18 @@ mod tests {
 
     #[test]
     fn a_rougher_metal_blurs_its_reflection_more() {
-        assert_eq!(roughness_pixels(0.02), 0.048);
+        assert_eq!(roughness_pixels(0.02), 3.0);
         assert!(roughness_pixels(0.1) < roughness_pixels(0.2));
         assert!(roughness_pixels(0.2) < roughness_pixels(0.5));
         assert_eq!(roughness_pixels(1.0), 32.0);
-        // The composite's gather is the same radius.
-        assert!(COMPOSITE_MAIN.contains("float radius = clamp(rough * rough * 120.0, 0.0, 32.0);"));
+        // The composite's gather is the same radius, with at least a pixel and a half at any roughness.
+        assert!(COMPOSITE_MAIN.contains("float radius = clamp(rough * rough * 120.0, 3.0, 32.0);"));
+        // The gather reads the filtered copy at a level that follows the roughness, and clamps bright taps.
+        assert!(COMPOSITE_MAIN.contains("textureLod(sampler2D(t_refl_soft, s_refl)"));
+        assert!(COMPOSITE_MAIN.contains("vec3(0.0), vec3(8.0)"));
+        assert!((reflection_lod(0.02) - 1.585).abs() < 1e-2);
+        assert!(reflection_lod(0.2) < reflection_lod(0.5));
+        assert_eq!(reflection_lod(1.0), 5.0);
     }
 
     #[test]

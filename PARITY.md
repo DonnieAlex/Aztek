@@ -4471,3 +4471,23 @@ bent as a lens rather than traced through its back surface; the viewport does no
 View. Harold reflects a single large floor face onto itself, so the suite's floors are subdivided. The depth of field
 of #300 still works: a camera with `depthOfField` on blurs the viewport after the reflections are added, and the
 guides stay over the finished picture.
+
+### Reflection filtering and the two tiers (25/11/2026, #302)
+
+The reflection image is low-passed over three pixels and then copied down a six-level mip chain. The composite picks a
+level from the surface's roughness and gathers a fixed 8-tap disc inside the ray's footprint, with a three pixel
+minimum, clamping each tap at 8 and hashing the pixel for its offset rather than the frame. The metal roughness
+sweep's floor went from a grid of bright texels that shimmered while orbiting to soft blobs that are steady idle or
+moving.
+
+The ground plane's planar image and the screen-space reflection now share one brightness scale and the same filtered
+copy. The planar side gets a three by three sample so its silhouette hands over gradually; the weight is the surface's
+planarity, its roughness and the planar image's own light, and the two are mixed by one minus that weight, so the
+weights sum to one. The mirrored draw gets a plain ambient fill in place of the bounce light the real floor would send
+back. The reflections example's key is a directional light: a point light close to the floor left a cube shadow face
+seam across it, which read as a second reflection.
+
+What still differs from the Render View: the viewport's planar reflection of the standing spheres is smaller and
+sharper than the render's soft full reflection; the HDRI scene's sky is still not drawn as the viewport's background;
+and a point light near a large floor can still show a cube shadow seam. The new captures are in
+`examples/rendering/reference` and `examples/rendering/viewport`.
