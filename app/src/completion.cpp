@@ -613,6 +613,7 @@ void ScriptCompletion::add_module_members(const QString& module) {
             ce.kind = CompletionEntry::Module;
             ce.category = QStringLiteral("module");
             ce.detail = e.name;
+            if (ce.doc.isEmpty()) ce.doc = QStringLiteral("Module in %1.").arg(module);
         } else if (e.kind == "function") {
             ce.kind = CompletionEntry::Function;
             ce.category = QStringLiteral("function");
@@ -622,6 +623,7 @@ void ScriptCompletion::add_module_members(const QString& module) {
             ce.kind = CompletionEntry::Constant;
             ce.category = QStringLiteral("constant");
             ce.detail = e.name;
+            if (ce.doc.isEmpty()) ce.doc = QStringLiteral("Constant in %1.").arg(module);
         }
         base_.append(ce);
         added.insert(e.name);
@@ -641,6 +643,7 @@ void ScriptCompletion::add_module_members(const QString& module) {
             ce.category = QStringLiteral("not available");
         } else {
             ce.doc = mi->doc;
+            if (ce.doc.isEmpty()) ce.doc = QStringLiteral("Python module.");
         }
         base_.append(ce);
     }
@@ -663,18 +666,22 @@ void ScriptCompletion::add_class_members(const QString& module, const QString& n
             ce.kind = CompletionEntry::Property;
             ce.category = QStringLiteral("property");
             ce.detail = m.name;
+            if (ce.doc.isEmpty()) ce.doc = QStringLiteral("Property of %1.").arg(name);
         } else if (m.kind == "class") {
             ce.kind = CompletionEntry::Class;
             ce.category = QStringLiteral("class");
             ce.detail = m.name;
+            if (ce.doc.isEmpty()) ce.doc = QStringLiteral("Class in %1.").arg(module);
         } else if (m.kind == "function") {
             ce.kind = CompletionEntry::Function;
             ce.category = QStringLiteral("function");
             ce.detail = m.name + m.signature;
+            if (ce.doc.isEmpty()) ce.doc = QStringLiteral("Function of %1.").arg(name);
         } else {
             ce.kind = CompletionEntry::Constant;
             ce.category = QStringLiteral("constant");
             ce.detail = m.name;
+            if (ce.doc.isEmpty()) ce.doc = QStringLiteral("Constant of %1.").arg(name);
         }
         base_.append(ce);
     }
