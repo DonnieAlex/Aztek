@@ -103,7 +103,7 @@ APP="$DIR/aztek.app"
 echo "Built $APP"
 
 # Everything the app needs inside it: MoltenVK, the icon, Qt, Python with its standard library and PySide6, the plug-ins
-# that ship with Aztek, and Harold's renderer. The signature comes last: everything before it changes the bundle.
+# that ship with Aztek, Harold's renderer and the examples. The signature comes last: everything before it changes the bundle.
 mkdir -p "$APP/Contents/Frameworks" "$APP/Contents/Resources"
 cp "$MVK" "$APP/Contents/Frameworks/"
 ICONS="$DIR/aztek.iconset"
@@ -142,8 +142,10 @@ done
 install_name_tool -add_rpath "@executable_path/../Resources/python/lib/python3.13/site-packages/PySide6/Qt/lib" \
   "$APP/Contents/MacOS/aztek" 2>/dev/null || true
 
-# Harold's command-line renderer, beside the program.
+# Harold's command-line renderer, beside the program, and the example scenes, where File > Examples looks.
 cp "$DIR/harold" "$APP/Contents/MacOS/"
+rm -rf "$APP/Contents/Resources/examples"
+cp -R examples "$APP/Contents/Resources/examples"
 # Ad hoc, or with a Developer ID when AZTEK_SIGN_IDENTITY names one (packaging/macos/sign.sh).
 packaging/macos/sign.sh "$APP"
 
@@ -155,7 +157,6 @@ if [ "$PACKAGE" = 1 ]; then
   if [ -n "${AZTEK_SIGN_IDENTITY:-}" ] && [ -n "${AZTEK_NOTARY_KEY:-}" ]; then
     packaging/macos/notarize.sh dist/Aztek/Aztek.app
   fi
-  cp -R examples dist/Aztek/examples
   rm -f "dist/aztek-macos-$ARCH.zip"
   ditto -c -k --keepParent dist/Aztek "dist/aztek-macos-$ARCH.zip"
   echo "Packaged dist/Aztek/Aztek.app and dist/aztek-macos-$ARCH.zip"

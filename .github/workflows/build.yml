@@ -734,7 +734,7 @@ jobs:
           fi
 
       # The same script as on a Mac: Aztek.app with Qt, Python, PySide6 and MoltenVK inside, signed (and notarized
-      # when the Signing step found the secrets), zipped with the examples. build-macos.sh fetches Qt and Python itself.
+      # when the Signing step found the secrets) and zipped, the examples inside it. build-macos.sh fetches Qt and Python itself.
       - name: Build and package
         run: tools/ci/retry.sh 3 ./build-macos.sh --package
 

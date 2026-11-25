@@ -143,10 +143,10 @@ QString label_of(const QString& name) {
 }
 
 // The examples folder: beside the program, in the source tree when running from a build, where the Linux packages
-// put it. Empty when there is none.
+// put it, inside Aztek.app on macOS. Empty when there is none.
 QString examples_folder() {
     const QString base = QCoreApplication::applicationDirPath();
-    for (const QString& where : {base + "/examples", base + "/../examples", base + "/../share/aztek/examples"})
+    for (const QString& where : {base + "/examples", base + "/../examples", base + "/../share/aztek/examples", base + "/../Resources/examples"})
         if (QDir(where).exists() && !QDir(where).entryList({"*.ma"}, QDir::Files).isEmpty()) return QDir(where).absolutePath();
     return QString();
 }

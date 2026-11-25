@@ -157,7 +157,8 @@ Early. The `macos` job builds `aztek-macos-arm64.zip` on a `macos-15` runner (Ap
 release yet: when it fails, the other packages still go out.
 
 - `Aztek.app` carries Qt (`macdeployqt`), `libpython3.13.dylib` and `libMoltenVK.dylib` in `Contents/Frameworks`, and
-  Python's standard library with PySide6/shiboken6 in `Contents/Resources/python`.
+  Python's standard library with PySide6/shiboken6 in `Contents/Resources/python`, and the examples in
+  `Contents/Resources/examples`, where File > Examples and the Home window look.
 - Signing: `packaging/macos/sign.sh` signs ad hoc, or, with `AZTEK_SIGN_IDENTITY` naming a Developer ID Application
   certificate, signs every dylib, module, plug-in, framework and program inside, deepest first, with the hardened
   runtime, a timestamp and `packaging/macos/aztek.entitlements` on the app. `packaging/macos/notarize.sh` then submits it

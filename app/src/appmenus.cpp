@@ -383,7 +383,8 @@ QMenu* MainWindow::file_menu() {
     QMenu* examples = m->addMenu("Examples");
     connect(examples, &QMenu::aboutToShow, this, [this, examples] {
         examples->clear();
-        // Beside the program, in the source tree when running from a build, and where the Linux packages put them.
+        // Beside the program, in the source tree when running from a build, where the Linux packages put them, and
+        // inside Aztek.app on macOS.
         const QString base = QCoreApplication::applicationDirPath();
         auto label_of = [](const QString& name) {
             static const QHash<QString, QString> kept = {{"ik", "IK"}, {"fk", "FK"}, {"uv", "UV"}, {"uvs", "UVs"}, {"usd", "USD"}, {"nurbs", "NURBS"}};
@@ -401,7 +402,7 @@ QMenu* MainWindow::file_menu() {
                 menu->addAction(label_of(name), [this, path] { if (confirm_unsaved()) open_file(path); });
             }
         };
-        for (const QString& where : {base + "/examples", base + "/../examples", base + "/../share/aztek/examples"}) {
+        for (const QString& where : {base + "/examples", base + "/../examples", base + "/../share/aztek/examples", base + "/../Resources/examples"}) {
             const QDir root(where);
             if (!root.exists() || root.entryList({"*.ma"}, QDir::Files).isEmpty()) continue;
             // A submenu per area (examples/modelling, examples/rigging...), then the scenes at the top, then the scripts.
