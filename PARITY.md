@@ -4268,8 +4268,8 @@ Handle, Show Manip Default, Manip History Node, Visibility, Template, LOD Visibi
 Outliner, Outliner Color and the Ghosting Information, Bounding Box Information, Drawing Overrides and Selection
 sections; Node Behavior, UUID and Extra Attributes. The mesh tab follows AEmeshTemplate and AEshapeTemplate:
 Tessellation Attributes, Mesh Component Display with its four groups, Mesh Controls, Tangent Space with its radio
-groups, Smooth Mesh with Subdivision Levels, OpenSubdiv Controls and Maya Catmull-Clark Controls, Displacement Map with
-Calculate Bounding Box Scale, Render Stats with 3D Motion Blur, Object Display, Component Tags, Deformation, Arnold,
+groups, Smooth Mesh with Subdivision Levels, OpenSubdiv Controls and Catmull-Clark Controls, Displacement Map with
+Calculate Bounding Box Scale, Render Stats with 3D Motion Blur, Object Display, Component Tags, Deformation, Harold,
 Node Behavior, UUID and Extra Attributes. The poly primitives' history tabs follow AEpolyCubeTemplate and its
 siblings, with the primitive's own history section, Axis and Component Tags; a camera follows
 AEcameraTemplateCommon, with Camera Attributes, Frustum Display Controls, Film Back, Depth of Field, Output Settings,
@@ -4292,7 +4292,7 @@ AEnurbsSurfaceTemplate with its history, display, tessellation frames, Render St
 A light is headed by its sample, and its tab has Type, Color, Intensity,
 Illuminates by Default, Emit Diffuse and Emit Specular on one row and Decay Rate; Light Effects with Light Fog and
 Light Glow; Shadows with the Depth Map Shadow Attributes and Ray Trace Shadow Attributes frames; Object Display,
-Arnold, Node Behavior, UUID and Extra Attributes. A light's default light set is the last tab, as the reference
+Harold, Node Behavior, UUID and Extra Attributes. A light's default light set is the last tab, as the reference
 tabifies it.
 
 Notes sit in a fixed area under the scrolling sections, with the reference's dotted rule, and Select, Load Attributes
