@@ -482,6 +482,11 @@ const KINDS: &[(&str, &str)] = &[
     ("gradientControl", crate::ramp_controls::ATTR_FLAGS),
     ("gradientControlNoAttr", crate::ramp_controls::NO_ATTR_FLAGS),
     ("helpLine", ""),
+    ("timeField", "precision:pre:a autoUnitWidth:auw:b"),
+    ("timeFieldGrp", "precision:pre:a step:s:a enable1:en1:b enable2:en2:b enable3:en3:b enable4:en4:b"),
+    ("toolBar", "area:a:a allowedArea:aa:a content:con:a label:l:a"),
+    ("nameField", crate::script_tools::NAME_FIELD_FLAGS),
+    ("keyframeTangentControl", "precision:pre:a"),
 ];
 
 /// Editors can be made with no layout to go in, and put in one later with -e -parent.
@@ -494,6 +499,13 @@ fn display_of(cmd: &str) -> &str {
     match cmd {
         "shelfTabLayout" => "tabLayout",
         "timeRangeControl" => "rangeControl",
+        // Time in the current time unit, drawn as the float fields are.
+        "timeField" => "floatField",
+        "timeFieldGrp" => "floatFieldGrp",
+        // A strip docked on the main window, holding a layout: a dock here.
+        "toolBar" => "dockControl",
+        // A field showing an object's name, renaming it when typed in: a text field here, kept by script_tools.
+        "nameField" => "textField",
         c => c,
     }
 }
@@ -2432,7 +2444,7 @@ fn after_create(cmd: &str, result: &CmdResult, a: &Args) {
         apply_window_pref(result.as_ref().ok().and_then(Value::as_str).unwrap_or(""), a);
         return;
     }
-    if cmd == "dockControl" && result.is_ok() {
+    if (cmd == "dockControl" || cmd == "toolBar") && result.is_ok() {
         // Docks float here: what shows is the window it holds.
         if let Some(content) = a.get("content").map(text) {
             let path = with_model(|m| m.find(&content).and_then(|i| m.get(i)).map(|c| c.path.clone()));
@@ -3506,6 +3518,7 @@ pub fn register(s: &mut Session) {
             }
             if r.is_ok() && !a.bool("query") {
                 crate::attr_ui::after_command(s, cmd, a, &r);
+                crate::script_tools::after_command(s, cmd);
             }
             r
         })
@@ -3515,7 +3528,8 @@ pub fn register(s: &mut Session) {
         // The float kinds add to their int counterparts.
         c = match *name {
             "floatField" => add_flags(c, FIELD),
-            "floatFieldGrp" => add_flags(c, FIELD_GRP),
+            "floatFieldGrp" | "timeFieldGrp" => add_flags(c, FIELD_GRP),
+            "timeField" => add_flags(c, FIELD),
             "floatSliderGrp" | "floatSliderButtonGrp" => add_flags(c, SLIDER_GRP),
             "colorSliderButtonGrp" => add_flags(c, COLOR_GRP),
             "iconTextCheckBox" | "iconTextRadioButton" | "iconTextStaticLabel" => add_flags(c, ICON_LOOK),

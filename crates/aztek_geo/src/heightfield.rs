@@ -273,7 +273,7 @@ pub fn mesh_to_heightfield(m: &Mesh, nx: i32, nz: i32, cell: f64, origin: DVec2,
                     }
                     let y = (w0 * p[0].y + w1 * p[1].y + w2 * p[2].y) as f32;
                     let cell = &cells[h.index(x, z)];
-                    let _ = cell.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |old| {
+                    let _ = cell.try_update(Ordering::Relaxed, Ordering::Relaxed, |old| {
                         (y > f32::from_bits(old)).then_some(y.to_bits())
                     });
                 }

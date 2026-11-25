@@ -751,3 +751,187 @@ def _aztek_py_isolate(flags):
         site.ENABLE_USER_SITE = False
     norm = {os.path.normcase(os.path.abspath(p)) for p in drop}
     sys.path[:] = [p for p in sys.path if (keep_empty if not p else os.path.normcase(os.path.abspath(p)) not in norm)]
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# The Script Editor's completion index
+
+# The Python modules Aztek ships, for maya.<name> completion. An extra module the importer cannot load is still listed
+# with its error, so the editor can grey it instead of pretending it is not there.
+_COMPLETION_MODULES = [
+    "maya",
+    "maya.cmds",
+    "maya.mel",
+    "maya.utils",
+    "maya.api",
+    "maya.api.OpenMaya",
+    "maya.api.OpenMayaAnim",
+    "maya.api.OpenMayaUI",
+    "maya.api.OpenMayaRender",
+    "maya.OpenMaya",
+    "maya.OpenMayaAnim",
+    "maya.OpenMayaUI",
+    "maya.OpenMayaMPx",
+    "maya.standalone",
+    "maya.app",
+    "maya.app.general",
+    "maya.app.general.mayaMixin",
+    "maya.app.flux",
+    "maya.app.flux.core",
+    "maya.app.renderSetup",
+    "maya.app.renderSetup.model",
+    "maya.app.renderSetup.model.renderSetup",
+    "maya.app.renderSetup.model.renderLayer",
+    "maya.app.renderSetup.model.typeIDs",
+    "maya.internal",
+    "maya.internal.nodes",
+    "maya.internal.nodes.proximitywrap",
+    "maya.internal.nodes.proximitywrap.node_interface",
+]
+
+_COMPLETION_CLASSES = {}
+
+
+def _aztek_completion_doc(obj):
+    """A one-line description. Plain values carry no description of their own: getdoc on an int would hand back
+    int's, so only modules, classes, functions and other described objects are asked."""
+    if obj is None or isinstance(obj, (bool, int, float, complex, str, bytes, list, tuple, dict, set, frozenset)):
+        return ""
+    try:
+        import inspect
+        return " ".join((inspect.getdoc(obj) or "").split())
+    except Exception:
+        return ""
+
+
+def _aztek_completion_signature(obj):
+    try:
+        import inspect
+        return str(inspect.signature(obj))
+    except Exception:
+        return ""
+
+
+def _aztek_completion_trim(sig):
+    """A method or constructor signature without the instance parameter."""
+    if sig.startswith("(self)"):
+        return "()"
+    if sig.startswith("(self, /, "):
+        return "(" + sig[10:]
+    if sig.startswith("(self, /)"):
+        return "()"
+    if sig.startswith("(self, "):
+        return "(" + sig[7:]
+    return sig
+
+
+def _aztek_completion_modules():
+    """Every shipped module, its module-level names and its child modules, as JSON. maya.cmds is left to the command
+    registry, which carries each command's flags and help; its module object is still here for the tree."""
+    import inspect
+    import json
+
+    out = {"modules": {}, "errors": []}
+    loaded = {}
+    for name in _COMPLETION_MODULES:
+        try:
+            loaded[name] = __import__(name, fromlist=["*"])
+        except Exception as e:
+            out["errors"].append({"name": name, "error": str(e)[:200]})
+    for name in _COMPLETION_MODULES:
+        if name == "maya.cmds":
+            out["modules"][name] = {
+                "name": name,
+                "entries": [],
+                "doc": "Every command Aztek registers, callable from Python.",
+                "children": [],
+            }
+            continue
+        mod = loaded.get(name)
+        entries = []
+        if mod is not None:
+            for n in dir(mod):
+                if n.startswith("_"):
+                    continue
+                try:
+                    obj = getattr(mod, n)
+                except Exception:
+                    continue
+                if inspect.ismodule(obj):
+                    kind, sig = "module", ""
+                elif inspect.isclass(obj):
+                    kind = "class"
+                    sig = _aztek_completion_signature(obj.__init__) if "__init__" in getattr(obj, "__dict__", {}) else ""
+                    sig = _aztek_completion_trim(sig)
+                elif callable(obj):
+                    kind, sig = "function", _aztek_completion_signature(obj)
+                else:
+                    kind, sig = "constant", ""
+                entries.append({"name": n, "kind": kind, "signature": sig, "doc": _aztek_completion_doc(obj)})
+        entries.sort(key=lambda e: e["name"].lower())
+        kids = set()
+        for other in _COMPLETION_MODULES:
+            if other.startswith(name + ".") and "." not in other[len(name) + 1:]:
+                kids.add(other[len(name) + 1:])
+        out["modules"][name] = {
+            "name": name,
+            "entries": entries,
+            "doc": _aztek_completion_doc(mod) if mod is not None else "",
+            "children": sorted(kids),
+        }
+    return json.dumps(out)
+
+
+def _aztek_completion_class(module, name):
+    """One class's constructor, docstring and members, as JSON, loaded on first use and kept."""
+    key = module + "." + name
+    if key in _COMPLETION_CLASSES:
+        return _COMPLETION_CLASSES[key]
+    import inspect
+    import json
+
+    try:
+        mod = __import__(module, fromlist=[name])
+        cls = getattr(mod, name)
+    except Exception as e:
+        return json.dumps({"error": str(e)[:200]})
+    own = getattr(cls, "__dict__", {})
+    members = []
+    for m in dir(cls):
+        if m.startswith("_"):
+            continue
+        try:
+            obj = getattr(cls, m)
+        except Exception:
+            continue
+        if isinstance(obj, property):
+            kind, sig = "property", ""
+        elif inspect.isfunction(obj) or inspect.ismethod(obj):
+            kind, sig = "method", _aztek_completion_trim(_aztek_completion_signature(obj))
+        elif inspect.isclass(obj):
+            kind, sig = "class", ""
+        elif callable(obj):
+            kind, sig = "function", _aztek_completion_signature(obj)
+        else:
+            kind, sig = "constant", ""
+        members.append(
+            {
+                "name": m,
+                "kind": kind,
+                "signature": sig,
+                "doc": _aztek_completion_doc(obj),
+                "inherited": m not in own,
+            }
+        )
+    members.sort(key=lambda e: e["name"].lower())
+    text = json.dumps(
+        {
+            "name": name,
+            "module": module,
+            "doc": _aztek_completion_doc(cls),
+            "init": _aztek_completion_trim(_aztek_completion_signature(cls.__init__)) if hasattr(cls, "__init__") else "",
+            "members": members,
+        }
+    )
+    _COMPLETION_CLASSES[key] = text
+    return text

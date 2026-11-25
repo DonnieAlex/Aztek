@@ -27,6 +27,10 @@ char* aztek_take_log(void);
 void aztek_log(const char* text, int kind);
 uint64_t aztek_version(void);
 char* aztek_query(const char* what, const char* arg);
+// The Script Editor's completion index: commands, MEL procedures and built-ins, and the Python modules. A class's
+// members are loaded on first use: its module and name, as the module object carries it.
+char* aztek_completion_index(void);
+char* aztek_completion_class(const char* module, const char* name);
 char* aztek_file(const char* op, const char* path);
 void aztek_undo(void);
 void aztek_redo(void);

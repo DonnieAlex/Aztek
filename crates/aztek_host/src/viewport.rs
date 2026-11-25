@@ -606,6 +606,8 @@ pub struct Display {
     pub shadows: bool,
     /// The Realtime renderer's bounce light: screen-space global illumination off what the view shows.
     pub bounce_light: bool,
+    /// The camera's depth of field, as Harold renders it, when the camera has it on. Off by default.
+    pub depth_of_field: bool,
     /// Show > Lights: the icons.
     pub lights: bool,
 }
@@ -652,6 +654,7 @@ impl Default for Display {
             two_sided: true,
             shadows: false,
             bounce_light: true,
+            depth_of_field: false,
             lights: true,
         }
     }

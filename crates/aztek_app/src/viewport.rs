@@ -455,6 +455,8 @@ impl Viewport {
                         .collect();
                     push_ranges(&mut out, &g.path(it.xf), "f", &ids);
                 }
+                // This view has no UV or vertex-face marquee.
+                ComponentMode::Uv | ComponentMode::VertexFace => {}
             }
         }
         out

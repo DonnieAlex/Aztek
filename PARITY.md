@@ -4253,6 +4253,38 @@ the tab strip's context menu is the reference's.
 The scroll bars are the reference's 8 pixel groove, bordered handle and triangle arrows. The Source Type and Rename
 Tab prompts take the reference's buttons.
 Not done: the history output filter (Show Both, Show MEL Only, Show Python Only) is stored but the history is not
-filtered by language; Command Completion, Object Path Completion, Show Tooltip Help and Show quick help are greyed
-because the editor has no completion, so the Quick Help side bar they would show is not built; the MEL tab icon is
-drawn from the reference's file name, as the reference's `mel_tab.png` is not on disk.
+filtered by language; Command Completion is implemented (see Script Editor completion below); Object Path Completion,
+Show Tooltip Help and Show quick help are greyed because there is no object path index and no Quick Help side bar; the
+MEL tab icon is drawn from the reference's file name, as the reference's `mel_tab.png` is not on disk.
+
+### Script Editor completion (25/11/2026)
+
+Command > Command Completion is a checkable item, off by default, kept in QSettings as
+`scriptEditor/commandCompletion`. With it on, the input pane opens a completion popup at the caret, as specified in
+docs/SCRIPT_EDITOR_COMPLETION.md: rows of 18 pixels in the editor's monospace font, the editor's selection blue, an
+icon and a category per row, a signature and one-line description under the list, and an argument hint above it whose
+current parameter follows the commas typed. Up, Down, Page Up and Page Down move; Enter or Tab accepts; Escape
+dismisses; the wheel scrolls; hovering selects and a click accepts. Filtering is a case-insensitive prefix,
+camel-case initials (`pc` finds `polyCube`) and then a substring, ranked by best match and not rebuilt from the host.
+This is Aztek's own behaviour: the reference has no command completion to follow.
+
+The index is built once from the host. It carries the 1706 commands Aztek registers, each with its positional help and
+its long and short flags, their types, help, arity and choices; 1270 MEL procedures (the bundled scripts' own and the session's, the latter re-read as the list is prepared so a new
+one appears without reopening the panel); and 184 MEL built-in functions. MEL flags appear after `command ` and after `-`, long form
+then short form in the registry's order, filtered by either name. A command or procedure completes at the start of a
+statement, after `;`, and after `=`, `(`, `[`, `{`, `,` or a backtick, so assignments and backtick calls complete as
+they do at the prompt. `maya.` offers the shipped modules, `maya.api.`
+offers its four API modules, `maya.cmds.` offers the command registry (the nine MEL-only commands greyed, as `maya.cmds` has no functions for them),
+`maya.mel.` offers `eval` because that is all the module has, and `maya.OpenMaya.` and `maya.api.OpenMaya.` offer the API's classes. A class's members, inherited
+ones included, are loaded from the embedded module on first use and kept; a class entry shows the constructor
+signature. A command after `(` offers its flags as Python keyword arguments with the argument hint. Import aliases
+(`import maya.cmds as mc`, `from maya.api import OpenMaya as om`) resolve. A module Aztek ships but that has no
+content is listed greyed with "Empty package in Aztek"; nothing absent from the registries is offered.
+
+Not done: object path completion (no index exists); completion inside a multi-line expression that continued on an
+earlier line; type inference for an arbitrary expression before a dot, so only modules, classes, import aliases and
+command names resolve; docstrings for most API members, which Aztek's modules do not carry, so their signatures show
+without a description; and commands or Python modules a plug-in registers after the panel's index was built, which
+appear when the Script Editor is reopened (the session's MEL procedures are re-read as the command list is prepared). `maya.mel` itself has only `eval`. The Python API's class list and signatures come from
+the embedded modules, not a hand-written list: 100 classes in `maya.api.OpenMaya`, 99 in `maya.OpenMaya`, and 385
+class records across the shipped API modules.

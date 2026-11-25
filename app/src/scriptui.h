@@ -23,6 +23,8 @@ class QPushButton;
 class QToolButton;
 class QWidget;
 
+class QEventLoop;
+
 namespace az {
 
 class ViewportWidget;
@@ -88,6 +90,7 @@ private:
     void font_dialog(const QJsonObject& p);
     void grab_color(const QJsonObject& p);
     void color_editor(const QJsonObject& p);
+    void layout_dialog(const QJsonObject& p);
     void playblast(const QJsonObject& p);
     void pump();
 
@@ -102,6 +105,8 @@ private:
     // inViewMessage: one message per position.
     QHash<QString, QPointer<QLabel>> in_view_;
     QPoint drag_from_;
+    // layoutDialog: the event loop the open dialog waits in, which -dismiss ends.
+    QEventLoop* layout_loop_ = nullptr;
 };
 
 // Called by the Host poller.

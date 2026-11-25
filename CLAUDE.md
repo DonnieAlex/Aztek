@@ -62,7 +62,7 @@ released by srlegrand at https://github.com/srlegrand/Aztek. PARITY.md holds the
   GraphEditor, MoveTool), `mel.rs` (MEL parsing, the reference command and flag aliases), `query.rs` (JSON snapshots for the
   panels), `view.rs` / `viewport.rs` / `render.rs` / `gpu.rs` (ash Vulkan viewport, picking, manipulators, joints and
   handles drawn as lines, snapping X/V, pivot mode D), `tools.rs` (Multi-Cut, Quad Draw and other view tools),
-  `python.rs` + `python/bootstrap.py` (pyo3), `scriptui.rs`, `panel_cmds.rs`, `ui_cmds.rs`, `ctx_cmds.rs` and
+  `python.rs` + `python/bootstrap.py` (pyo3), `scriptui.rs`, `script_tools.rs` (nameField, layoutDialog, menuSet, saveShelf), `panel_cmds.rs`, `ui_cmds.rs`, `ctx_cmds.rs` and
   `script_jobs.rs` (script-built UI, panels, tool contexts, scriptJob), `mel/` (the MEL interpreter).
 - `app/src` Qt 6 Widgets shell in C++20: `mainwindow.*` (menus by menu set, shelves, hotkeys, time slider, editors),
   `panels.*` (outliner, channel box with picked channels and virtual slider, layer and attribute editors, script

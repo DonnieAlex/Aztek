@@ -2791,56 +2791,56 @@ assembly	rtl	missing
 assembly	rtp	missing	
 assembly	typ	missing	
 assembly	type	missing	
-assignCommand	ad	missing	
-assignCommand	addDivider	missing	
-assignCommand	alt	missing	
-assignCommand	altModifier	missing	
-assignCommand	ann	missing	
-assignCommand	annotation	missing	
-assignCommand	c	missing	
-assignCommand	cmd	missing	
-assignCommand	command	missing	
-assignCommand	commandModifier	missing	
-assignCommand	ctl	missing	
-assignCommand	ctrlModifier	missing	
-assignCommand	d	missing	
-assignCommand	da1	missing	
-assignCommand	da2	missing	
-assignCommand	da3	missing	
-assignCommand	data1	missing	
-assignCommand	data2	missing	
-assignCommand	data3	missing	
-assignCommand	delete	missing	
-assignCommand	dividerString	missing	
-assignCommand	ds	missing	
-assignCommand	e	missing	
-assignCommand	ecr	missing	
-assignCommand	edit	missing	
-assignCommand	enableCommandRepeat	missing	
-assignCommand	factorySettings	missing	
-assignCommand	fs	missing	
-assignCommand	i	missing	
-assignCommand	index	missing	
-assignCommand	k	missing	
-assignCommand	ka	missing	
-assignCommand	keyArray	missing	
-assignCommand	keyString	missing	
-assignCommand	keyUp	missing	
-assignCommand	kup	missing	
-assignCommand	n	missing	
-assignCommand	name	missing	
-assignCommand	ndp	missing	
-assignCommand	num	missing	
-assignCommand	numDividersPreceding	missing	
-assignCommand	numElements	missing	
-assignCommand	opt	missing	
-assignCommand	optionModifier	missing	
-assignCommand	q	missing	
-assignCommand	query	missing	
-assignCommand	sbk	missing	
-assignCommand	sortByKey	missing	
-assignCommand	sourceUserCommands	missing	
-assignCommand	suc	missing	
+assignCommand	ad	done	auto
+assignCommand	addDivider	done	auto
+assignCommand	alt	done	auto
+assignCommand	altModifier	done	auto
+assignCommand	ann	done	auto
+assignCommand	annotation	done	auto
+assignCommand	c	done	auto
+assignCommand	cmd	done	auto
+assignCommand	command	done	auto
+assignCommand	commandModifier	done	auto
+assignCommand	ctl	done	auto
+assignCommand	ctrlModifier	done	auto
+assignCommand	d	done	auto
+assignCommand	da1	done	auto
+assignCommand	da2	done	auto
+assignCommand	da3	done	auto
+assignCommand	data1	done	auto
+assignCommand	data2	done	auto
+assignCommand	data3	done	auto
+assignCommand	delete	done	auto
+assignCommand	dividerString	done	auto
+assignCommand	ds	done	auto
+assignCommand	e	done	auto
+assignCommand	ecr	done	auto
+assignCommand	edit	done	auto
+assignCommand	enableCommandRepeat	done	auto
+assignCommand	factorySettings	done	auto
+assignCommand	fs	done	auto
+assignCommand	i	done	auto
+assignCommand	index	done	auto
+assignCommand	k	done	auto
+assignCommand	ka	done	auto
+assignCommand	keyArray	done	auto
+assignCommand	keyString	done	auto
+assignCommand	keyUp	done	auto
+assignCommand	kup	done	auto
+assignCommand	n	done	auto
+assignCommand	name	done	auto
+assignCommand	ndp	done	auto
+assignCommand	num	done	auto
+assignCommand	numDividersPreceding	done	auto
+assignCommand	numElements	done	auto
+assignCommand	opt	done	auto
+assignCommand	optionModifier	done	auto
+assignCommand	q	done	auto
+assignCommand	query	done	auto
+assignCommand	sbk	done	auto
+assignCommand	sortByKey	done	auto
+assignCommand	sourceUserCommands	done	auto
+assignCommand	suc	done	auto
 assignInputDevice	c	missing	
 assignInputDevice	clutch	missing	
 assignInputDevice	continuous	missing	
@@ -17504,62 +17504,62 @@ keyframeStats	visible	done	auto
 keyframeStats	visibleChangeCommand	done	auto
 keyframeStats	w	done	auto
 keyframeStats	width	done	auto
-keyframeTangentControl	ann	missing	
-keyframeTangentControl	annotation	missing	
-keyframeTangentControl	backgroundColor	missing	
-keyframeTangentControl	bgc	missing	
-keyframeTangentControl	defineTemplate	missing	
-keyframeTangentControl	dgc	missing	
-keyframeTangentControl	docTag	missing	
-keyframeTangentControl	dpc	missing	
-keyframeTangentControl	dragCallback	missing	
-keyframeTangentControl	dropCallback	missing	
-keyframeTangentControl	dt	missing	
-keyframeTangentControl	dtg	missing	
-keyframeTangentControl	e	missing	
-keyframeTangentControl	ebg	missing	
-keyframeTangentControl	edit	missing	
-keyframeTangentControl	ekf	missing	
-keyframeTangentControl	en	missing	
-keyframeTangentControl	enable	missing	
-keyframeTangentControl	enableBackground	missing	
-keyframeTangentControl	enableKeyboardFocus	missing	
-keyframeTangentControl	ex	missing	
-keyframeTangentControl	exists	missing	
-keyframeTangentControl	fpn	missing	
-keyframeTangentControl	fullPathName	missing	
-keyframeTangentControl	h	missing	
-keyframeTangentControl	height	missing	
-keyframeTangentControl	highlightColor	missing	
-keyframeTangentControl	hlc	missing	
-keyframeTangentControl	io	missing	
-keyframeTangentControl	isObscured	missing	
-keyframeTangentControl	m	missing	
-keyframeTangentControl	manage	missing	
-keyframeTangentControl	nbg	missing	
-keyframeTangentControl	noBackground	missing	
-keyframeTangentControl	npm	missing	
-keyframeTangentControl	numberOfPopupMenus	missing	
-keyframeTangentControl	p	missing	
-keyframeTangentControl	parent	missing	
-keyframeTangentControl	pma	missing	
-keyframeTangentControl	po	missing	
-keyframeTangentControl	popupMenuArray	missing	
-keyframeTangentControl	pre	missing	
-keyframeTangentControl	precision	missing	
-keyframeTangentControl	preventOverride	missing	
-keyframeTangentControl	q	missing	
-keyframeTangentControl	query	missing	
-keyframeTangentControl	sbm	missing	
-keyframeTangentControl	statusBarMessage	missing	
-keyframeTangentControl	useTemplate	missing	
-keyframeTangentControl	ut	missing	
-keyframeTangentControl	vcc	missing	
-keyframeTangentControl	vis	missing	
-keyframeTangentControl	visible	missing	
-keyframeTangentControl	visibleChangeCommand	missing	
-keyframeTangentControl	w	missing	
-keyframeTangentControl	width	missing	
+keyframeTangentControl	ann	done	auto
+keyframeTangentControl	annotation	done	auto
+keyframeTangentControl	backgroundColor	done	auto
+keyframeTangentControl	bgc	done	auto
+keyframeTangentControl	defineTemplate	done	auto
+keyframeTangentControl	dgc	done	auto
+keyframeTangentControl	docTag	done	auto
+keyframeTangentControl	dpc	done	auto
+keyframeTangentControl	dragCallback	done	auto
+keyframeTangentControl	dropCallback	done	auto
+keyframeTangentControl	dt	done	auto
+keyframeTangentControl	dtg	done	auto
+keyframeTangentControl	e	done	auto
+keyframeTangentControl	ebg	done	auto
+keyframeTangentControl	edit	done	auto
+keyframeTangentControl	ekf	done	auto
+keyframeTangentControl	en	done	auto
+keyframeTangentControl	enable	done	auto
+keyframeTangentControl	enableBackground	done	auto
+keyframeTangentControl	enableKeyboardFocus	done	auto
+keyframeTangentControl	ex	done	auto
+keyframeTangentControl	exists	done	auto
+keyframeTangentControl	fpn	done	auto
+keyframeTangentControl	fullPathName	done	auto
+keyframeTangentControl	h	done	auto
+keyframeTangentControl	height	done	auto
+keyframeTangentControl	highlightColor	done	auto
+keyframeTangentControl	hlc	done	auto
+keyframeTangentControl	io	done	auto
+keyframeTangentControl	isObscured	done	auto
+keyframeTangentControl	m	done	auto
+keyframeTangentControl	manage	done	auto
+keyframeTangentControl	nbg	done	auto
+keyframeTangentControl	noBackground	done	auto
+keyframeTangentControl	npm	done	auto
+keyframeTangentControl	numberOfPopupMenus	done	auto
+keyframeTangentControl	p	done	auto
+keyframeTangentControl	parent	done	auto
+keyframeTangentControl	pma	done	auto
+keyframeTangentControl	po	done	auto
+keyframeTangentControl	popupMenuArray	done	auto
+keyframeTangentControl	pre	done	auto
+keyframeTangentControl	precision	done	auto
+keyframeTangentControl	preventOverride	done	auto
+keyframeTangentControl	q	done	auto
+keyframeTangentControl	query	done	auto
+keyframeTangentControl	sbm	done	auto
+keyframeTangentControl	statusBarMessage	done	auto
+keyframeTangentControl	useTemplate	done	auto
+keyframeTangentControl	ut	done	auto
+keyframeTangentControl	vcc	done	auto
+keyframeTangentControl	vis	done	auto
+keyframeTangentControl	visible	done	auto
+keyframeTangentControl	visibleChangeCommand	done	auto
+keyframeTangentControl	w	done	auto
+keyframeTangentControl	width	done	auto
 keyingGroup	act	done	auto
 keyingGroup	activator	done	auto
 keyingGroup	add	done	auto
@@ -18050,18 +18050,18 @@ layout	visible	done	auto
 layout	visibleChangeCommand	done	auto
 layout	w	done	auto
 layout	width	done	auto
-layoutDialog	backgroundColor	missing	
-layoutDialog	bgc	missing	
-layoutDialog	dis	missing	
-layoutDialog	dismiss	missing	
-layoutDialog	p	missing	
-layoutDialog	parent	missing	
-layoutDialog	res	missing	
-layoutDialog	resizable	missing	
-layoutDialog	t	missing	
-layoutDialog	title	missing	
-layoutDialog	ui	missing	
-layoutDialog	uiScript	missing	
+layoutDialog	backgroundColor	done	auto
+layoutDialog	bgc	done	auto
+layoutDialog	dis	done	auto
+layoutDialog	dismiss	done	auto
+layoutDialog	p	done	auto
+layoutDialog	parent	done	auto
+layoutDialog	res	done	auto
+layoutDialog	resizable	done	auto
+layoutDialog	t	done	auto
+layoutDialog	title	done	auto
+layoutDialog	ui	done	auto
+layoutDialog	uiScript	done	auto
 license	b	done	auto
 license	borrow	done	auto
 license	i	done	auto
@@ -19437,40 +19437,40 @@ menuItem	ver	done	auto
 menuItem	version	done	auto
 menuItem	vis	done	auto
 menuItem	visible	done	auto
-menuSet	addMenu	missing	
-menuSet	allMenuSets	missing	
-menuSet	am	missing	
-menuSet	ams	missing	
-menuSet	cms	missing	
-menuSet	currentMenuSet	missing	
-menuSet	e	missing	
-menuSet	edit	missing	
-menuSet	ex	missing	
-menuSet	exists	missing	
-menuSet	hbv	missing	
-menuSet	hotBoxVisible	missing	
-menuSet	im	missing	
-menuSet	insertMenu	missing	
-menuSet	l	missing	
-menuSet	label	missing	
-menuSet	ma	missing	
-menuSet	menuArray	missing	
-menuSet	mm	missing	
-menuSet	mms	missing	
-menuSet	moveMenu	missing	
-menuSet	moveMenuSet	missing	
-menuSet	nm	missing	
-menuSet	nms	missing	
-menuSet	numberOfMenuSets	missing	
-menuSet	numberOfMenus	missing	
-menuSet	p	missing	
-menuSet	permanent	missing	
-menuSet	q	missing	
-menuSet	query	missing	
-menuSet	removeMenu	missing	
-menuSet	removeMenuSet	missing	
-menuSet	rm	missing	
-menuSet	rms	missing	
+menuSet	addMenu	done	auto
+menuSet	allMenuSets	done	auto
+menuSet	am	done	auto
+menuSet	ams	done	auto
+menuSet	cms	done	auto
+menuSet	currentMenuSet	done	auto
+menuSet	e	done	auto
+menuSet	edit	done	auto
+menuSet	ex	done	auto
+menuSet	exists	done	auto
+menuSet	hbv	done	auto
+menuSet	hotBoxVisible	done	auto
+menuSet	im	done	auto
+menuSet	insertMenu	done	auto
+menuSet	l	done	auto
+menuSet	label	done	auto
+menuSet	ma	done	auto
+menuSet	menuArray	done	auto
+menuSet	mm	done	auto
+menuSet	mms	done	auto
+menuSet	moveMenu	done	auto
+menuSet	moveMenuSet	done	auto
+menuSet	nm	done	auto
+menuSet	nms	done	auto
+menuSet	numberOfMenuSets	done	auto
+menuSet	numberOfMenus	done	auto
+menuSet	p	done	auto
+menuSet	permanent	done	auto
+menuSet	q	done	auto
+menuSet	query	done	auto
+menuSet	removeMenu	done	auto
+menuSet	removeMenuSet	done	auto
+menuSet	rm	done	auto
+menuSet	rms	done	auto
 menuSetPref	e	missing	
 menuSetPref	edit	missing	
 menuSetPref	exists	missing	
@@ -20240,70 +20240,70 @@ nameCommand	data3	done	auto
 nameCommand	default	done	auto
 nameCommand	sourceType	done	auto
 nameCommand	stp	done	auto
-nameField	ann	missing	
-nameField	annotation	missing	
-nameField	backgroundColor	missing	
-nameField	bgc	missing	
-nameField	cc	missing	
-nameField	changeCommand	missing	
-nameField	defineTemplate	missing	
-nameField	dgc	missing	
-nameField	dif	missing	
-nameField	docTag	missing	
-nameField	dpc	missing	
-nameField	dragCallback	missing	
-nameField	drawInactiveFrame	missing	
-nameField	dropCallback	missing	
-nameField	dt	missing	
-nameField	dtg	missing	
-nameField	e	missing	
-nameField	ebg	missing	
-nameField	edit	missing	
-nameField	ekf	missing	
-nameField	en	missing	
-nameField	enable	missing	
-nameField	enableBackground	missing	
-nameField	enableKeyboardFocus	missing	
-nameField	ex	missing	
-nameField	exists	missing	
-nameField	fpn	missing	
-nameField	fullPathName	missing	
-nameField	h	missing	
-nameField	height	missing	
-nameField	highlightColor	missing	
-nameField	hlc	missing	
-nameField	io	missing	
-nameField	isObscured	missing	
-nameField	m	missing	
-nameField	manage	missing	
-nameField	nameChangeCommand	missing	
-nameField	nbg	missing	
-nameField	ncc	missing	
-nameField	noBackground	missing	
-nameField	npm	missing	
-nameField	numberOfPopupMenus	missing	
-nameField	o	missing	
-nameField	object	missing	
-nameField	p	missing	
-nameField	parent	missing	
-nameField	pma	missing	
-nameField	po	missing	
-nameField	popupMenuArray	missing	
-nameField	preventOverride	missing	
-nameField	q	missing	
-nameField	query	missing	
-nameField	receiveFocusCommand	missing	
-nameField	rfc	missing	
-nameField	sbm	missing	
-nameField	statusBarMessage	missing	
-nameField	useTemplate	missing	
-nameField	ut	missing	
-nameField	vcc	missing	
-nameField	vis	missing	
-nameField	visible	missing	
-nameField	visibleChangeCommand	missing	
-nameField	w	missing	
-nameField	width	missing	
+nameField	ann	done	auto
+nameField	annotation	done	auto
+nameField	backgroundColor	done	auto
+nameField	bgc	done	auto
+nameField	cc	done	auto
+nameField	changeCommand	done	auto
+nameField	defineTemplate	done	auto
+nameField	dgc	done	auto
+nameField	dif	done	auto
+nameField	docTag	done	auto
+nameField	dpc	done	auto
+nameField	dragCallback	done	auto
+nameField	drawInactiveFrame	done	auto
+nameField	dropCallback	done	auto
+nameField	dt	done	auto
+nameField	dtg	done	auto
+nameField	e	done	auto
+nameField	ebg	done	auto
+nameField	edit	done	auto
+nameField	ekf	done	auto
+nameField	en	done	auto
+nameField	enable	done	auto
+nameField	enableBackground	done	auto
+nameField	enableKeyboardFocus	done	auto
+nameField	ex	done	auto
+nameField	exists	done	auto
+nameField	fpn	done	auto
+nameField	fullPathName	done	auto
+nameField	h	done	auto
+nameField	height	done	auto
+nameField	highlightColor	done	auto
+nameField	hlc	done	auto
+nameField	io	done	auto
+nameField	isObscured	done	auto
+nameField	m	done	auto
+nameField	manage	done	auto
+nameField	nameChangeCommand	done	auto
+nameField	nbg	done	auto
+nameField	ncc	done	auto
+nameField	noBackground	done	auto
+nameField	npm	done	auto
+nameField	numberOfPopupMenus	done	auto
+nameField	o	done	auto
+nameField	object	done	auto
+nameField	p	done	auto
+nameField	parent	done	auto
+nameField	pma	done	auto
+nameField	po	done	auto
+nameField	popupMenuArray	done	auto
+nameField	preventOverride	done	auto
+nameField	q	done	auto
+nameField	query	done	auto
+nameField	receiveFocusCommand	done	auto
+nameField	rfc	done	auto
+nameField	sbm	done	auto
+nameField	statusBarMessage	done	auto
+nameField	useTemplate	done	auto
+nameField	ut	done	auto
+nameField	vcc	done	auto
+nameField	vis	done	auto
+nameField	visible	done	auto
+nameField	visibleChangeCommand	done	auto
+nameField	w	done	auto
+nameField	width	done	auto
 namespace	absoluteName	done	auto
 namespace	add	done	auto
 namespace	addNamespace	done	auto
@@ -31648,22 +31648,22 @@ select	tgl	done	auto
 select	toggle	done	auto
 select	vis	done	auto
 select	visible	done	auto
-selectContext	ch	missing	
-selectContext	e	missing	
-selectContext	edit	missing	
-selectContext	ex	missing	
-selectContext	exists	missing	
-selectContext	history	missing	
-selectContext	i1	missing	
-selectContext	i2	missing	
-selectContext	i3	missing	
-selectContext	image1	missing	
-selectContext	image2	missing	
-selectContext	image3	missing	
-selectContext	n	missing	
-selectContext	name	missing	
-selectContext	q	missing	
-selectContext	query	missing	
+selectContext	ch	done	auto
+selectContext	e	done	auto
+selectContext	edit	done	auto
+selectContext	ex	done	auto
+selectContext	exists	done	auto
+selectContext	history	done	auto
+selectContext	i1	done	auto
+selectContext	i2	done	auto
+selectContext	i3	done	auto
+selectContext	image1	done	auto
+selectContext	image2	done	auto
+selectContext	image3	done	auto
+selectContext	n	done	auto
+selectContext	name	done	auto
+selectContext	q	done	auto
+selectContext	query	done	auto
 selectKey	add	done	auto
 selectKey	addTo	done	auto
 selectKey	an	done	auto
@@ -37715,226 +37715,226 @@ timeEditorTracks	trackSolo	missing
 timeEditorTracks	trackType	missing	
 timeEditorTracks	ts	missing	
 timeEditorTracks	tt	missing	
-timeField	ann	missing	
-timeField	annotation	missing	
-timeField	autoUnitWidth	missing	
-timeField	auw	missing	
-timeField	backgroundColor	missing	
-timeField	bgc	missing	
-timeField	cc	missing	
-timeField	changeCommand	missing	
-timeField	dc	missing	
-timeField	defineTemplate	missing	
-timeField	dgc	missing	
-timeField	docTag	missing	
-timeField	dpc	missing	
-timeField	dragCallback	missing	
-timeField	dragCommand	missing	
-timeField	dropCallback	missing	
-timeField	dt	missing	
-timeField	dtg	missing	
-timeField	e	missing	
-timeField	ebg	missing	
-timeField	ec	missing	
-timeField	ed	missing	
-timeField	edit	missing	
-timeField	editable	missing	
-timeField	ekf	missing	
-timeField	en	missing	
-timeField	enable	missing	
-timeField	enableBackground	missing	
-timeField	enableKeyboardFocus	missing	
-timeField	enterCommand	missing	
-timeField	ex	missing	
-timeField	exists	missing	
-timeField	fpn	missing	
-timeField	fullPathName	missing	
-timeField	h	missing	
-timeField	height	missing	
-timeField	highlightColor	missing	
-timeField	hlc	missing	
-timeField	io	missing	
-timeField	isObscured	missing	
-timeField	m	missing	
-timeField	manage	missing	
-timeField	nbg	missing	
-timeField	noBackground	missing	
-timeField	npm	missing	
-timeField	numberOfPopupMenus	missing	
-timeField	p	missing	
-timeField	parent	missing	
-timeField	pma	missing	
-timeField	po	missing	
-timeField	popupMenuArray	missing	
-timeField	pre	missing	
-timeField	precision	missing	
-timeField	preventOverride	missing	
-timeField	q	missing	
-timeField	query	missing	
-timeField	receiveFocusCommand	missing	
-timeField	rfc	missing	
-timeField	s	missing	
-timeField	sbm	missing	
-timeField	statusBarMessage	missing	
-timeField	step	missing	
-timeField	useTemplate	missing	
-timeField	ut	missing	
-timeField	v	missing	
-timeField	value	missing	
-timeField	vcc	missing	
-timeField	vis	missing	
-timeField	visible	missing	
-timeField	visibleChangeCommand	missing	
-timeField	w	missing	
-timeField	width	missing	
-timeFieldGrp	ad2	missing	
-timeFieldGrp	ad3	missing	
-timeFieldGrp	ad4	missing	
-timeFieldGrp	ad5	missing	
-timeFieldGrp	ad6	missing	
-timeFieldGrp	adj	missing	
-timeFieldGrp	adjustableColumn	missing	
-timeFieldGrp	adjustableColumn2	missing	
-timeFieldGrp	adjustableColumn3	missing	
-timeFieldGrp	adjustableColumn4	missing	
-timeFieldGrp	adjustableColumn5	missing	
-timeFieldGrp	adjustableColumn6	missing	
-timeFieldGrp	ann	missing	
-timeFieldGrp	annotation	missing	
-timeFieldGrp	backgroundColor	missing	
-timeFieldGrp	bgc	missing	
-timeFieldGrp	cal	missing	
-timeFieldGrp	cat	missing	
-timeFieldGrp	cc	missing	
-timeFieldGrp	changeCommand	missing	
-timeFieldGrp	cl2	missing	
-timeFieldGrp	cl3	missing	
-timeFieldGrp	cl4	missing	
-timeFieldGrp	cl5	missing	
-timeFieldGrp	cl6	missing	
-timeFieldGrp	co2	missing	
-timeFieldGrp	co3	missing	
-timeFieldGrp	co4	missing	
-timeFieldGrp	co5	missing	
-timeFieldGrp	co6	missing	
-timeFieldGrp	columnAlign	missing	
-timeFieldGrp	columnAlign2	missing	
-timeFieldGrp	columnAlign3	missing	
-timeFieldGrp	columnAlign4	missing	
-timeFieldGrp	columnAlign5	missing	
-timeFieldGrp	columnAlign6	missing	
-timeFieldGrp	columnAttach	missing	
-timeFieldGrp	columnAttach2	missing	
-timeFieldGrp	columnAttach3	missing	
-timeFieldGrp	columnAttach4	missing	
-timeFieldGrp	columnAttach5	missing	
-timeFieldGrp	columnAttach6	missing	
-timeFieldGrp	columnOffset2	missing	
-timeFieldGrp	columnOffset3	missing	
-timeFieldGrp	columnOffset4	missing	
-timeFieldGrp	columnOffset5	missing	
-timeFieldGrp	columnOffset6	missing	
-timeFieldGrp	columnWidth	missing	
-timeFieldGrp	columnWidth1	missing	
-timeFieldGrp	columnWidth2	missing	
-timeFieldGrp	columnWidth3	missing	
-timeFieldGrp	columnWidth4	missing	
-timeFieldGrp	columnWidth5	missing	
-timeFieldGrp	columnWidth6	missing	
-timeFieldGrp	ct2	missing	
-timeFieldGrp	ct3	missing	
-timeFieldGrp	ct4	missing	
-timeFieldGrp	ct5	missing	
-timeFieldGrp	ct6	missing	
-timeFieldGrp	cw	missing	
-timeFieldGrp	cw1	missing	
-timeFieldGrp	cw2	missing	
-timeFieldGrp	cw3	missing	
-timeFieldGrp	cw4	missing	
-timeFieldGrp	cw5	missing	
-timeFieldGrp	cw6	missing	
-timeFieldGrp	dc	missing	
-timeFieldGrp	defineTemplate	missing	
-timeFieldGrp	dgc	missing	
-timeFieldGrp	docTag	missing	
-timeFieldGrp	dpc	missing	
-timeFieldGrp	dragCallback	missing	
-timeFieldGrp	dragCommand	missing	
-timeFieldGrp	dropCallback	missing	
-timeFieldGrp	dt	missing	
-timeFieldGrp	dtg	missing	
-timeFieldGrp	e	missing	
-timeFieldGrp	ebg	missing	
-timeFieldGrp	edit	missing	
-timeFieldGrp	ekf	missing	
-timeFieldGrp	el	missing	
-timeFieldGrp	en	missing	
-timeFieldGrp	en1	missing	
-timeFieldGrp	en2	missing	
-timeFieldGrp	en3	missing	
-timeFieldGrp	en4	missing	
-timeFieldGrp	enable	missing	
-timeFieldGrp	enable1	missing	
-timeFieldGrp	enable2	missing	
-timeFieldGrp	enable3	missing	
-timeFieldGrp	enable4	missing	
-timeFieldGrp	enableBackground	missing	
-timeFieldGrp	enableKeyboardFocus	missing	
-timeFieldGrp	ex	missing	
-timeFieldGrp	exists	missing	
-timeFieldGrp	extraLabel	missing	
-timeFieldGrp	fpn	missing	
-timeFieldGrp	fullPathName	missing	
-timeFieldGrp	h	missing	
-timeFieldGrp	height	missing	
-timeFieldGrp	highlightColor	missing	
-timeFieldGrp	hlc	missing	
-timeFieldGrp	io	missing	
-timeFieldGrp	isObscured	missing	
-timeFieldGrp	l	missing	
-timeFieldGrp	label	missing	
-timeFieldGrp	m	missing	
-timeFieldGrp	manage	missing	
-timeFieldGrp	nbg	missing	
-timeFieldGrp	nf	missing	
-timeFieldGrp	noBackground	missing	
-timeFieldGrp	npm	missing	
-timeFieldGrp	numberOfFields	missing	
-timeFieldGrp	numberOfPopupMenus	missing	
-timeFieldGrp	p	missing	
-timeFieldGrp	parent	missing	
-timeFieldGrp	pma	missing	
-timeFieldGrp	po	missing	
-timeFieldGrp	popupMenuArray	missing	
-timeFieldGrp	pre	missing	
-timeFieldGrp	precision	missing	
-timeFieldGrp	preventOverride	missing	
-timeFieldGrp	q	missing	
-timeFieldGrp	query	missing	
-timeFieldGrp	rat	missing	
-timeFieldGrp	rowAttach	missing	
-timeFieldGrp	s	missing	
-timeFieldGrp	sbm	missing	
-timeFieldGrp	statusBarMessage	missing	
-timeFieldGrp	step	missing	
-timeFieldGrp	useTemplate	missing	
-timeFieldGrp	ut	missing	
-timeFieldGrp	v	missing	
-timeFieldGrp	v1	missing	
-timeFieldGrp	v2	missing	
-timeFieldGrp	v3	missing	
-timeFieldGrp	v4	missing	
-timeFieldGrp	value	missing	
-timeFieldGrp	value1	missing	
-timeFieldGrp	value2	missing	
-timeFieldGrp	value3	missing	
-timeFieldGrp	value4	missing	
-timeFieldGrp	vcc	missing	
-timeFieldGrp	vis	missing	
-timeFieldGrp	visible	missing	
-timeFieldGrp	visibleChangeCommand	missing	
-timeFieldGrp	w	missing	
-timeFieldGrp	width	missing	
+timeField	ann	done	auto
+timeField	annotation	done	auto
+timeField	autoUnitWidth	done	auto
+timeField	auw	done	auto
+timeField	backgroundColor	done	auto
+timeField	bgc	done	auto
+timeField	cc	done	auto
+timeField	changeCommand	done	auto
+timeField	dc	done	auto
+timeField	defineTemplate	done	auto
+timeField	dgc	done	auto
+timeField	docTag	done	auto
+timeField	dpc	done	auto
+timeField	dragCallback	done	auto
+timeField	dragCommand	done	auto
+timeField	dropCallback	done	auto
+timeField	dt	done	auto
+timeField	dtg	done	auto
+timeField	e	done	auto
+timeField	ebg	done	auto
+timeField	ec	done	auto
+timeField	ed	done	auto
+timeField	edit	done	auto
+timeField	editable	done	auto
+timeField	ekf	done	auto
+timeField	en	done	auto
+timeField	enable	done	auto
+timeField	enableBackground	done	auto
+timeField	enableKeyboardFocus	done	auto
+timeField	enterCommand	done	auto
+timeField	ex	done	auto
+timeField	exists	done	auto
+timeField	fpn	done	auto
+timeField	fullPathName	done	auto
+timeField	h	done	auto
+timeField	height	done	auto
+timeField	highlightColor	done	auto
+timeField	hlc	done	auto
+timeField	io	done	auto
+timeField	isObscured	done	auto
+timeField	m	done	auto
+timeField	manage	done	auto
+timeField	nbg	done	auto
+timeField	noBackground	done	auto
+timeField	npm	done	auto
+timeField	numberOfPopupMenus	done	auto
+timeField	p	done	auto
+timeField	parent	done	auto
+timeField	pma	done	auto
+timeField	po	done	auto
+timeField	popupMenuArray	done	auto
+timeField	pre	done	auto
+timeField	precision	done	auto
+timeField	preventOverride	done	auto
+timeField	q	done	auto
+timeField	query	done	auto
+timeField	receiveFocusCommand	done	auto
+timeField	rfc	done	auto
+timeField	s	done	auto
+timeField	sbm	done	auto
+timeField	statusBarMessage	done	auto
+timeField	step	done	auto
+timeField	useTemplate	done	auto
+timeField	ut	done	auto
+timeField	v	done	auto
+timeField	value	done	auto
+timeField	vcc	done	auto
+timeField	vis	done	auto
+timeField	visible	done	auto
+timeField	visibleChangeCommand	done	auto
+timeField	w	done	auto
+timeField	width	done	auto
+timeFieldGrp	ad2	done	auto
+timeFieldGrp	ad3	done	auto
+timeFieldGrp	ad4	done	auto
+timeFieldGrp	ad5	done	auto
+timeFieldGrp	ad6	done	auto
+timeFieldGrp	adj	done	auto
+timeFieldGrp	adjustableColumn	done	auto
+timeFieldGrp	adjustableColumn2	done	auto
+timeFieldGrp	adjustableColumn3	done	auto
+timeFieldGrp	adjustableColumn4	done	auto
+timeFieldGrp	adjustableColumn5	done	auto
+timeFieldGrp	adjustableColumn6	done	auto
+timeFieldGrp	ann	done	auto
+timeFieldGrp	annotation	done	auto
+timeFieldGrp	backgroundColor	done	auto
+timeFieldGrp	bgc	done	auto
+timeFieldGrp	cal	done	auto
+timeFieldGrp	cat	done	auto
+timeFieldGrp	cc	done	auto
+timeFieldGrp	changeCommand	done	auto
+timeFieldGrp	cl2	done	auto
+timeFieldGrp	cl3	done	auto
+timeFieldGrp	cl4	done	auto
+timeFieldGrp	cl5	done	auto
+timeFieldGrp	cl6	done	auto
+timeFieldGrp	co2	done	auto
+timeFieldGrp	co3	done	auto
+timeFieldGrp	co4	done	auto
+timeFieldGrp	co5	done	auto
+timeFieldGrp	co6	done	auto
+timeFieldGrp	columnAlign	done	auto
+timeFieldGrp	columnAlign2	done	auto
+timeFieldGrp	columnAlign3	done	auto
+timeFieldGrp	columnAlign4	done	auto
+timeFieldGrp	columnAlign5	done	auto
+timeFieldGrp	columnAlign6	done	auto
+timeFieldGrp	columnAttach	done	auto
+timeFieldGrp	columnAttach2	done	auto
+timeFieldGrp	columnAttach3	done	auto
+timeFieldGrp	columnAttach4	done	auto
+timeFieldGrp	columnAttach5	done	auto
+timeFieldGrp	columnAttach6	done	auto
+timeFieldGrp	columnOffset2	done	auto
+timeFieldGrp	columnOffset3	done	auto
+timeFieldGrp	columnOffset4	done	auto
+timeFieldGrp	columnOffset5	done	auto
+timeFieldGrp	columnOffset6	done	auto
+timeFieldGrp	columnWidth	done	auto
+timeFieldGrp	columnWidth1	done	auto
+timeFieldGrp	columnWidth2	done	auto
+timeFieldGrp	columnWidth3	done	auto
+timeFieldGrp	columnWidth4	done	auto
+timeFieldGrp	columnWidth5	done	auto
+timeFieldGrp	columnWidth6	done	auto
+timeFieldGrp	ct2	done	auto
+timeFieldGrp	ct3	done	auto
+timeFieldGrp	ct4	done	auto
+timeFieldGrp	ct5	done	auto
+timeFieldGrp	ct6	done	auto
+timeFieldGrp	cw	done	auto
+timeFieldGrp	cw1	done	auto
+timeFieldGrp	cw2	done	auto
+timeFieldGrp	cw3	done	auto
+timeFieldGrp	cw4	done	auto
+timeFieldGrp	cw5	done	auto
+timeFieldGrp	cw6	done	auto
+timeFieldGrp	dc	done	auto
+timeFieldGrp	defineTemplate	done	auto
+timeFieldGrp	dgc	done	auto
+timeFieldGrp	docTag	done	auto
+timeFieldGrp	dpc	done	auto
+timeFieldGrp	dragCallback	done	auto
+timeFieldGrp	dragCommand	done	auto
+timeFieldGrp	dropCallback	done	auto
+timeFieldGrp	dt	done	auto
+timeFieldGrp	dtg	done	auto
+timeFieldGrp	e	done	auto
+timeFieldGrp	ebg	done	auto
+timeFieldGrp	edit	done	auto
+timeFieldGrp	ekf	done	auto
+timeFieldGrp	el	done	auto
+timeFieldGrp	en	done	auto
+timeFieldGrp	en1	done	auto
+timeFieldGrp	en2	done	auto
+timeFieldGrp	en3	done	auto
+timeFieldGrp	en4	done	auto
+timeFieldGrp	enable	done	auto
+timeFieldGrp	enable1	done	auto
+timeFieldGrp	enable2	done	auto
+timeFieldGrp	enable3	done	auto
+timeFieldGrp	enable4	done	auto
+timeFieldGrp	enableBackground	done	auto
+timeFieldGrp	enableKeyboardFocus	done	auto
+timeFieldGrp	ex	done	auto
+timeFieldGrp	exists	done	auto
+timeFieldGrp	extraLabel	done	auto
+timeFieldGrp	fpn	done	auto
+timeFieldGrp	fullPathName	done	auto
+timeFieldGrp	h	done	auto
+timeFieldGrp	height	done	auto
+timeFieldGrp	highlightColor	done	auto
+timeFieldGrp	hlc	done	auto
+timeFieldGrp	io	done	auto
+timeFieldGrp	isObscured	done	auto
+timeFieldGrp	l	done	auto
+timeFieldGrp	label	done	auto
+timeFieldGrp	m	done	auto
+timeFieldGrp	manage	done	auto
+timeFieldGrp	nbg	done	auto
+timeFieldGrp	nf	done	auto
+timeFieldGrp	noBackground	done	auto
+timeFieldGrp	npm	done	auto
+timeFieldGrp	numberOfFields	done	auto
+timeFieldGrp	numberOfPopupMenus	done	auto
+timeFieldGrp	p	done	auto
+timeFieldGrp	parent	done	auto
+timeFieldGrp	pma	done	auto
+timeFieldGrp	po	done	auto
+timeFieldGrp	popupMenuArray	done	auto
+timeFieldGrp	pre	done	auto
+timeFieldGrp	precision	done	auto
+timeFieldGrp	preventOverride	done	auto
+timeFieldGrp	q	done	auto
+timeFieldGrp	query	done	auto
+timeFieldGrp	rat	done	auto
+timeFieldGrp	rowAttach	done	auto
+timeFieldGrp	s	done	auto
+timeFieldGrp	sbm	done	auto
+timeFieldGrp	statusBarMessage	done	auto
+timeFieldGrp	step	done	auto
+timeFieldGrp	useTemplate	done	auto
+timeFieldGrp	ut	done	auto
+timeFieldGrp	v	done	auto
+timeFieldGrp	v1	done	auto
+timeFieldGrp	v2	done	auto
+timeFieldGrp	v3	done	auto
+timeFieldGrp	v4	done	auto
+timeFieldGrp	value	done	auto
+timeFieldGrp	value1	done	auto
+timeFieldGrp	value2	done	auto
+timeFieldGrp	value3	done	auto
+timeFieldGrp	value4	done	auto
+timeFieldGrp	vcc	done	auto
+timeFieldGrp	vis	done	auto
+timeFieldGrp	visible	done	auto
+timeFieldGrp	visibleChangeCommand	done	auto
+timeFieldGrp	w	done	auto
+timeFieldGrp	width	done	auto
 timePort	ann	done	auto
 timePort	annotation	done	auto
 timePort	backgroundColor	done	auto
@@ -38093,68 +38093,68 @@ tolerance	l	done	auto
 tolerance	linear	done	auto
 tolerance	q	done	auto
 tolerance	query	done	auto
-toolBar	a	missing	
-toolBar	aa	missing	
-toolBar	allowedArea	missing	
-toolBar	ann	missing	
-toolBar	annotation	missing	
-toolBar	area	missing	
-toolBar	backgroundColor	missing	
-toolBar	bgc	missing	
-toolBar	con	missing	
-toolBar	content	missing	
-toolBar	defineTemplate	missing	
-toolBar	dgc	missing	
-toolBar	docTag	missing	
-toolBar	dpc	missing	
-toolBar	dragCallback	missing	
-toolBar	dropCallback	missing	
-toolBar	dt	missing	
-toolBar	dtg	missing	
-toolBar	e	missing	
-toolBar	ebg	missing	
-toolBar	edit	missing	
-toolBar	ekf	missing	
-toolBar	en	missing	
-toolBar	enable	missing	
-toolBar	enableBackground	missing	
-toolBar	enableKeyboardFocus	missing	
-toolBar	ex	missing	
-toolBar	exists	missing	
-toolBar	fpn	missing	
-toolBar	fullPathName	missing	
-toolBar	h	missing	
-toolBar	height	missing	
-toolBar	highlightColor	missing	
-toolBar	hlc	missing	
-toolBar	io	missing	
-toolBar	isObscured	missing	
-toolBar	l	missing	
-toolBar	label	missing	
-toolBar	m	missing	
-toolBar	manage	missing	
-toolBar	nbg	missing	
-toolBar	noBackground	missing	
-toolBar	npm	missing	
-toolBar	numberOfPopupMenus	missing	
-toolBar	p	missing	
-toolBar	parent	missing	
-toolBar	pma	missing	
-toolBar	po	missing	
-toolBar	popupMenuArray	missing	
-toolBar	preventOverride	missing	
-toolBar	q	missing	
-toolBar	query	missing	
-toolBar	sbm	missing	
-toolBar	statusBarMessage	missing	
-toolBar	useTemplate	missing	
-toolBar	ut	missing	
-toolBar	vcc	missing	
-toolBar	vis	missing	
-toolBar	visible	missing	
-toolBar	visibleChangeCommand	missing	
-toolBar	w	missing	
-toolBar	width	missing	
+toolBar	a	done	auto
+toolBar	aa	done	auto
+toolBar	allowedArea	done	auto
+toolBar	ann	done	auto
+toolBar	annotation	done	auto
+toolBar	area	done	auto
+toolBar	backgroundColor	done	auto
+toolBar	bgc	done	auto
+toolBar	con	done	auto
+toolBar	content	done	auto
+toolBar	defineTemplate	done	auto
+toolBar	dgc	done	auto
+toolBar	docTag	done	auto
+toolBar	dpc	done	auto
+toolBar	dragCallback	done	auto
+toolBar	dropCallback	done	auto
+toolBar	dt	done	auto
+toolBar	dtg	done	auto
+toolBar	e	done	auto
+toolBar	ebg	done	auto
+toolBar	edit	done	auto
+toolBar	ekf	done	auto
+toolBar	en	done	auto
+toolBar	enable	done	auto
+toolBar	enableBackground	done	auto
+toolBar	enableKeyboardFocus	done	auto
+toolBar	ex	done	auto
+toolBar	exists	done	auto
+toolBar	fpn	done	auto
+toolBar	fullPathName	done	auto
+toolBar	h	done	auto
+toolBar	height	done	auto
+toolBar	highlightColor	done	auto
+toolBar	hlc	done	auto
+toolBar	io	done	auto
+toolBar	isObscured	done	auto
+toolBar	l	done	auto
+toolBar	label	done	auto
+toolBar	m	done	auto
+toolBar	manage	done	auto
+toolBar	nbg	done	auto
+toolBar	noBackground	done	auto
+toolBar	npm	done	auto
+toolBar	numberOfPopupMenus	done	auto
+toolBar	p	done	auto
+toolBar	parent	done	auto
+toolBar	pma	done	auto
+toolBar	po	done	auto
+toolBar	popupMenuArray	done	auto
+toolBar	preventOverride	done	auto
+toolBar	q	done	auto
+toolBar	query	done	auto
+toolBar	sbm	done	auto
+toolBar	statusBarMessage	done	auto
+toolBar	useTemplate	done	auto
+toolBar	ut	done	auto
+toolBar	vcc	done	auto
+toolBar	vis	done	auto
+toolBar	visible	done	auto
+toolBar	visibleChangeCommand	done	auto
+toolBar	w	done	auto
+toolBar	width	done	auto
 toolButton	allowMultipleTools	done	auto
 toolButton	amt	done	auto
 toolButton	ann	done	auto

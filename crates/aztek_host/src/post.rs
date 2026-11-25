@@ -1,6 +1,6 @@
 //! What happens to a view's picture between the scene being drawn and the window showing it: ambient occlusion and
 //! bounce light from the depth and colour the scene left. One full-screen pass works those out; another reads them with
-//! the scene's colour and writes the window's image.
+//! the scene's colour and writes the window's image, with the camera's depth of field when the view asks for it.
 
 use ash::vk;
 use glam::Mat4;
@@ -50,6 +50,10 @@ layout(set = 0, binding = 4, std140) uniform Params {
     // x: 1 when the Realtime renderer asks for the finer occlusion (more taps, a wider blur). y: how strong the bounce
     // light is, 0 with it off.
     vec4 quality;
+    // Depth of field. x: the lens's radius in pixels at unit distance (blur = x * |1/distance - y|); y: one over the
+    // distance in focus; z: the widest blur in pixels, 0 with it off; w: 1 when only shaded surfaces blur (the
+    // Realtime renderer marks them in the albedo's alpha).
+    vec4 dof;
 } pp;
 
 float depth_at(vec2 px) {
@@ -253,22 +257,39 @@ void main() {
 /// sends back. Both are smoothed over the pixels round about that lie on the same surface, which takes the sampling's
 /// grain out and keeps edges sharp.
 const COMPOSITE_MAIN: &str = r#"
-void main() {
-    vec2 c = floor(gl_FragCoord.xy) + 0.5;
-    // Keep the displayed scene in range while the bounce pass reads its full brightness.
-    vec3 color = clamp(texelFetch(sampler2D(t_scene, s_point), ivec2(c), 0).rgb, 0.0, 1.0);
+// Keep the displayed scene in range while the bounce pass reads its full brightness.
+vec3 display_color(ivec2 at) {
+    return clamp(texelFetch(sampler2D(t_scene, s_point), at, 0).rgb, 0.0, 1.0);
+}
+
+// The view's background where nothing was drawn: no depth, and still the grey it was cleared to.
+bool cleared(vec3 color, float d) {
+    return d <= 0.0 && all(lessThan(abs(color - vec3(pc.bg_bottom.w)), vec3(0.5 / 255.0)));
+}
+
+bool effects_off() {
+    return pc.ao.z < 0.5 && pp.contact.x <= 0.0 && pp.quality.y <= 0.0;
+}
+
+// The scene's colour with the occlusion and bounce light (`got`, rgb bounce and alpha openness) on it.
+vec3 lit(vec3 color, vec4 got, ivec2 at) {
+    float open = got.a;
+    vec3 shaded = color * open;
+    if (pp.quality.y > 0.0) {
+        // The bounce is added in linear light, then the picture goes back to the display's encoding.
+        vec3 albedo = texelFetch(sampler2D(t_albedo, s_point), at, 0).rgb;
+        shaded = pow(pow(shaded, vec3(2.2)) + albedo * got.rgb * open, vec3(1.0 / 2.2));
+    }
+    return shaded;
+}
+
+// The picture at a pixel centre.
+vec3 picture(vec2 c) {
+    vec3 color = display_color(ivec2(c));
     float d = depth_at(c);
-    // Nothing drawn here (no depth, and still the colour it was cleared to): the gradient, top of the view to
-    // bottom. What was drawn without depth keeps its colour.
-    if (d <= 0.0 && pc.bg_top.w > 0.5 && all(lessThan(abs(color - vec3(pc.bg_bottom.w)), vec3(0.5 / 255.0)))) {
-        color = mix(pc.bg_top.rgb, pc.bg_bottom.rgb, uv.y);
-        o = vec4(color, 1.0);
-        return;
-    }
-    if ((pc.ao.z < 0.5 && pp.contact.x <= 0.0 && pp.quality.y <= 0.0) || d <= 0.0) {
-        o = vec4(color, 1.0);
-        return;
-    }
+    // Nothing drawn here: the gradient, top of the view to bottom. What was drawn without depth keeps its colour.
+    if (pc.bg_top.w > 0.5 && cleared(color, d)) return mix(pc.bg_top.rgb, pc.bg_bottom.rgb, c.y * pc.size.w);
+    if (effects_off() || d <= 0.0) return color;
     float z = point_at(c, d).z;
     float per_px = length(point_at(c + vec2(1.0, 0.0), d) - point_at(c, d));
     vec4 sum = vec4(0.0);
@@ -288,15 +309,75 @@ void main() {
             weight += w;
         }
     }
-    vec4 got = weight > 0.0 ? sum / weight : vec4(0.0, 0.0, 0.0, 1.0);
-    float open = got.a;
-    vec3 shaded = color * open;
-    if (pp.quality.y > 0.0) {
-        // The bounce is added in linear light, then the picture goes back to the display's encoding.
-        vec3 albedo = texelFetch(sampler2D(t_albedo, s_point), ivec2(c), 0).rgb;
-        shaded = pow(pow(shaded, vec3(2.2)) + albedo * got.rgb * open, vec3(1.0 / 2.2));
+    return lit(color, weight > 0.0 ? sum / weight : vec4(0.0, 0.0, 0.0, 1.0), ivec2(c));
+}
+
+// The picture at a pixel the depth of field gathers from: the same, without the occlusion's smoothing, which the
+// gathering itself stands in for.
+vec3 picture_rough(ivec2 at, vec3 color, float d) {
+    if (pc.bg_top.w > 0.5 && cleared(color, d)) return mix(pc.bg_top.rgb, pc.bg_bottom.rgb, (float(at.y) + 0.5) * pc.size.w);
+    if (effects_off() || d <= 0.0) return color;
+    return lit(color, texelFetch(sampler2D(t_open, s_point), at, 0), at);
+}
+
+// What depth of field blurs: the background, and what has depth (only shaded surfaces when the renderer marks them).
+// The grid, wireframes, icons and handles drawn over it stay sharp.
+bool blurs(ivec2 at, vec3 color, float d) {
+    if (cleared(color, d)) return true;
+    if (d <= 0.0) return false;
+    return pp.dof.w < 0.5 || texelFetch(sampler2D(t_albedo, s_point), at, 0).a > 0.0;
+}
+
+// Distance from the eye along the view, and the blur's radius in pixels there, as Harold's thin lens has it.
+float distance_at(vec2 px, float d) {
+    return d <= 0.0 ? 1e30 : max(-point_at(px, d).z, 1e-6);
+}
+
+float blur_at(float z) {
+    return min(pp.dof.x * abs(1.0 / z - pp.dof.y), pp.dof.z);
+}
+
+void main() {
+    vec2 c = floor(gl_FragCoord.xy) + 0.5;
+    vec3 here = picture(c);
+    ivec2 at = ivec2(c);
+    vec3 color = display_color(at);
+    float d = depth_at(c);
+    if (pp.dof.z < 1.0 || !blurs(at, color, d)) {
+        o = vec4(here, 1.0);
+        return;
     }
-    o = vec4(shaded, 1.0);
+    // Gathered along a spiral out to the widest blur. A pixel counts where its own blur reaches this one; one behind
+    // this pixel reaches no further than twice this pixel's blur, so a sharp surface keeps its edge over a soft
+    // background while a soft one in front spreads over it.
+    float z = distance_at(c, d);
+    float size = blur_at(z);
+    float widest = pp.dof.z;
+    // Spacing that puts about 96 taps inside the widest blur.
+    float spacing = widest * widest / 192.0;
+    vec3 sum = here;
+    float total = 1.0;
+    float r = spacing;
+    float angle = 0.0;
+    for (int i = 0; i < 160 && r < widest; ++i) {
+        vec2 q = c + vec2(cos(angle), sin(angle)) * r;
+        ivec2 qa = clamp(ivec2(q), ivec2(0), ivec2(pc.size.xy) - 1);
+        vec2 qc = vec2(qa) + 0.5;
+        vec3 qcolor = display_color(qa);
+        float dq = depth_at(qc);
+        if (blurs(qa, qcolor, dq)) {
+            float zq = distance_at(qc, dq);
+            float sq = blur_at(zq);
+            if (zq > z) sq = min(sq, size * 2.0);
+            float m = smoothstep(r - 0.5, r + 0.5, sq);
+            sum += mix(sum / total, picture_rough(qa, qcolor, dq), m);
+            total += 1.0;
+        }
+        // The golden angle: taps spread evenly over the disc.
+        angle += 2.39996323;
+        r += spacing / r;
+    }
+    o = vec4(sum / total, 1.0);
 }
 "#;
 
@@ -317,11 +398,13 @@ pub struct PostSettings {
     pub high_quality: bool,
     /// How strong the bounce light is, 0 with it off. Only the Realtime renderer's materials take it.
     pub bounce: f32,
+    /// The camera's depth of field, as Harold renders it: the lens's radius in scene units and the distance in focus.
+    pub dof: Option<(f32, f32)>,
 }
 
 impl Default for PostSettings {
     fn default() -> Self {
-        PostSettings { ambient_occlusion: false, ao_radius: 2.0, ao_intensity: 1.5, gradient: None, clear_grey: 0.36, contact: None, high_quality: false, bounce: 0.0 }
+        PostSettings { ambient_occlusion: false, ao_radius: 2.0, ao_intensity: 1.5, gradient: None, clear_grey: 0.36, contact: None, high_quality: false, bounce: 0.0, dof: None }
     }
 }
 
@@ -343,6 +426,7 @@ struct PostParams {
     contact_dir: [f32; 4],
     contact: [f32; 4],
     quality: [f32; 4],
+    dof: [f32; 4],
 }
 
 pub struct Post {
@@ -358,6 +442,20 @@ pub struct Post {
     bounced_set: vk::DescriptorSet,
     sampler: vk::Sampler,
     params: crate::gpu::Buffer,
+}
+
+/// The depth of field's values for the shader: the lens's radius in pixels at unit distance, one over the distance in
+/// focus, the widest blur in pixels (0 with it off) and whether only shaded surfaces blur. A point at distance z from the
+/// eye blurs over a disc of radius x * |1/z - y| pixels: Harold's thin lens, seen through this view's projection.
+fn dof_params(proj: Mat4, s: &PostSettings, w: f32, h: f32) -> [f32; 4] {
+    match s.dof {
+        Some((radius, focus)) if radius > 0.0 && focus > 0.0 => {
+            // The projection's x scale is one over the half width at unit distance; the half width is w/2 pixels.
+            let per_unit = proj.x_axis.x.abs() * w * 0.5;
+            [radius * per_unit, 1.0 / focus, (h * 0.035).clamp(4.0, 48.0), if s.high_quality { 1.0 } else { 0.0 }]
+        }
+        _ => [0.0; 4],
+    }
 }
 
 fn fragment_source(main: &str, multisampled: bool) -> String {
@@ -402,7 +500,7 @@ impl Post {
                     None,
                 )
                 .unwrap();
-            let params = gpu.buffer_with(vk::BufferUsageFlags::UNIFORM_BUFFER, &[PostParams { proj: glam::Mat4::IDENTITY.to_cols_array(), contact_dir: [0.0; 4], contact: [0.0; 4], quality: [0.0; 4] }]);
+            let params = gpu.buffer_with(vk::BufferUsageFlags::UNIFORM_BUFFER, &[PostParams { proj: glam::Mat4::IDENTITY.to_cols_array(), contact_dir: [0.0; 4], contact: [0.0; 4], quality: [0.0; 4], dof: [0.0; 4] }]);
             let push = [vk::PushConstantRange::default().stage_flags(vk::ShaderStageFlags::FRAGMENT).offset(0).size(std::mem::size_of::<PostPush>() as u32)];
             let layout = d.create_pipeline_layout(&vk::PipelineLayoutCreateInfo::default().set_layouts(&layouts).push_constant_ranges(&push), None).unwrap();
             let stages = [
@@ -475,8 +573,8 @@ impl Post {
     }
 
     fn push(&self, gpu: &Gpu, proj: Mat4, orthographic: bool, s: &PostSettings) -> PostPush {
-        self.write_params(proj, s);
         let (w, h) = (gpu.extent.width.max(1) as f32, gpu.extent.height.max(1) as f32);
+        self.write_params(proj, s, w, h);
         PostPush {
             inv_proj: proj.inverse().to_cols_array(),
             ao: [s.ao_radius.max(1e-4), s.ao_intensity.max(0.0), if s.ambient_occlusion { 1.0 } else { 0.0 }, if orthographic { 1.0 } else { 0.0 }],
@@ -486,13 +584,14 @@ impl Post {
         }
     }
 
-    /// The projection and contact shadow, into the uniform buffer the shaders read.
-    fn write_params(&self, proj: Mat4, s: &PostSettings) {
+    /// The projection, contact shadow and depth of field, into the uniform buffer the shaders read.
+    fn write_params(&self, proj: Mat4, s: &PostSettings, w: f32, h: f32) {
         let data = PostParams {
             proj: proj.to_cols_array(),
             contact_dir: match s.contact { Some((d, reach, _)) => [d[0], d[1], d[2], reach.max(0.0)], None => [0.0; 4] },
             contact: match s.contact { Some((_, _, strength)) => [strength.max(0.0), 0.0, 0.0, 0.0], None => [0.0; 4] },
             quality: [if s.high_quality { 1.0 } else { 0.0 }, s.bounce.max(0.0), 0.0, 0.0],
+            dof: dof_params(proj, s, w, h),
         };
         let bytes: &[u8] = bytemuck::bytes_of(&data);
         if let Some(p) = self.params.alloc.as_ref().and_then(|a| a.mapped_ptr()) {
@@ -561,6 +660,18 @@ mod tests {
                 assert!(!compile(&fragment_source(main, multisampled), naga::ShaderStage::Fragment).is_empty(), "multisampled {multisampled}");
             }
         }
+    }
+
+    #[test]
+    fn the_blur_is_harolds_thin_lens_through_the_view() {
+        // A 35 mm lens at f/2 focused at 10: a 0.875 cm radius. With a 90 degree view 1000 pixels wide, a point at
+        // distance 5 blurs over 0.875 * |1/5 - 1/10| * 500 pixels.
+        let proj = Mat4::perspective_infinite_reverse_rh(std::f32::consts::FRAC_PI_2, 1.0, 0.1);
+        let s = PostSettings { dof: Some((0.875, 10.0)), ..Default::default() };
+        let p = dof_params(proj, &s, 1000.0, 1000.0);
+        assert!((p[0] * (1.0 / 5.0 - p[1]) - 0.875 * 0.1 * 500.0).abs() < 1e-3, "{p:?}");
+        assert!(p[2] > 0.0);
+        assert_eq!(dof_params(proj, &PostSettings::default(), 1000.0, 1000.0), [0.0; 4]);
     }
 
     #[test]
