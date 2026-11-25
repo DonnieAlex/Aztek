@@ -6,6 +6,7 @@ members = ["crates/aztek_dg", "crates/aztek_api", "crates/aztek_core", "crates/a
 [workspace.package]
 version = "1.0.0"
 edition = "2021"
+rust-version = "1.100"
 license = "MIT-0"
 publish = false
 

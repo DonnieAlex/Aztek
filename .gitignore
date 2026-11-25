@@ -15,3 +15,7 @@ build-*/
 
 # Written by the website workflow for the welcome screen.
 site/announcements.json
+
+# Written by tools and renders run in the checkout.
+aqtinstall.log
+examples/rendering/*_turntable.*.png
