@@ -20,7 +20,7 @@ namespace az {
 // One entry in the list. `insert` replaces the typed prefix; `detail` is the signature line and `doc` the description
 // under the list.
 struct CompletionEntry {
-    enum Kind { Module, Klass, Function, Method, Flag, Property, Constant, Command, Procedure };
+    enum Kind { Module, Class, Function, Method, Flag, Property, Constant, Command, Procedure };
     QString label;
     QString insert;
     QString detail;
@@ -105,7 +105,6 @@ private:
     void add_class_members(const QString& module, const QString& name);
     void add_command_candidates(bool python);
     void add_flag_candidates(const Command& c, bool python);
-    void add_hint(const Analysis& a);
     void apply_filter();
     void layout_popup(int max_height);
     void place();

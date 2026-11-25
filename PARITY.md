@@ -4268,7 +4268,9 @@ This is Aztek's own behaviour: the reference has no command completion to follow
 The index is built once from the host. It carries the 1706 commands Aztek registers, each with its positional help and
 its long and short flags, their types, help, arity and choices; 1270 MEL procedures (the bundled scripts' own and any
 defined in the session); and 184 MEL built-in functions. MEL flags appear after `command ` and after `-`, long form
-then short form in the registry's order, filtered by either name. `maya.` offers the shipped modules, `maya.api.`
+then short form in the registry's order, filtered by either name. A command or procedure completes at the start of a
+statement, after `;`, and after `=`, `(`, `[`, `{`, `,` or a backtick, so assignments and backtick calls complete as
+they do at the prompt. `maya.` offers the shipped modules, `maya.api.`
 offers its four API modules, `maya.cmds.` offers the command registry, `maya.mel.` offers `eval` because that is all
 the module has, and `maya.OpenMaya.` and `maya.api.OpenMaya.` offer the API's classes. A class's members, inherited
 ones included, are loaded from the embedded module on first use and kept; a class entry shows the constructor

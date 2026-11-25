@@ -34,8 +34,8 @@ The typed prefix is matched against every candidate, without rebuilding the inde
 3. camel-case initials, so `pc` finds `polyCube` and `msl` finds `MSelectionList`;
 4. case-insensitive substring, worst.
 
-Within a rank, shorter names come first, then alphabetical order. Filtering is case-insensitive for matching but the
-rank keeps an exact-case prefix above the rest.
+With nothing typed the list is alphabetical; with a prefix, shorter names come first within a rank, then alphabetical
+order. Filtering is case-insensitive for matching but the rank keeps an exact-case prefix above the rest.
 
 ## Keys and mouse
 

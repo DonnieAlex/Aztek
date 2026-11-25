@@ -38,7 +38,7 @@ QFont mono_font(qreal size = 9.0) {
 QColor colour_for(CompletionEntry::Kind k) {
     switch (k) {
     case CompletionEntry::Module: return QColor(0x9f, 0xd0, 0xff);
-    case CompletionEntry::Klass: return QColor(0xd2, 0xa8, 0xff);
+    case CompletionEntry::Class: return QColor(0xd2, 0xa8, 0xff);
     case CompletionEntry::Function: return QColor(0xb5, 0xe0, 0x8a);
     case CompletionEntry::Method: return QColor(0x7f, 0xd4, 0xc9);
     case CompletionEntry::Flag: return QColor(0xc8, 0xd4, 0x8a);
@@ -53,7 +53,7 @@ QColor colour_for(CompletionEntry::Kind k) {
 QString glyph_for(CompletionEntry::Kind k) {
     switch (k) {
     case CompletionEntry::Module: return QStringLiteral("M");
-    case CompletionEntry::Klass: return QStringLiteral("C");
+    case CompletionEntry::Class: return QStringLiteral("C");
     case CompletionEntry::Function: return QStringLiteral("f");
     case CompletionEntry::Method: return QStringLiteral("m");
     case CompletionEntry::Flag: return QStringLiteral("-");
@@ -588,7 +588,7 @@ void ScriptCompletion::add_module_members(const QString& module) {
         ce.insert = e.name;
         ce.doc = e.doc;
         if (e.kind == "class") {
-            ce.kind = CompletionEntry::Klass;
+            ce.kind = CompletionEntry::Class;
             ce.category = QStringLiteral("class");
             ce.detail = e.name + e.signature;
             if (ce.doc.isEmpty()) ce.doc = QStringLiteral("Class in %1.").arg(module);
@@ -647,7 +647,7 @@ void ScriptCompletion::add_class_members(const QString& module, const QString& n
             ce.category = QStringLiteral("property");
             ce.detail = m.name;
         } else if (m.kind == "class") {
-            ce.kind = CompletionEntry::Klass;
+            ce.kind = CompletionEntry::Class;
             ce.category = QStringLiteral("class");
             ce.detail = m.name;
         } else if (m.kind == "function") {
