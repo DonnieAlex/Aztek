@@ -362,7 +362,9 @@ QString ScriptCompletion::aliased(const QString& expression, QPlainTextEdit* edi
     QString target;
     int scanned = 0;
     for (QTextBlock b = editor->document()->begin(); b.isValid() && scanned < 4000; b = b.next(), ++scanned) {
-        const QString text = b.text().trimmed();
+        QString text = b.text().trimmed();
+        const int hash = text.indexOf('#');
+        if (hash >= 0) text = text.left(hash).trimmed();
         if (!text.startsWith("import ") && !text.startsWith("from ")) continue;
         if (text.startsWith("import ")) {
             static const QRegularExpression as_import(R"(^import\s+([A-Za-z_][\w.]*)\s+as\s+([A-Za-z_]\w*)$)");
@@ -786,7 +788,9 @@ void ScriptCompletion::build_candidates(const Analysis& a) {
         if (a.python) {
             QSet<QString> aliases;
             for (QTextBlock b = editor_ ? editor_->document()->begin() : QTextBlock(); b.isValid(); b = b.next()) {
-                const QString text = b.text().trimmed();
+                QString text = b.text().trimmed();
+                const int hash = text.indexOf('#');
+                if (hash >= 0) text = text.left(hash).trimmed();
                 static const QRegularExpression as_import(R"(^import\s+[A-Za-z_][\w.]*\s+as\s+([A-Za-z_]\w*)$)");
                 static const QRegularExpression from_import(R"(^from\s+[A-Za-z_][\w.]*\s+import\s+[A-Za-z_]\w*(?:\s+as\s+([A-Za-z_]\w*))?)");
                 const auto am = as_import.match(text);
