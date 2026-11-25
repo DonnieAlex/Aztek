@@ -36,6 +36,19 @@ fn values_are_read_live_and_undo_comes_back() {
 }
 
 #[test]
+fn the_uuid_and_offset_parent_matrix_are_read_from_the_node() {
+    let mut c = Core::new();
+    mel(&mut c, "polyCube -n pCube1;");
+    let uuid = mel(&mut c, "ls -uuid pCube1;");
+    let ae = query::attribute_editor(&c, "pCube1");
+    let t = tab(&ae, "pCube1");
+    assert_eq!(t["uuid"], uuid[0]);
+    let matrix = attr(t, "offsetParentMatrix")["value"].as_array().unwrap();
+    assert_eq!(matrix.len(), 16);
+    assert_eq!(matrix[0], 1.0);
+}
+
+#[test]
 fn the_type_label_and_tabs_follow_a_rename() {
     let mut c = Core::new();
     mel(&mut c, "polyCube -n pCube1;");

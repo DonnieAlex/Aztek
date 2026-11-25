@@ -4267,7 +4267,7 @@ Calculate Bounding Box Scale, Render Stats with 3D Motion Blur, Object Display, 
 Node Behavior, UUID and Extra Attributes. The poly primitives' history tabs follow AEpolyCubeTemplate and its
 siblings, with the primitive's own history section, Axis and Component Tags; a camera follows
 AEcameraTemplateCommon, with Camera Attributes, Frustum Display Controls, Film Back, Depth of Field, Output Settings,
-Environment, Special Effects and Display Options. A joint adds Joint (Draw Style, Radius, Degrees of Freedom, Stiffness,
+Environment, Special Effects, Display Options, Movement Options and Orthographic Views. A joint adds Joint (Draw Style, Radius, Degrees of Freedom, Stiffness,
 Preferred Angle, Joint Orient, Segment Scale Compensate) and Joint Labelling, and drops Pivots as its template does.
 skinCluster lays out Smooth Skin Attributes and Deformer Attributes with GPU; blendShape lays out Blend Shape
 Attributes and Weight, whose sliders are named after the blend shape's targets and read and write their weight plugs.
@@ -4396,8 +4396,8 @@ renaming a node changes its tab and the name placeholder. The name row shows the
 placeholder with the full path in its tooltip, and connection arrows that carry the connected path and select it.
 
 Evidence is in `crates/aztek_host/tests/attribute_editor_live.rs`: the values are live and undo returns the old one,
-a rename moves the tab, a primitive's Create UVs carries its names and value, and a light type change keeps the new
-shape selected. The manual runs behind the screenshots covered a translate field, rotate child, joint radius, scale
+the UUID and offset parent matrix come from the node, a rename moves the tab, a primitive's Create UVs carries its
+names and value, and a light type change keeps the new shape selected. The manual runs behind the screenshots covered a translate field, rotate child, joint radius, scale
 and blend weight sliders, Visibility, Template, Use Outliner Color and Draw Label checkboxes, Inherits Transform,
 rotate order, Create UVs, light intensity, colour and type, camera focal length, limit fields and enables, undo and
 redo, a time change, and a generic `reverse` tab.

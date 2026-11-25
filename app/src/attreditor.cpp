@@ -1352,6 +1352,11 @@ QList<AeBox> camera_boxes() {
               shown("displaySafeTitle", "Display Safe Title", "check"), shown("displayFieldChart", "Display Field Chart", "check"),
               shown("displayFilmOrigin", "Display Film Origin", "check"), shown("displayFilmPivot", "Display Film Pivot", "check"),
               shown("overscan", "Overscan", "slider", "0,10")});
+    l << box("Movement Options",
+             {shown("journalCommand", "Undoable Movements", "check"), row("centerOfInterest"),
+              shown("tumblePivot", "Tumble Pivot", "vec3"), shown("usePivotAsLocalSpace", "Use Pivot As Local Space", "check"),
+              shown("bookmarks", "Bookmarks", "text")});
+    l << box("Orthographic Views", {shown("orthographic", "Orthographic", "check"), shown("orthographicWidth", "Orthographic Width", "float")});
     l << box("Node Behavior", {row("caching"), row("nodeState")});
     l << box("UUID", {shown("__uuid", "", "uuidValue")});
     l << box("Extra Attributes", {});
