@@ -4521,3 +4521,10 @@ Aztek places the sliders under the views before restoring the window size and ma
 
 The Attribute Editor follows the active theme. Sections, tabs, menus, controls and link icons update when the theme
 changes while the editor is open. Keyed and connected fields keep the same state colours as the Channel Box.
+
+### What changed (25/11/2026, #312)
+
+The Time and Range Sliders keep their own height, as the reference's do. Going from a Rendering workspace back to
+General left them stretched to the height the Script Editor had under the views, and their edge could be dragged
+taller. They now give that space back to the views and their top edge doesn't drag. Checked with a small Qt program
+built the same way; not yet looked at in the built app on macOS.

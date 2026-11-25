@@ -1681,6 +1681,10 @@ void MainWindow::build_bottom() {
     play->addAction(icon("next"), "Step forward one frame", [this] { step_time(1); });
     play->addAction(icon("last"), "Go to end of playback range", [this] { go_to_time(time_slider_->end()); });
     row1->addWidget(play);
+    // The sliders keep their own height, as the reference's do: a dock area left tall by an editor docked under the
+    // views (the Rendering workspace's Script Editor) gives the space back rather than stretching them, and the edge
+    // between them and the views doesn't drag (#312).
+    time_row->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     time_dock_->setWidget(time_row);
     auto* range_row = new QWidget(range_dock_);
     range_row->setObjectName("rangeSliderRow");
@@ -1787,6 +1791,7 @@ void MainWindow::build_bottom() {
     auto_key_->setCheckable(true);
     auto_key_->setObjectName("autoKey");
     row2->addWidget(tb);
+    range_row->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     range_dock_->setWidget(range_row);
 
     help_line_ = new QLabel(this);
