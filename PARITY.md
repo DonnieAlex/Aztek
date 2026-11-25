@@ -4511,3 +4511,8 @@ anti-aliased edge also takes that surface's colour from the pixel round about th
 mixed into an edge pixel is not bounced back either. The background is a working aid only, as in the reference, and
 Harold renders with its own background (black, alpha 0). Not yet checked in the built app against the screenshots in
 the issue.
+
+### What changed (25/11/2026, #306)
+
+The Attribute Editor follows the active theme. Sections, tabs, menus, controls and link icons update when the theme
+changes while the editor is open. Keyed and connected fields keep the same state colours as the Channel Box.
