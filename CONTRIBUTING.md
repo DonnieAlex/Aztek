@@ -96,6 +96,9 @@ Other checks CI runs, worth running when you touch their area:
 - **No attribution.** No Co-Authored-By, "Generated with" or session-link lines in commits, pull requests, files or
   comments, whether the change was made by hand or with a tool. The pull request template's last question is where
   you say how it was made.
+- **Commits are yours.** Author and commit as yourself, never as the tool you used. The Authors check
+  (`tools/ci/check-authors.sh`) fails a push or pull request that carries an AI tool as author or committer, or its
+  attribution; `git config core.hooksPath tools/git-hooks` runs the same check before each push leaves your machine.
 - **Commits** with plain messages saying what the change does, for example
   `Joint influence locks are declared in scene files (#208)`. A few small commits are fine; they are not squashed
   for you, so leave out work in progress you wouldn't want in history.

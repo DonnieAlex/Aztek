@@ -1,0 +1,23 @@
+# Commits are authored by people: no AI tool as author or committer, and no attribution trailers or links.
+# tools/ci/check-authors.sh has the patterns.
+name: Authors
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  authors:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check
+        run: |
+          if [ "${{ github.event_name }}" = pull_request ]; then
+            tools/ci/check-authors.sh "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}"
+          else
+            tools/ci/check-authors.sh "${{ github.event.before }}" "${{ github.sha }}"
+          fi
