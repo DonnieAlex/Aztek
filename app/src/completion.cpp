@@ -357,7 +357,7 @@ const ScriptCompletion::PyClass* ScriptCompletion::py_class(const QString& modul
 }
 
 QString ScriptCompletion::aliased(const QString& expression, QPlainTextEdit* editor) const {
-    if (expression.isEmpty() || !expression.contains('.')) return expression;
+    if (expression.isEmpty()) return expression;
     const QString first = expression.section('.', 0, 0);
     QString target;
     int scanned = 0;
@@ -472,6 +472,10 @@ ScriptCompletion::Analysis ScriptCompletion::analyse(QPlainTextEdit* editor) {
             }
         }
         if (!prefix.isEmpty()) {
+            // Writing an import: the names in it are not completion, and Enter should end the line rather than
+            // accept an alias that spells what is already there.
+            const QString trimmed = line.trimmed();
+            if (trimmed.startsWith(QLatin1String("import ")) || trimmed.startsWith(QLatin1String("from "))) return a;
             a.mode = Analysis::Words;
             a.prefix = prefix;
             a.replace_start = block.position() + word_start;
