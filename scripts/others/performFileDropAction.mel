@@ -1,0 +1,8 @@
+// performFileDropAction: what a file dropped on the main window does. Returns 1 when the drop was taken. Tools
+// redefine this procedure to read their own files (mGear's guide templates and skin packs among them); the window
+// calls the redefinition for every file dropped on it.
+
+global proc int performFileDropAction(string $theFile)
+{
+    return performFileImportAction($theFile);
+}

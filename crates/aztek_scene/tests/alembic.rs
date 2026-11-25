@@ -148,3 +148,48 @@ fn connect_drives_existing_nodes_and_replace_swaps_the_file() {
     let _ = std::fs::remove_file(&file);
     let _ = std::fs::remove_file(&other);
 }
+
+/// The gpuCache plug-in: the command writes a moving, deforming object to a file, and a gpuCache shape plays the file
+/// back at the scene's time, under its own transform, with nothing of the object in the scene.
+#[test]
+fn gpu_cache_writes_and_plays_back() {
+    let mut s = session();
+    aztek_scene::gpu_cache::register(&mut s.commands);
+    run(&mut s, "polyCube", json!({"name": "box", "width": 2.0, "height": 2.0, "depth": 2.0}));
+    key(&mut s, "box.translateX", 1.0, 0.0);
+    key(&mut s, "box.translateX", 10.0, 9.0);
+    let dir = temp("gpucache");
+    let files = run(&mut s, "gpuCache", json!({"args": ["box"], "startTime": 1.0, "endTime": 10.0, "directory": dir, "fileName": "boxCache", "optimize": true, "saveMultipleFiles": true}));
+    let file = files[0].as_str().unwrap().to_string();
+    assert!(file.ends_with("boxCache.abc") && std::path::Path::new(&file).exists(), "{files}");
+    let at = |s: &mut Session, f: f64| {
+        frame(s, f);
+        points(s, "box")
+    };
+    let want5 = at(&mut s, 5.0);
+    run(&mut s, "delete", json!({"args": ["box"]}));
+    let shape = run(&mut s, "createNode", json!({"args": ["gpuCache"], "name": "boxCacheShape"}));
+    assert_eq!(shape, json!("boxCacheShape"));
+    run(&mut s, "setAttr", json!({"args": ["boxCacheShape.cacheFileName", file], "type": "string"}));
+    assert_eq!(run(&mut s, "ls", json!({"type": "gpuCache"})), json!(["boxCacheShape"]));
+    let drawn = |s: &mut Session| {
+        let id = s.graph.find("boxCacheShape").unwrap().expect("the shape");
+        s.graph.evaluate();
+        let n = s.graph.node(id).unwrap();
+        let m = n.data().mesh(n.ty().attr_index("outMesh").unwrap()).cloned().expect("a mesh to draw");
+        let mut p: Vec<DVec3> = m.positions().to_vec();
+        p.sort_by(|a, b| a.x.total_cmp(&b.x).then(a.y.total_cmp(&b.y)).then(a.z.total_cmp(&b.z)));
+        p
+    };
+    frame(&mut s, 5.0);
+    let mut want = want5.clone();
+    want.sort_by(|a, b| a.x.total_cmp(&b.x).then(a.y.total_cmp(&b.y)).then(a.z.total_cmp(&b.z)));
+    let got = drawn(&mut s);
+    assert_eq!(got.len(), want.len());
+    assert!(got.iter().zip(&want).all(|(a, b)| a.distance(*b) < 1e-4), "{got:?}\n{want:?}");
+    // Another frame, another sample.
+    frame(&mut s, 10.0);
+    let got = drawn(&mut s);
+    assert!(got.iter().all(|p| (p.x - 9.0).abs() <= 1.0 + 1e-4), "{got:?}");
+    let _ = std::fs::remove_dir_all(&dir);
+}

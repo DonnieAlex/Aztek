@@ -1223,7 +1223,10 @@ QWidget* groom_editor(QWidget* parent) {
     return win;
 }
 
+QWidget* skin_tools_window(QWidget* parent);
+
 QWidget* make_editor_window(const QString& id, QWidget* parent) {
+    if (id == "skinTools") return skin_tools_window(parent);
     if (id == "interactiveGroomEditor") return groom_editor(parent);
     if (id == "spreadSheet") return spread_sheet(parent);
     if (id == "componentEditor") return component_editor(parent);

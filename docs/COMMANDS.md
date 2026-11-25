@@ -3,7 +3,7 @@
 Generated from the command registry by `cargo run -p aztek_host --example gen_commands`; do not edit by hand.
 Commands take the reference's flags, long or short, in MEL and in Python (`aztek.cmds` or `maya.cmds`).
 
-1457 commands.
+1496 commands.
 
 ## AL_usdmaya_LayerCreateLayer
 
@@ -532,6 +532,7 @@ Arguments: value
 
 | Flag | Short | Description |
 | --- | --- | --- |
+| `uiVersionList` | `uivl` | The versions as the export options list them, newest first. |
 | `value` | `v` | The value. |
 | `query` | `q` | Give the value. |
 
@@ -1474,6 +1475,10 @@ The Shape Editor: blend shapes and their targets.
 ## SingleViewLayout
 
 One view: the perspective.
+
+## SkinToolsWindow
+
+The Skin Tools window: skin layers, their masks and the layer tools.
 
 ## SlideEdgeTool
 
@@ -3571,6 +3576,24 @@ The Attribute Editor's Type menu: the light's shape becomes another type under t
 
 Arguments: the light, then the type
 
+## aztekCmdFieldKey
+
+For a cmdScrollFieldExecuter: gives a key press (modifiers, key) to its -filterKeyPress script. Returns 1 when the script took it.
+
+Arguments: field modifiers key
+
+## aztekCmdShellRun
+
+For a cmdShell: runs a line typed into it, as MEL, and adds the line and what it printed and gave to the field.
+
+Arguments: shell line
+
+## aztekCommandLineRun
+
+For a commandLine: runs a line entered in it, in its language, keeps it in its history and shows what it gave.
+
+Arguments: commandLine line
+
 ## aztekEnvironment
 
 The environment variables Aztek knows of: -q lists each with whether it is read and its value in force; -value name gives one, Aztek's own spelling first; -list name gives a list of folders; -icon name finds an icon on XBMLANGPATH; -shelfFiles gives the shelf files on MAYA_SHELF_PATH.
@@ -3583,6 +3606,16 @@ The environment variables Aztek knows of: -q lists each with whether it is read 
 | `icon` | `i` | The file of this icon, or an empty string. |
 | `shelfFiles` | `sf` | The shelf_*.mel files on the shelf path. |
 
+## aztekHotBox
+
+For the shell's hotbox: its rows, style, transparency and right-click setting as one object; -shown x y when it pops at the pointer, -used when something in it was picked, -hidden when it went away by itself.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `shown` | `sh` |  |
+| `used` | `u` |  |
+| `hidden` | `hd` |  |
+
 ## aztekIlluminatesByDefault
 
 The Attribute Editor's Illuminates by Default: whether a light is in defaultLightSet; -set puts it in or out.
@@ -3592,6 +3625,17 @@ Arguments: the light
 | Flag | Short | Description |
 | --- | --- | --- |
 | `set` | `set` | In or out. |
+
+## aztekMgear
+
+mGear built for Aztek (github.com/srlegrand/mgear), installed as a module in the user folder's modules folder. -release finds the release for this Aztek, -install downloads and installs it, -installFile installs a release's zip, -query says what is installed. Aztek's own command.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` | Where mGear goes and what is installed there: {modules, installed: {version, path, definition} or null}. |
+| `release` | `rel` | The newest release for this Aztek: {tag, version, asset}, or {error}. |
+| `install` | `i` | Download the newest release for this Aztek and install it. |
+| `installFile` | `if` | Install a release's zip from disk. |
 
 ## aztekParity
 
@@ -3663,7 +3707,7 @@ What file runs for a USD type or extension.
 
 ## aztekUserFolder
 
-Where scripts, plug-ins, modules and preferences kept between versions are looked for: -mode aztek (Aztek's own folder), link (an existing folder of the reference's, used in place and never written to) or custom, with -folder and -version; -copyFrom folder copies one into Aztek's own. -q describes what is in force.
+Where scripts, plug-ins, modules and preferences kept between versions are looked for: -mode aztek (Aztek's own folder), link (an existing folder of the reference's, used in place, written to only by Help > Install > mGear) or custom, with -folder and -version; -copyFrom folder copies one into Aztek's own. -q describes what is in force.
 
 | Flag | Short | Description |
 | --- | --- | --- |
@@ -5168,6 +5212,188 @@ Writes the Script Editor's lines to a file as well: -open file gives a descripto
 | `status` | `s` | 0 while the file with this descriptor is open. |
 | `query` | `q` | Query. |
 
+## cmdScrollFieldExecuter
+
+Script UI: cmdScrollFieldExecuter, with create, edit and query as in the reference's command.
+
+Arguments: name
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `appendText` | `at` |  |
+| `autoCloseBraces` | `acb` |  |
+| `clear` | `clr` |  |
+| `commandCompletion` | `cco` |  |
+| `copySelection` | `cp` |  |
+| `currentLine` | `cl` |  |
+| `cutSelection` | `ct` |  |
+| `execute` | `exc` |  |
+| `executeAll` | `exa` |  |
+| `fileChangedCommand` | `fcc` |  |
+| `filename` | `fn` |  |
+| `filterKeyPress` | `fkp` |  |
+| `hasFocus` | `hf` |  |
+| `hasSelection` | `hsl` |  |
+| `insertText` | `it` |  |
+| `load` | `ld` |  |
+| `loadContents` | `ldc` |  |
+| `loadFile` | `ldf` |  |
+| `modificationChangedCommand` | `mcc` |  |
+| `modified` | `mod` |  |
+| `numberOfLines` | `nl` |  |
+| `objectPathCompletion` | `opc` |  |
+| `pasteSelection` | `pst` |  |
+| `redo` | `rd` |  |
+| `removeStoredContents` | `rsc` |  |
+| `replaceAll` | `rpa` |  |
+| `saveFile` | `svf` |  |
+| `saveSelection` | `sv` |  |
+| `saveSelectionToShelf` | `svs` |  |
+| `searchAndSelect` | `sas` |  |
+| `searchDown` | `sd` |  |
+| `searchMatchCase` | `smc` |  |
+| `searchString` | `ss` |  |
+| `searchWraps` | `sw` |  |
+| `select` | `sl` |  |
+| `selectAll` | `sla` |  |
+| `selectedText` | `slt` |  |
+| `showLineNumbers` | `sln` |  |
+| `showTabsAndSpaces` | `sts` |  |
+| `showTooltipHelp` | `sth` |  |
+| `source` | `src` |  |
+| `sourceType` | `st` |  |
+| `spacesPerTab` | `spt` |  |
+| `storeContents` | `stc` |  |
+| `tabsForIndent` | `tfi` |  |
+| `text` | `t` |  |
+| `textLength` | `tl` |  |
+| `undo` | `ud` |  |
+| `annotation` | `ann` |  |
+| `backgroundColor` | `bgc` |  |
+| `defineTemplate` | `dt` |  |
+| `docTag` | `dtg` |  |
+| `dragCallback` | `dgc` |  |
+| `dropCallback` | `dpc` |  |
+| `enable` | `en` |  |
+| `enableBackground` | `ebg` |  |
+| `enableKeyboardFocus` | `ekf` |  |
+| `exists` | `ex` |  |
+| `fullPathName` | `fpn` |  |
+| `height` | `h` |  |
+| `highlightColor` | `hlc` |  |
+| `isObscured` | `io` |  |
+| `manage` | `m` |  |
+| `noBackground` | `nbg` |  |
+| `numberOfPopupMenus` | `npm` |  |
+| `parent` | `p` |  |
+| `popupMenuArray` | `pma` |  |
+| `preventOverride` | `po` |  |
+| `statusBarMessage` | `sbm` |  |
+| `useTemplate` | `ut` |  |
+| `visible` | `vis` |  |
+| `visibleChangeCommand` | `vcc` |  |
+| `width` | `w` |  |
+| `query` | `q` |  |
+| `edit` | `e` |  |
+
+## cmdScrollFieldReporter
+
+Script UI: cmdScrollFieldReporter, with create, edit and query as in the reference's command.
+
+Arguments: name
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `clear` | `clr` |  |
+| `copySelection` | `cp` |  |
+| `cutSelection` | `ct` |  |
+| `echoAllCommands` | `eac` |  |
+| `filterSourceType` | `fst` |  |
+| `hasFocus` | `hf` |  |
+| `lineNumbers` | `ln` |  |
+| `pasteSelection` | `pst` |  |
+| `receiveFocusCommand` | `rfc` |  |
+| `saveSelection` | `sv` |  |
+| `saveSelectionToShelf` | `svs` |  |
+| `select` | `sl` |  |
+| `selectAll` | `sla` |  |
+| `stackTrace` | `st` |  |
+| `suppressErrors` | `se` |  |
+| `suppressInfo` | `si` |  |
+| `suppressResults` | `sr` |  |
+| `suppressStackTrace` | `sst` |  |
+| `suppressWarnings` | `sw` |  |
+| `text` | `t` |  |
+| `textLength` | `tl` |  |
+| `annotation` | `ann` |  |
+| `backgroundColor` | `bgc` |  |
+| `defineTemplate` | `dt` |  |
+| `docTag` | `dtg` |  |
+| `dragCallback` | `dgc` |  |
+| `dropCallback` | `dpc` |  |
+| `enable` | `en` |  |
+| `enableBackground` | `ebg` |  |
+| `enableKeyboardFocus` | `ekf` |  |
+| `exists` | `ex` |  |
+| `fullPathName` | `fpn` |  |
+| `height` | `h` |  |
+| `highlightColor` | `hlc` |  |
+| `isObscured` | `io` |  |
+| `manage` | `m` |  |
+| `noBackground` | `nbg` |  |
+| `numberOfPopupMenus` | `npm` |  |
+| `parent` | `p` |  |
+| `popupMenuArray` | `pma` |  |
+| `preventOverride` | `po` |  |
+| `statusBarMessage` | `sbm` |  |
+| `useTemplate` | `ut` |  |
+| `visible` | `vis` |  |
+| `visibleChangeCommand` | `vcc` |  |
+| `width` | `w` |  |
+| `query` | `q` |  |
+| `edit` | `e` |  |
+
+## cmdShell
+
+Script UI: cmdShell, with create, edit and query as in the reference's command.
+
+Arguments: name
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `clear` | `cl` |  |
+| `command` | `c` |  |
+| `numberOfHistoryLines` | `nhl` |  |
+| `numberOfSavedLines` | `nsl` |  |
+| `prompt` | `pr` |  |
+| `annotation` | `ann` |  |
+| `backgroundColor` | `bgc` |  |
+| `defineTemplate` | `dt` |  |
+| `docTag` | `dtg` |  |
+| `dragCallback` | `dgc` |  |
+| `dropCallback` | `dpc` |  |
+| `enable` | `en` |  |
+| `enableBackground` | `ebg` |  |
+| `enableKeyboardFocus` | `ekf` |  |
+| `exists` | `ex` |  |
+| `fullPathName` | `fpn` |  |
+| `height` | `h` |  |
+| `highlightColor` | `hlc` |  |
+| `isObscured` | `io` |  |
+| `manage` | `m` |  |
+| `noBackground` | `nbg` |  |
+| `numberOfPopupMenus` | `npm` |  |
+| `parent` | `p` |  |
+| `popupMenuArray` | `pma` |  |
+| `preventOverride` | `po` |  |
+| `statusBarMessage` | `sbm` |  |
+| `useTemplate` | `ut` |  |
+| `visible` | `vis` |  |
+| `visibleChangeCommand` | `vcc` |  |
+| `width` | `w` |  |
+| `query` | `q` |  |
+| `edit` | `e` |  |
+
 ## collider
 
 Make the selected meshes colliders: cloth, particles and rigid bodies hit them. Returns the collider nodes.
@@ -5192,6 +5418,23 @@ Arguments: objects
 | --- | --- | --- |
 | `rgbColor` | `rgb` | An RGB colour. |
 | `userDefined` | `ud` | One of the eight user colours, 1 to 8. |
+
+## colorEditor
+
+The modal colour picker: opens on -rgbValue or -hsvValue (black when neither), -alpha 1 unless given. Returns "r g b 1" when OK was pressed, "r g b 0" when cancelled; -q -rgbValue, -hsvValue, -alpha and -result read what it gave last.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` |  |
+| `alpha` | `a` |  |
+| `hsvValue` | `hsv` |  |
+| `rgbValue` | `rgb` |  |
+| `mini` | `m` |  |
+| `parent` | `p` |  |
+| `position` | `pos` |  |
+| `result` | `r` |  |
+| `useDisplaySpace` | `uds` |  |
+| `useVpColorPicker` | `vcp` |  |
 
 ## colorIndex
 
@@ -5289,6 +5532,166 @@ Arguments: name
 | `query` | `q` |  |
 | `edit` | `e` |  |
 
+## colorInputWidgetGrp
+
+Script UI: colorInputWidgetGrp, with create, edit and query as in the reference's command.
+
+Arguments: name
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `label` | `l` |  |
+| `rgbValue` | `rgb` |  |
+| `hsvValue` | `hsv` |  |
+| `alphaValue` | `alp` |  |
+| `forceDragRefresh` | `fdr` |  |
+| `changeCommand` | `cc` |  |
+| `columnWidth1` | `cw1` |  |
+| `columnAlign1` | `cl1` |  |
+| `columnAttach1` | `ct1` |  |
+| `columnOffset1` | `co1` |  |
+| `columnWidth2` | `cw2` |  |
+| `columnAlign2` | `cl2` |  |
+| `columnAttach2` | `ct2` |  |
+| `columnOffset2` | `co2` |  |
+| `adjustableColumn2` | `ad2` |  |
+| `columnWidth3` | `cw3` |  |
+| `columnAlign3` | `cl3` |  |
+| `columnAttach3` | `ct3` |  |
+| `columnOffset3` | `co3` |  |
+| `adjustableColumn3` | `ad3` |  |
+| `columnWidth4` | `cw4` |  |
+| `columnAlign4` | `cl4` |  |
+| `columnAttach4` | `ct4` |  |
+| `columnOffset4` | `co4` |  |
+| `adjustableColumn4` | `ad4` |  |
+| `columnWidth5` | `cw5` |  |
+| `columnAlign5` | `cl5` |  |
+| `columnAttach5` | `ct5` |  |
+| `columnOffset5` | `co5` |  |
+| `adjustableColumn5` | `ad5` |  |
+| `columnWidth6` | `cw6` |  |
+| `columnAlign6` | `cl6` |  |
+| `columnAttach6` | `ct6` |  |
+| `columnOffset6` | `co6` |  |
+| `adjustableColumn6` | `ad6` |  |
+| `adjustableColumn` | `adj` |  |
+| `columnWidth` | `cw` |  |
+| `columnAlign` | `cal` |  |
+| `columnAttach` | `cat` |  |
+| `rowAttach` | `rat` |  |
+| `annotation` | `ann` |  |
+| `backgroundColor` | `bgc` |  |
+| `defineTemplate` | `dt` |  |
+| `docTag` | `dtg` |  |
+| `dragCallback` | `dgc` |  |
+| `dropCallback` | `dpc` |  |
+| `enable` | `en` |  |
+| `enableBackground` | `ebg` |  |
+| `enableKeyboardFocus` | `ekf` |  |
+| `exists` | `ex` |  |
+| `fullPathName` | `fpn` |  |
+| `height` | `h` |  |
+| `highlightColor` | `hlc` |  |
+| `isObscured` | `io` |  |
+| `manage` | `m` |  |
+| `noBackground` | `nbg` |  |
+| `numberOfPopupMenus` | `npm` |  |
+| `parent` | `p` |  |
+| `popupMenuArray` | `pma` |  |
+| `preventOverride` | `po` |  |
+| `statusBarMessage` | `sbm` |  |
+| `useTemplate` | `ut` |  |
+| `visible` | `vis` |  |
+| `visibleChangeCommand` | `vcc` |  |
+| `width` | `w` |  |
+| `query` | `q` |  |
+| `edit` | `e` |  |
+
+## colorSliderButtonGrp
+
+Script UI: colorSliderButtonGrp, with create, edit and query as in the reference's command.
+
+Arguments: name
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `buttonLabel` | `bl` |  |
+| `buttonCommand` | `bc` |  |
+| `symbolButtonCommand` | `sbc` |  |
+| `symbolButtonDisplay` | `sbd` |  |
+| `image` | `i` |  |
+| `label` | `l` |  |
+| `rgbValue` | `rgb` |  |
+| `hsvValue` | `hsv` |  |
+| `alphaValue` | `alp` |  |
+| `forceDragRefresh` | `fdr` |  |
+| `changeCommand` | `cc` |  |
+| `dragCommand` | `dc` |  |
+| `useDisplaySpace` | `uds` |  |
+| `useVpColorPicker` | `vcp` |  |
+| `columnWidth1` | `cw1` |  |
+| `columnAlign1` | `cl1` |  |
+| `columnAttach1` | `ct1` |  |
+| `columnOffset1` | `co1` |  |
+| `columnWidth2` | `cw2` |  |
+| `columnAlign2` | `cl2` |  |
+| `columnAttach2` | `ct2` |  |
+| `columnOffset2` | `co2` |  |
+| `adjustableColumn2` | `ad2` |  |
+| `columnWidth3` | `cw3` |  |
+| `columnAlign3` | `cl3` |  |
+| `columnAttach3` | `ct3` |  |
+| `columnOffset3` | `co3` |  |
+| `adjustableColumn3` | `ad3` |  |
+| `columnWidth4` | `cw4` |  |
+| `columnAlign4` | `cl4` |  |
+| `columnAttach4` | `ct4` |  |
+| `columnOffset4` | `co4` |  |
+| `adjustableColumn4` | `ad4` |  |
+| `columnWidth5` | `cw5` |  |
+| `columnAlign5` | `cl5` |  |
+| `columnAttach5` | `ct5` |  |
+| `columnOffset5` | `co5` |  |
+| `adjustableColumn5` | `ad5` |  |
+| `columnWidth6` | `cw6` |  |
+| `columnAlign6` | `cl6` |  |
+| `columnAttach6` | `ct6` |  |
+| `columnOffset6` | `co6` |  |
+| `adjustableColumn6` | `ad6` |  |
+| `adjustableColumn` | `adj` |  |
+| `columnWidth` | `cw` |  |
+| `columnAlign` | `cal` |  |
+| `columnAttach` | `cat` |  |
+| `rowAttach` | `rat` |  |
+| `annotation` | `ann` |  |
+| `backgroundColor` | `bgc` |  |
+| `defineTemplate` | `dt` |  |
+| `docTag` | `dtg` |  |
+| `dragCallback` | `dgc` |  |
+| `dropCallback` | `dpc` |  |
+| `enable` | `en` |  |
+| `enableBackground` | `ebg` |  |
+| `enableKeyboardFocus` | `ekf` |  |
+| `exists` | `ex` |  |
+| `fullPathName` | `fpn` |  |
+| `height` | `h` |  |
+| `highlightColor` | `hlc` |  |
+| `isObscured` | `io` |  |
+| `manage` | `m` |  |
+| `noBackground` | `nbg` |  |
+| `numberOfPopupMenus` | `npm` |  |
+| `parent` | `p` |  |
+| `popupMenuArray` | `pma` |  |
+| `preventOverride` | `po` |  |
+| `statusBarMessage` | `sbm` |  |
+| `useTemplate` | `ut` |  |
+| `visible` | `vis` |  |
+| `visibleChangeCommand` | `vcc` |  |
+| `width` | `w` |  |
+| `query` | `q` |  |
+| `edit` | `e` |  |
+
 ## colorSliderGrp
 
 Script UI: colorSliderGrp, with create, edit and query as in the reference's command.
@@ -5300,9 +5703,12 @@ Arguments: name
 | `label` | `l` |  |
 | `rgbValue` | `rgb` |  |
 | `hsvValue` | `hsv` |  |
+| `alphaValue` | `alp` |  |
 | `forceDragRefresh` | `fdr` |  |
 | `changeCommand` | `cc` |  |
 | `dragCommand` | `dc` |  |
+| `useDisplaySpace` | `uds` |  |
+| `useVpColorPicker` | `vcp` |  |
 | `columnWidth1` | `cw1` |  |
 | `columnAlign1` | `cl1` |  |
 | `columnAttach1` | `ct1` |  |
@@ -5444,6 +5850,49 @@ What is echoed: -st on echoes commands called from Python too, -f and -af filter
 | `lineNumbers` | `ln` | Line numbers in messages. |
 | `state` | `st` | Echo everything. |
 
+## commandLine
+
+Script UI: commandLine, with create, edit and query as in the reference's command.
+
+Arguments: name
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `command` | `c` |  |
+| `enterCommand` | `ec` |  |
+| `holdFocus` | `hf` |  |
+| `numberOfHistoryLines` | `nhl` |  |
+| `sourceType` | `st` |  |
+| `inputAnnotation` | `ian` |  |
+| `outputAnnotation` | `oan` |  |
+| `annotation` | `ann` |  |
+| `backgroundColor` | `bgc` |  |
+| `defineTemplate` | `dt` |  |
+| `docTag` | `dtg` |  |
+| `dragCallback` | `dgc` |  |
+| `dropCallback` | `dpc` |  |
+| `enable` | `en` |  |
+| `enableBackground` | `ebg` |  |
+| `enableKeyboardFocus` | `ekf` |  |
+| `exists` | `ex` |  |
+| `fullPathName` | `fpn` |  |
+| `height` | `h` |  |
+| `highlightColor` | `hlc` |  |
+| `isObscured` | `io` |  |
+| `manage` | `m` |  |
+| `noBackground` | `nbg` |  |
+| `numberOfPopupMenus` | `npm` |  |
+| `parent` | `p` |  |
+| `popupMenuArray` | `pma` |  |
+| `preventOverride` | `po` |  |
+| `statusBarMessage` | `sbm` |  |
+| `useTemplate` | `ut` |  |
+| `visible` | `vis` |  |
+| `visibleChangeCommand` | `vcc` |  |
+| `width` | `w` |  |
+| `query` | `q` |  |
+| `edit` | `e` |  |
+
 ## commandLogging
 
 The commands run, kept in memory for crash logs (-rc, -hs entries) and written to a log file (-lc, -lf; -rl puts the default file back). -q asks.
@@ -5456,6 +5905,70 @@ The commands run, kept in memory for crash logs (-rc, -hs entries) and written t
 | `logFile` | `lf` | The log file; logging moves to it. |
 | `resetLogFile` | `rl` | Log to the default file, aztekCommandLog.txt in the application folder. |
 | `query` | `q` | Query mode. |
+
+## commandPort
+
+Opens or closes a command port, a socket clients connect to and write commands into; each write runs and its result goes back. A plain name is a UNIX socket in /tmp, "/path" a socket at that path, ":port" a local INET socket. Query: whether the named port is open. There is no authentication: any client runs commands with this session's permissions.
+
+Arguments: the port's name (mayaCommand when none is given)
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `bufferSize` | `bs` | The buffer's size in characters, 4096 by default. A longer command closes the connection; a longer result is replaced by an error. |
+| `close` | `cl` | Close the port and delete its socket file. Connections already made stay open. |
+| `echoOutput` | `eo` | Send everything the commands print to the client, not only the results. |
+| `listPorts` | `lp` | The open ports' names. |
+| `name` | `n` | The port's name: a UNIX socket in /tmp, a full socket path starting with "/", or ":port" for a local INET socket. |
+| `noreturn` | `nr` | Results go to the Script Editor rather than back to the client. |
+| `pickleOutput` | `po` | Python results go back pickled. |
+| `prefix` | `pre` | A command taking one string, run with each write (each line a write of its own); only the last answer goes back. |
+| `returnNumCommands` | `rnc` | Send back how many commands were read and run, not their results. Ignored with -noreturn. |
+| `securityWarning` | `sw` | Warn when a client sends commands. |
+| `sourceType` | `stp` | The language of what is written: "mel" (the default) or "python". |
+| `query` | `q` | Query mode. |
+
+## componentBox
+
+Script UI: componentBox, with create, edit and query as in the reference's command.
+
+Arguments: name
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `execute` | `exe` |  |
+| `labelWidth` | `lw` |  |
+| `maxHeight` | `mh` |  |
+| `maxWidth` | `mw` |  |
+| `precision` | `pre` |  |
+| `rowHeight` | `rh` |  |
+| `selectedAttr` | `sla` |  |
+| `annotation` | `ann` |  |
+| `backgroundColor` | `bgc` |  |
+| `defineTemplate` | `dt` |  |
+| `docTag` | `dtg` |  |
+| `dragCallback` | `dgc` |  |
+| `dropCallback` | `dpc` |  |
+| `enable` | `en` |  |
+| `enableBackground` | `ebg` |  |
+| `enableKeyboardFocus` | `ekf` |  |
+| `exists` | `ex` |  |
+| `fullPathName` | `fpn` |  |
+| `height` | `h` |  |
+| `highlightColor` | `hlc` |  |
+| `isObscured` | `io` |  |
+| `manage` | `m` |  |
+| `noBackground` | `nbg` |  |
+| `numberOfPopupMenus` | `npm` |  |
+| `parent` | `p` |  |
+| `popupMenuArray` | `pma` |  |
+| `preventOverride` | `po` |  |
+| `statusBarMessage` | `sbm` |  |
+| `useTemplate` | `ut` |  |
+| `visible` | `vis` |  |
+| `visibleChangeCommand` | `vcc` |  |
+| `width` | `w` |  |
+| `query` | `q` |  |
+| `edit` | `e` |  |
 
 ## componentEditor
 
@@ -5621,6 +6134,8 @@ A modal question with buttons. Returns the button pressed, or -dismissString whe
 | `dismissString` | `ds` |  |
 | `icon` | `icn` |  |
 | `backgroundColor` | `bgc` |  |
+| `annotation` | `ann` |  |
+| `detailedMessage` | `dm` |  |
 | `parent` | `p` |  |
 
 ## connectAttr
@@ -8339,6 +8854,100 @@ Arguments: the profile, then the path (the selection when none)
 | `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
 | `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
+## falloffCurve
+
+Script UI: falloffCurve, with create, edit and query as in the reference's command.
+
+Arguments: name
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `addControlVertex` | `acv` |  |
+| `asString` | `as` |  |
+| `changeCommand` | `cc` |  |
+| `currentKey` | `ck` |  |
+| `currentKeyValue` | `ckv` |  |
+| `customCurveWidget` | `ccw` |  |
+| `deleteControlVertex` | `dcv` |  |
+| `optionVar` | `ov` |  |
+| `readOnly` | `ro` |  |
+| `snapToGrid` | `stg` |  |
+| `annotation` | `ann` |  |
+| `backgroundColor` | `bgc` |  |
+| `defineTemplate` | `dt` |  |
+| `docTag` | `dtg` |  |
+| `dragCallback` | `dgc` |  |
+| `dropCallback` | `dpc` |  |
+| `enable` | `en` |  |
+| `enableBackground` | `ebg` |  |
+| `enableKeyboardFocus` | `ekf` |  |
+| `exists` | `ex` |  |
+| `fullPathName` | `fpn` |  |
+| `height` | `h` |  |
+| `highlightColor` | `hlc` |  |
+| `isObscured` | `io` |  |
+| `manage` | `m` |  |
+| `noBackground` | `nbg` |  |
+| `numberOfPopupMenus` | `npm` |  |
+| `parent` | `p` |  |
+| `popupMenuArray` | `pma` |  |
+| `preventOverride` | `po` |  |
+| `statusBarMessage` | `sbm` |  |
+| `useTemplate` | `ut` |  |
+| `visible` | `vis` |  |
+| `visibleChangeCommand` | `vcc` |  |
+| `width` | `w` |  |
+| `query` | `q` |  |
+| `edit` | `e` |  |
+
+## falloffCurveAttr
+
+Script UI: falloffCurveAttr, with create, edit and query as in the reference's command.
+
+Arguments: name
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `addControlVertex` | `acv` |  |
+| `asString` | `as` |  |
+| `attribute` | `at` |  |
+| `changeCommand` | `cc` |  |
+| `currentKey` | `ck` |  |
+| `currentKeyValue` | `ckv` |  |
+| `customCurveWidget` | `ccw` |  |
+| `deleteControlVertex` | `dcv` |  |
+| `readOnly` | `ro` |  |
+| `selectedPositionControl` | `spc` |  |
+| `selectedValueControl` | `svc` |  |
+| `snapToGrid` | `stg` |  |
+| `annotation` | `ann` |  |
+| `backgroundColor` | `bgc` |  |
+| `defineTemplate` | `dt` |  |
+| `docTag` | `dtg` |  |
+| `dragCallback` | `dgc` |  |
+| `dropCallback` | `dpc` |  |
+| `enable` | `en` |  |
+| `enableBackground` | `ebg` |  |
+| `enableKeyboardFocus` | `ekf` |  |
+| `exists` | `ex` |  |
+| `fullPathName` | `fpn` |  |
+| `height` | `h` |  |
+| `highlightColor` | `hlc` |  |
+| `isObscured` | `io` |  |
+| `manage` | `m` |  |
+| `noBackground` | `nbg` |  |
+| `numberOfPopupMenus` | `npm` |  |
+| `parent` | `p` |  |
+| `popupMenuArray` | `pma` |  |
+| `preventOverride` | `po` |  |
+| `statusBarMessage` | `sbm` |  |
+| `useTemplate` | `ut` |  |
+| `visible` | `vis` |  |
+| `visibleChangeCommand` | `vcc` |  |
+| `width` | `w` |  |
+| `query` | `q` |  |
+| `edit` | `e` |  |
+
 ## fcheck
 
 Show images in their own windows: a file, every file a wildcard matches (a window each), or with a trailing dot (mySequence.) the numbered images of a sequence, played.
@@ -8468,6 +9077,23 @@ Arguments: the file
 | `uiConfiguration` | `uc` | Whether panels are saved with the scene (on). Query: whether they are. |
 | `uiLoadConfiguration` | `ulc` | Whether panels saved with a scene are read (on). Query: whether they are. |
 | `writable` | `w` | Query: whether the file can be written: the scene's file by the file system, a referenced one never. |
+
+## fileBrowserDialog
+
+The older file browser, run as fileDialog2: -m 0 read, 1 or 2 write, 4 a folder (add 100 for short names), -ft and -fl the filters, -an and -in the action's label, -wt the title. The file picked goes to -fileCommand as (file name, file type). Returns the dialog's name.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `actionName` | `an` |  |
+| `dialogStyle` | `ds` |  |
+| `fileCommand` | `fc` |  |
+| `fileType` | `ft` |  |
+| `filterList` | `fl` |  |
+| `includeName` | `in` |  |
+| `mode` | `m` |  |
+| `operationMode` | `om` |  |
+| `tipMessage` | `tm` |  |
+| `windowTitle` | `wt` |  |
 
 ## fileDialog
 
@@ -8997,6 +9623,52 @@ Arguments: name
 | `query` | `q` |  |
 | `edit` | `e` |  |
 
+## floatSlider2
+
+Script UI: floatSlider2, with create, edit and query as in the reference's command.
+
+Arguments: name
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `changeCommand1` | `cc1` |  |
+| `changeCommand2` | `cc2` |  |
+| `maximum` | `max` |  |
+| `minimum` | `min` |  |
+| `polarity` | `pol` |  |
+| `positionControl1` | `pc1` |  |
+| `positionControl2` | `pc2` |  |
+| `value1` | `v1` |  |
+| `value2` | `v2` |  |
+| `values` | `vs` |  |
+| `annotation` | `ann` |  |
+| `backgroundColor` | `bgc` |  |
+| `defineTemplate` | `dt` |  |
+| `docTag` | `dtg` |  |
+| `dragCallback` | `dgc` |  |
+| `dropCallback` | `dpc` |  |
+| `enable` | `en` |  |
+| `enableBackground` | `ebg` |  |
+| `enableKeyboardFocus` | `ekf` |  |
+| `exists` | `ex` |  |
+| `fullPathName` | `fpn` |  |
+| `height` | `h` |  |
+| `highlightColor` | `hlc` |  |
+| `isObscured` | `io` |  |
+| `manage` | `m` |  |
+| `noBackground` | `nbg` |  |
+| `numberOfPopupMenus` | `npm` |  |
+| `parent` | `p` |  |
+| `popupMenuArray` | `pma` |  |
+| `preventOverride` | `po` |  |
+| `statusBarMessage` | `sbm` |  |
+| `useTemplate` | `ut` |  |
+| `visible` | `vis` |  |
+| `visibleChangeCommand` | `vcc` |  |
+| `width` | `w` |  |
+| `query` | `q` |  |
+| `edit` | `e` |  |
+
 ## floatSliderButtonGrp
 
 Script UI: floatSliderButtonGrp, with create, edit and query as in the reference's command.
@@ -9243,6 +9915,15 @@ Clear undo history. which='past' drops the steps undo would revert, so undo cann
 | --- | --- | --- |
 | `which` | `w` | past, future or all. |
 
+## fontDialog
+
+Pick a font: returns its name, or an empty string. -FontList returns every font with no dialog; -scalable keeps scalable fonts only.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `FontList` | `fl` |  |
+| `scalable` | `sc` |  |
+
 ## formLayout
 
 Script UI: formLayout, with create, edit and query as in the reference's command.
@@ -9348,6 +10029,19 @@ Arguments: name
 | `width` | `w` |  |
 | `query` | `q` |  |
 | `edit` | `e` |  |
+
+## framelessDialog
+
+A modal message with buttons and no frame: -t the title, -m the message, -pat a path under it, -b each button, -pr the primary ones. Returns the button pressed.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `button` | `b` |  |
+| `message` | `m` |  |
+| `parent` | `p` |  |
+| `path` | `pat` |  |
+| `primary` | `pr` |  |
+| `title` | `t` |  |
 
 ## freeFormFillet
 
@@ -9713,6 +10407,147 @@ Arguments: surfaces; the node or a surface it feeds with -q and -e
 
 The selected skeletons go to their bind pose.
 
+## gpuCache
+
+Write objects' geometry over a frame range to Alembic files for gpuCache shapes to play back: -startTime, -endTime, -directory, -fileName, -prefix, -saveMultipleFiles (a file each, the default), -allDagObjects. Returns the files written.
+
+Arguments: objects
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `startTime` | `st` | First frame. |
+| `endTime` | `et` | Last frame. |
+| `simulationRate` | `smr` | Frames between samples (1). |
+| `sampleMultiplier` | `spm` | Accepted. |
+| `directory` | `dir` | Folder the files go in (the project's cache/alembic). |
+| `fileName` | `f` | The file's name, without .abc. |
+| `prefix` | `p` | Put before each file's name. |
+| `saveMultipleFiles` | `smf` | A file for each object (true). |
+| `allDagObjects` | `all` | Every object in the scene. |
+| `optimize` | `o` | Accepted: the file holds the meshes as they are. |
+| `optimizationThreshold` | `ot` | Accepted. |
+| `writeMaterials` | `wm` | Accepted. |
+| `writeUVs` | `wuv` | Accepted: UVs are written. |
+| `useBaseTessellation` | `ubt` | Accepted. |
+| `showStats` | `ss` | Accepted. |
+| `showGlobalStats` | `sgs` | Accepted. |
+| `dataFormat` | `df` | ogawa, the only one written. |
+| `mergeHierarchy` | `mh` | Accepted. |
+| `writeToFile` | `wf` | Accepted. |
+
+## grabColor
+
+Waits for a mouse press and returns the colour of the pixel under the cursor: red, green and blue (-rgb, the default) or hue, saturation and value (-hsv), with -a its alpha after.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `alpha` | `a` |  |
+| `hsvValue` | `hsv` |  |
+| `rgbValue` | `rgb` |  |
+
+## gradientControl
+
+Script UI: gradientControl, with create, edit and query as in the reference's command.
+
+Arguments: name
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `adaptiveScaling` | `as` |  |
+| `attribute` | `at` |  |
+| `clearAttribute` | `cla` |  |
+| `displayKeyInfo` | `dki` |  |
+| `highlightMode` | `hlm` |  |
+| `numberOfControls` | `nc` |  |
+| `readOnly` | `ro` |  |
+| `refreshOnRelease` | `ror` |  |
+| `selectedColorControl` | `scc` |  |
+| `selectedInterpControl` | `sic` |  |
+| `selectedPositionControl` | `spc` |  |
+| `staticNumberOfControls` | `snc` |  |
+| `staticPositions` | `sp` |  |
+| `upperLimitControl` | `ulc` |  |
+| `verticalLayout` | `vl` |  |
+| `annotation` | `ann` |  |
+| `backgroundColor` | `bgc` |  |
+| `defineTemplate` | `dt` |  |
+| `docTag` | `dtg` |  |
+| `dragCallback` | `dgc` |  |
+| `dropCallback` | `dpc` |  |
+| `enable` | `en` |  |
+| `enableBackground` | `ebg` |  |
+| `enableKeyboardFocus` | `ekf` |  |
+| `exists` | `ex` |  |
+| `fullPathName` | `fpn` |  |
+| `height` | `h` |  |
+| `highlightColor` | `hlc` |  |
+| `isObscured` | `io` |  |
+| `manage` | `m` |  |
+| `noBackground` | `nbg` |  |
+| `numberOfPopupMenus` | `npm` |  |
+| `parent` | `p` |  |
+| `popupMenuArray` | `pma` |  |
+| `preventOverride` | `po` |  |
+| `statusBarMessage` | `sbm` |  |
+| `useTemplate` | `ut` |  |
+| `visible` | `vis` |  |
+| `visibleChangeCommand` | `vcc` |  |
+| `width` | `w` |  |
+| `query` | `q` |  |
+| `edit` | `e` |  |
+
+## gradientControlNoAttr
+
+Script UI: gradientControlNoAttr, with create, edit and query as in the reference's command.
+
+Arguments: name
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `addEntry` | `ae` |  |
+| `asString` | `as` |  |
+| `changeCommand` | `cc` |  |
+| `currentKey` | `ck` |  |
+| `currentKeyChanged` | `ckc` |  |
+| `currentKeyColorValue` | `clv` |  |
+| `currentKeyCurveValue` | `cvv` |  |
+| `currentKeyInterpValue` | `civ` |  |
+| `displayKeyInfo` | `dki` |  |
+| `dragCommand` | `dc` |  |
+| `highlightMode` | `hlm` |  |
+| `optionVar` | `ov` |  |
+| `rampAsColor` | `rac` |  |
+| `readOnly` | `ro` |  |
+| `staticNumberOfControls` | `snc` |  |
+| `valueAtPoint` | `vap` |  |
+| `annotation` | `ann` |  |
+| `backgroundColor` | `bgc` |  |
+| `defineTemplate` | `dt` |  |
+| `docTag` | `dtg` |  |
+| `dragCallback` | `dgc` |  |
+| `dropCallback` | `dpc` |  |
+| `enable` | `en` |  |
+| `enableBackground` | `ebg` |  |
+| `enableKeyboardFocus` | `ekf` |  |
+| `exists` | `ex` |  |
+| `fullPathName` | `fpn` |  |
+| `height` | `h` |  |
+| `highlightColor` | `hlc` |  |
+| `isObscured` | `io` |  |
+| `manage` | `m` |  |
+| `noBackground` | `nbg` |  |
+| `numberOfPopupMenus` | `npm` |  |
+| `parent` | `p` |  |
+| `popupMenuArray` | `pma` |  |
+| `preventOverride` | `po` |  |
+| `statusBarMessage` | `sbm` |  |
+| `useTemplate` | `ut` |  |
+| `visible` | `vis` |  |
+| `visibleChangeCommand` | `vcc` |  |
+| `width` | `w` |  |
+| `query` | `q` |  |
+| `edit` | `e` |  |
+
 ## graphDollyCtx
 
 A graphDollyCtx tool context: create by name, -e and -q its settings. setToolTo makes it current.
@@ -9941,20 +10776,60 @@ Arguments: node
 
 ## headsUpDisplay
 
-Text in the views: -s section -b block -l label -c command; -rem removes; -ex tests; -lh lists.
+Text blocks over the views: -s section (0 to 9) -b block, -l label, -c command with a trigger (-ev, -cc, -ct, -cf, -ac, -con, -atr) or -pre preset, and their formatting. Returns the new block's ID; -rem, -rid and -rp remove one, -ex tests, -lh lists, -nfb and -lob find blocks, -lv shows or hides the lot.
 
 Arguments: name
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `section` | `s` | Screen section, 0 to 9. |
-| `block` | `b` | Row in the section. |
-| `label` | `l` | Label text. |
-| `command` | `c` | MEL giving the value. |
-| `visible` | `vis` | Show it. |
-| `remove` | `rem` | Remove it. |
-| `exists` | `ex` | Whether it exists. |
-| `listHeadsUpDisplays` | `lh` | List them. |
+| `allDescendants` | `ad` |  |
+| `allowOverlap` | `ao` |  |
+| `attachToRefresh` | `atr` |  |
+| `attributeChange` | `ac` |  |
+| `block` | `b` |  |
+| `blockAlignment` | `ba` |  |
+| `blockSize` | `bs` |  |
+| `command` | `c` |  |
+| `conditionChange` | `cc` |  |
+| `conditionFalse` | `cf` |  |
+| `conditionTrue` | `ct` |  |
+| `connectionChange` | `con` |  |
+| `dataAlignment` | `da` |  |
+| `dataFontSize` | `dfs` |  |
+| `dataWidth` | `dw` |  |
+| `decimalPrecision` | `dp` |  |
+| `disregardIndex` | `di` |  |
+| `event` | `ev` |  |
+| `exists` | `ex` |  |
+| `getOption` | `op` |  |
+| `gridColor` | `gco` |  |
+| `label` | `l` |  |
+| `labelFontSize` | `lfs` |  |
+| `labelWidth` | `lw` |  |
+| `lastOccupiedBlock` | `lob` |  |
+| `layoutVisibility` | `lv` |  |
+| `listConditions` | `lc` |  |
+| `listEvents` | `le` |  |
+| `listHeadsUpDisplays` | `lh` |  |
+| `listNodeChanges` | `lnc` |  |
+| `listPresets` | `lp` |  |
+| `name` | `n` |  |
+| `nextFreeBlock` | `nfb` |  |
+| `nodeChanges` | `nc` |  |
+| `padding` | `p` |  |
+| `preset` | `pre` |  |
+| `refresh` | `r` |  |
+| `remove` | `rem` |  |
+| `removeID` | `rid` |  |
+| `removePosition` | `rp` |  |
+| `resetNodeChanges` | `rnc` |  |
+| `scriptResult` | `sr` |  |
+| `section` | `s` |  |
+| `setOption` | `so` |  |
+| `showGrid` | `sg` |  |
+| `visible` | `vis` |  |
+| `query` | `q` |  |
+| `edit` | `e` |  |
 
 ## headsUpMessage
 
@@ -9992,6 +10867,42 @@ Arguments: a command, or a pattern with -l
 | `rolloverMode` | `rm` | Held only. |
 | `syntaxOnly` | `so` | Only the synopsis. |
 
+## helpLine
+
+Script UI: helpLine, with create, edit and query as in the reference's command.
+
+Arguments: name
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `annotation` | `ann` |  |
+| `backgroundColor` | `bgc` |  |
+| `defineTemplate` | `dt` |  |
+| `docTag` | `dtg` |  |
+| `dragCallback` | `dgc` |  |
+| `dropCallback` | `dpc` |  |
+| `enable` | `en` |  |
+| `enableBackground` | `ebg` |  |
+| `enableKeyboardFocus` | `ekf` |  |
+| `exists` | `ex` |  |
+| `fullPathName` | `fpn` |  |
+| `height` | `h` |  |
+| `highlightColor` | `hlc` |  |
+| `isObscured` | `io` |  |
+| `manage` | `m` |  |
+| `noBackground` | `nbg` |  |
+| `numberOfPopupMenus` | `npm` |  |
+| `parent` | `p` |  |
+| `popupMenuArray` | `pma` |  |
+| `preventOverride` | `po` |  |
+| `statusBarMessage` | `sbm` |  |
+| `useTemplate` | `ut` |  |
+| `visible` | `vis` |  |
+| `visibleChangeCommand` | `vcc` |  |
+| `width` | `w` |  |
+| `query` | `q` |  |
+| `edit` | `e` |  |
+
 ## hide
 
 Hide objects (visibility off). Defaults to the selection. Components (or, with none named, the component selection in a component mode) hide their faces.
@@ -10018,6 +10929,18 @@ Arguments: the character
 | `time` | `t` | The range: "1:100" (the playback range by default). |
 | `sampleBy` | `sb` | Frames between keys (1). |
 | `eulerFilter` | `ef` | Run the Euler filter on the rotations (on by default). |
+
+## hikBakeCharacterPost
+
+After a character's bake: nothing is left to undo.
+
+Arguments: character
+
+## hikBakeCharacterPre
+
+Ready a character's bake: selects every node in its definition, the nodes HumanIK drives.
+
+Arguments: character
 
 ## hikBakeToControlRig
 
@@ -10130,6 +11053,12 @@ Turn a character's solve on or off: character, on. Off lets the joints go and on
 
 Arguments: character, on
 
+## hikGetCharacterInputString
+
+What drives a character: the source character's name, or None, Stance or Control Rig.
+
+Arguments: character
+
 ## hikGetCurrentCharacter
 
 The character the HumanIK window is on.
@@ -10225,9 +11154,21 @@ Arguments: root joints
 | `character` | `c` | The character. |
 | `prefix` | `p` | A prefix to ignore. |
 
+## hikReadStancePoseTRSOffsets
+
+Take a character's stance from where its joints are now. Locking the definition takes it too.
+
+Arguments: character
+
 ## hikRemoveCharacterObject
 
 Empty a character's slot: character, slot.
+
+Arguments: character, slot
+
+## hikRemoveSkFromCharacter
+
+Empty a character's slot: character, slot id.
 
 Arguments: character, slot
 
@@ -10242,6 +11183,12 @@ Arguments: file, character
 Refreshes the HumanIK window; here it follows the scene by itself.
 
 Arguments: ignored
+
+## hikSetCharacterInput
+
+Drive a character from another: character, source; an empty source stops it.
+
+Arguments: character, source
 
 ## hikSetCharacterObject
 
@@ -10354,6 +11301,53 @@ Arguments: objects
 A stub outside the UI: returns nothing, since panels and their cameras live there.
 
 Arguments: control x y
+
+## hotBox
+
+The hotbox: with no flags it pops up, -release puts it away (running -noClickCommand when that was quick and nothing was picked, -noClickPosition adding the pointer's place). The row flags show and hide the rows of menus (-*ToggleMenus, -*OnlyMenus, -showAllToggleMenus, -menuSetOnly, -menuSetToggle); -displayHotbox, -displayZonesOnly and -displayCenterOnly how much of it is drawn, -displayStyle which; -transparenyLevel, -rmbPopups and -updateMenus the rest.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `PaneOnlyMenus` | `po` |  |
+| `PaneToggleMenus` | `pt` |  |
+| `animationOnlyMenus` | `ao` |  |
+| `animationToggleMenus` | `at` |  |
+| `clothOnlyMenus` | `clo` |  |
+| `clothToggleMenus` | `clt` |  |
+| `commonOnlyMenus` | `co` |  |
+| `commonToggleMenus` | `ct` |  |
+| `customMenuSetsToggleMenus` | `cst` |  |
+| `displayCenterOnly` | `dco` |  |
+| `displayHotbox` | `dh` |  |
+| `displayStyle` | `ds` |  |
+| `displayZonesOnly` | `dzo` |  |
+| `dynamicsOnlyMenus` | `do` |  |
+| `dynamicsToggleMenus` | `dt` |  |
+| `liveOnlyMenus` | `lo` |  |
+| `liveToggleMenus` | `lt` |  |
+| `menuSetOnly` | `mso` |  |
+| `menuSetToggle` | `mst` |  |
+| `modelingOnlyMenus` | `mdo` |  |
+| `modelingToggleMenus` | `mdt` |  |
+| `noClickCommand` | `ncc` |  |
+| `noClickDelay` | `ncd` |  |
+| `noClickPosition` | `ncp` |  |
+| `noKeyPress` | `nkp` |  |
+| `polygonsOnlyMenus` | `plo` |  |
+| `polygonsToggleMenus` | `plt` |  |
+| `position` | `pos` |  |
+| `release` | `rl` |  |
+| `renderingOnlyMenus` | `ro` |  |
+| `renderingToggleMenus` | `rt` |  |
+| `riggingOnlyMenus` | `rgo` |  |
+| `riggingToggleMenus` | `rgt` |  |
+| `rmbPopups` | `rmb` |  |
+| `showAllToggleMenus` | `a` |  |
+| `surfacesOnlyMenus` | `so` |  |
+| `surfacesToggleMenus` | `st` |  |
+| `transparenyLevel` | `tr` |  |
+| `updateMenus` | `um` |  |
+| `query` | `q` |  |
 
 ## hotkey
 
@@ -10519,7 +11513,7 @@ Arguments: name
 | Flag | Short | Description |
 | --- | --- | --- |
 | `sliderLabel` | `sl` |  |
-| `sliderLabelFontSize` | `slf` |  |
+| `sliderLabelFontSize` | `sfs` |  |
 | `sliderLabelWidth` | `slw` |  |
 | `type` | `t` |  |
 | `value` | `v` |  |
@@ -10536,7 +11530,7 @@ Arguments: name
 | `sliderPressCommand` | `spc` |  |
 | `sliderReleaseCommand` | `src` |  |
 | `buttonLabel` | `bl` |  |
-| `buttonLabelFontSize` | `blf` |  |
+| `buttonLabelFontSize` | `bfs` |  |
 | `buttonWidth` | `bw` |  |
 | `buttonShape` | `bsh` |  |
 | `buttonPressCommand` | `bpc` |  |
@@ -10612,6 +11606,10 @@ Arguments: name
 | `useAlpha` | `ua` |  |
 | `flexibleWidthType` | `fwt` |  |
 | `flexibleWidthValue` | `fwv` |  |
+| `flipX` | `fx` |  |
+| `flipY` | `fy` |  |
+| `handleNodeDropCallback` | `hnd` |  |
+| `labelEditingCallback` | `lec` |  |
 | `annotation` | `ann` |  |
 | `backgroundColor` | `bgc` |  |
 | `defineTemplate` | `dt` |  |
@@ -10648,17 +11646,35 @@ Arguments: name
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `style` | `st` |  |
-| `image` | `i` |  |
-| `image1` | `i1` |  |
-| `label` | `l` |  |
 | `value` | `v` |  |
 | `onCommand` | `onc` |  |
 | `offCommand` | `ofc` |  |
 | `changeCommand` | `cc` |  |
 | `flat` | `fla` |  |
+| `highlightImage` | `hi` |  |
+| `selectionImage` | `si` |  |
+| `selectionHighlightImage` | `shi` |  |
+| `style` | `st` |  |
+| `image` | `i` |  |
+| `image1` | `i1` |  |
+| `image2` | `i2` |  |
+| `image3` | `i3` |  |
+| `label` | `l` |  |
 | `font` | `fn` |  |
 | `align` | `al` |  |
+| `disabledImage` | `di` |  |
+| `flipX` | `fx` |  |
+| `flipY` | `fy` |  |
+| `imageOverlayLabel` | `iol` |  |
+| `labelOffset` | `lo` |  |
+| `marginHeight` | `mh` |  |
+| `marginWidth` | `mw` |  |
+| `overlayLabelBackColor` | `olb` |  |
+| `overlayLabelColor` | `olc` |  |
+| `rotation` | `rot` |  |
+| `runTimeCommand` | `rtc` |  |
+| `useAlpha` | `ua` |  |
+| `version` | `ver` |  |
 | `annotation` | `ann` |  |
 | `backgroundColor` | `bgc` |  |
 | `defineTemplate` | `dt` |  |
@@ -10695,18 +11711,167 @@ Arguments: name
 
 | Flag | Short | Description |
 | --- | --- | --- |
-| `style` | `st` |  |
-| `image` | `i` |  |
-| `image1` | `i1` |  |
-| `label` | `l` |  |
 | `select` | `sl` |  |
 | `collection` | `cl` |  |
 | `onCommand` | `onc` |  |
 | `offCommand` | `ofc` |  |
 | `changeCommand` | `cc` |  |
 | `flat` | `fla` |  |
+| `highlightImage` | `hi` |  |
+| `selectionImage` | `si` |  |
+| `selectionHighlightImage` | `shi` |  |
+| `style` | `st` |  |
+| `image` | `i` |  |
+| `image1` | `i1` |  |
+| `image2` | `i2` |  |
+| `image3` | `i3` |  |
+| `label` | `l` |  |
 | `font` | `fn` |  |
 | `align` | `al` |  |
+| `disabledImage` | `di` |  |
+| `flipX` | `fx` |  |
+| `flipY` | `fy` |  |
+| `imageOverlayLabel` | `iol` |  |
+| `labelOffset` | `lo` |  |
+| `marginHeight` | `mh` |  |
+| `marginWidth` | `mw` |  |
+| `overlayLabelBackColor` | `olb` |  |
+| `overlayLabelColor` | `olc` |  |
+| `rotation` | `rot` |  |
+| `runTimeCommand` | `rtc` |  |
+| `useAlpha` | `ua` |  |
+| `version` | `ver` |  |
+| `annotation` | `ann` |  |
+| `backgroundColor` | `bgc` |  |
+| `defineTemplate` | `dt` |  |
+| `docTag` | `dtg` |  |
+| `dragCallback` | `dgc` |  |
+| `dropCallback` | `dpc` |  |
+| `enable` | `en` |  |
+| `enableBackground` | `ebg` |  |
+| `enableKeyboardFocus` | `ekf` |  |
+| `exists` | `ex` |  |
+| `fullPathName` | `fpn` |  |
+| `height` | `h` |  |
+| `highlightColor` | `hlc` |  |
+| `isObscured` | `io` |  |
+| `manage` | `m` |  |
+| `noBackground` | `nbg` |  |
+| `numberOfPopupMenus` | `npm` |  |
+| `parent` | `p` |  |
+| `popupMenuArray` | `pma` |  |
+| `preventOverride` | `po` |  |
+| `statusBarMessage` | `sbm` |  |
+| `useTemplate` | `ut` |  |
+| `visible` | `vis` |  |
+| `visibleChangeCommand` | `vcc` |  |
+| `width` | `w` |  |
+| `query` | `q` |  |
+| `edit` | `e` |  |
+
+## iconTextRadioCollection
+
+A set of radio items, one selected.
+
+Arguments: name
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `select` | `sl` |  |
+| `disableCommands` | `dcm` |  |
+| `collectionItemArray` | `cia` |  |
+| `numberOfCollectionItems` | `nci` |  |
+| `global` | `gl` |  |
+| `parent` | `p` |  |
+| `exists` | `ex` |  |
+| `query` | `q` |  |
+| `edit` | `e` |  |
+| `defineTemplate` | `dt` |  |
+| `useTemplate` | `ut` |  |
+
+## iconTextScrollList
+
+Script UI: iconTextScrollList, with create, edit and query as in the reference's command.
+
+Arguments: name
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `allowMultiSelection` | `ams` |  |
+| `append` | `a` |  |
+| `changeCommand` | `cc` |  |
+| `deselectAll` | `da` |  |
+| `doubleClickCommand` | `dcc` |  |
+| `dragFeedbackVisible` | `dfv` |  |
+| `dropRectCallback` | `drc` |  |
+| `editIndexed` | `ei` |  |
+| `editable` | `ed` |  |
+| `itemAt` | `ia` |  |
+| `itemTextColor` | `itc` |  |
+| `numberOfIcons` | `nic` |  |
+| `numberOfRows` | `nr` |  |
+| `removeAll` | `ra` |  |
+| `selectCommand` | `sc` |  |
+| `selectIndexedItem` | `sii` |  |
+| `selectItem` | `si` |  |
+| `visualRectAt` | `vra` |  |
+| `annotation` | `ann` |  |
+| `backgroundColor` | `bgc` |  |
+| `defineTemplate` | `dt` |  |
+| `docTag` | `dtg` |  |
+| `dragCallback` | `dgc` |  |
+| `dropCallback` | `dpc` |  |
+| `enable` | `en` |  |
+| `enableBackground` | `ebg` |  |
+| `enableKeyboardFocus` | `ekf` |  |
+| `exists` | `ex` |  |
+| `fullPathName` | `fpn` |  |
+| `height` | `h` |  |
+| `highlightColor` | `hlc` |  |
+| `isObscured` | `io` |  |
+| `manage` | `m` |  |
+| `noBackground` | `nbg` |  |
+| `numberOfPopupMenus` | `npm` |  |
+| `parent` | `p` |  |
+| `popupMenuArray` | `pma` |  |
+| `preventOverride` | `po` |  |
+| `statusBarMessage` | `sbm` |  |
+| `useTemplate` | `ut` |  |
+| `visible` | `vis` |  |
+| `visibleChangeCommand` | `vcc` |  |
+| `width` | `w` |  |
+| `query` | `q` |  |
+| `edit` | `e` |  |
+
+## iconTextStaticLabel
+
+Script UI: iconTextStaticLabel, with create, edit and query as in the reference's command.
+
+Arguments: name
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `style` | `st` |  |
+| `image` | `i` |  |
+| `image1` | `i1` |  |
+| `image2` | `i2` |  |
+| `image3` | `i3` |  |
+| `label` | `l` |  |
+| `font` | `fn` |  |
+| `align` | `al` |  |
+| `disabledImage` | `di` |  |
+| `flipX` | `fx` |  |
+| `flipY` | `fy` |  |
+| `imageOverlayLabel` | `iol` |  |
+| `labelOffset` | `lo` |  |
+| `marginHeight` | `mh` |  |
+| `marginWidth` | `mw` |  |
+| `overlayLabelBackColor` | `olb` |  |
+| `overlayLabelColor` | `olc` |  |
+| `rotation` | `rot` |  |
+| `runTimeCommand` | `rtc` |  |
+| `useAlpha` | `ua` |  |
+| `version` | `ver` |  |
 | `annotation` | `ann` |  |
 | `backgroundColor` | `bgc` |  |
 | `defineTemplate` | `dt` |  |
@@ -13402,6 +14567,12 @@ Interface scaling, from the next start: -m 0 by the system's DPI, 1 by -sv (1, 1
 The character driving a character, or nothing.
 
 Arguments: character
+
+## mayaHIKsetCharacterInput
+
+Drive a character from another: character, source; an empty source stops it.
+
+Arguments: character, source
 
 ## mayaUSDExport
 
@@ -25039,6 +26210,76 @@ Arguments: joints, then the mesh (the selection when none); a skinCluster or ski
 | `deformerTools` | `dt` | Query: the skin's tool objects (it has none). |
 | `dumpInfo` | `dui` | Query: per geometry, its index, how many points it acts on and how many there are. |
 | `geometryIndices` | `gi` | Query: the index of each geometry. |
+
+## skinLayers
+
+Skin Tools' layers on a skinned mesh or skinCluster. -init starts them (a base layer with the weights the skin has), -delete takes them away leaving the weights as they blend; -add name a layer (-parent, -index), -remove, -duplicate, -mergeDown id; -e -layer id with -name, -enabled, -opacity, -parent (-1 the top), -index, -paintTarget, -lockInfluences, -mirrorEffects, or -weights with -target (an influence, mask or dq). -q with -layers, -current, -influences, -exists, -dataNode, -weights -target, or -layer id for one layer. -mirrorAxis, -mirrorDirection, -seamWidth and -influencePairs set how Mirror works on this skin.
+
+Arguments: a skinned mesh or a skinCluster
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `initialize` | `init` | Start layers on the skin. |
+| `delete` | `d` | Take the layers away; the weights stay. |
+| `exists` | `ex` | With -q: whether the skin has layers. |
+| `layers` | `ls` | With -q: every layer, bottom first among siblings. |
+| `influences` | `inf` | With -q: the skin's influences, by matrix element. |
+| `dataNode` | `dn` | With -q: the node holding the layers. |
+| `add` | `a` | Add a layer of this name, empty, and make it current. |
+| `remove` | `rm` | Remove a layer and its children. |
+| `duplicate` | `dup` | Copy a layer, above it. |
+| `mergeDown` | `md` | Merge a layer into the one under it. |
+| `layer` | `l` | The layer edited or queried; the current one if not given. |
+| `current` | `cur` | The current layer, the one tools and the brush work on. |
+| `name` | `n` | A layer's name. |
+| `enabled` | `en` | Whether a layer takes part. |
+| `opacity` | `op` | How much a layer covers what is below, 0 to 1. |
+| `parent` | `p` | The layer group a layer is in, -1 none. |
+| `index` | `i` | A layer's place among its siblings, 0 the bottom. |
+| `paintTarget` | `pt` | What the brush paints on the layer: an influence, mask or dq. |
+| `lockInfluences` | `li` | The influences whose weights on the layer no tool changes. |
+| `mirrorEffects` | `me` | What Mirror mirrors on the layer: three booleans, weights, mask, dq. |
+| `target` | `t` | With -weights: an influence, mask or dq. |
+| `weights` | `w` | A value per point for -target; with -q, gives them. An empty list removes a mask or dq. |
+| `mirrorAxis` | `ma` | x, y or z. |
+| `mirrorDirection` | `mdi` | positiveToNegative, negativeToPositive or flip. |
+| `seamWidth` | `sw` | Around the axis, how wide a band blends the two sides. |
+| `influencePairs` | `ip` | Influence pairs across the axis, by matrix element; with -q, every influence's pair. |
+| `query` | `q` | Query. |
+| `edit` | `e` | Edit. |
+
+## skinLayersTool
+
+Skin Tools' tools on a layer (-layer, else the current one): -flood with -target, -mode replace, add, scale, smooth or sharpen, -intensity, -iterations; -assignFromClosestJoint (-influences); -unify; -mirror (-mirrorWeights, -mirrorMask, -mirrorDq); -stamp x y z, one dab of the brush. -sc limits a tool to the selected points. -exportFile and -importFile write and read the layers (-vertexTransferMode closestPoint or vertexId); -transferFrom another skinned mesh copies its layers. -mode, -intensity, -iterations, -distribute and -brushMirror with no mesh set the brush; -q gives them.
+
+Arguments: a skinned mesh or a skinCluster
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `layer` | `l` | The layer; the current one if not given. |
+| `target` | `t` | An influence, mask or dq; the layer's paint target if not given. |
+| `flood` | `fl` | Apply the mode to every point (or the selected ones). |
+| `mode` | `m` | replace, add, scale, smooth or sharpen. |
+| `intensity` | `int` | The value set, added or scaled by, or how strongly smooth and sharpen work. |
+| `iterations` | `it` | How many times smooth and sharpen run. |
+| `distribute` | `dis` | Weight taken from an influence goes to the layer's others. |
+| `brushMirror` | `bm` | Mirror what a flood or a stroke changed. |
+| `selectedComponents` | `sc` | Only the selected points. |
+| `assignFromClosestJoint` | `acj` | Each point fully to the influence bound nearest it. |
+| `influences` | `inf` | The influences -assignFromClosestJoint picks from. |
+| `unify` | `u` | The points take the average of their weights. |
+| `mirror` | `mi` | Mirror the layer across the skin's mirror axis. |
+| `mirrorWeights` | `mw` | With -mirror: the weights. |
+| `mirrorMask` | `mm` | With -mirror: the mask. |
+| `mirrorDq` | `mdq` | With -mirror: the dual quaternion weights. |
+| `stamp` | `st` | One dab of the brush at this world point. |
+| `invert` | `inv` | With -stamp: the inverse, as Ctrl does. |
+| `smooth` | `sm` | With -stamp: smooth, as Shift does. |
+| `exportFile` | `ef` | Write the layers to a file. |
+| `importFile` | `if` | Read layers from a file onto the skin, replacing its own. |
+| `transferFrom` | `tf` | Copy another skinned mesh's layers onto this one. |
+| `vertexTransferMode` | `vtm` | How points match: closestPoint (by bind place) or vertexId. |
+| `query` | `q` | Query the brush. |
 
 ## skinPaintStamp
 

@@ -103,6 +103,7 @@ add_executable(aztek WIN32
   app/src/panels.cpp
   app/src/animlayers.cpp
   app/src/hikwindow.cpp
+  app/src/skintools.cpp
   app/src/widgets.cpp
   app/src/toolsettings_xform.cpp
   app/src/markingmenu.cpp
@@ -139,6 +140,7 @@ add_executable(aztek WIN32
   app/src/pluginmanager.cpp
   app/src/feedback.cpp
   app/src/external.cpp
+  app/src/mgearinstall.cpp
   app/src/editors.cpp
   app/src/attreditor.cpp
   app/src/colorchooser.cpp

@@ -30,7 +30,7 @@ fn window_info(s: &mut Session) -> Value {
 }
 
 /// Every command register makes: the mayaHIK plug-in's (#167).
-pub const NAMES: &[&str] = &["hikCreateSkeleton", "hikCreateDefinition", "hikRemoveCharacterObject", "GetHIKNodeName", "hikGetNodeIdFromName", "hikGetNodeCount", "hikGetSkNode", "hikGetCurrentCharacter", "hikSetCurrentCharacter", "hikGetCurrentSource", "hikSetCurrentSource", "hikSetCurrentSourceFromCharacter", "hikSetSource", "mayaHIKgetInputCharacter", "hikCharacterLock", "hikToggleLockDefinition", "hikEnableCharacter", "hikDefinitionStatus", "hikNameMatch", "hikMirrorMatching", "hikSaveTemplate", "hikLoadTemplate", "hikCreateControlRig", "hikDeleteControlRig", "hikBakeToSkeleton", "hikBake", "hikBakeToControlRig", "hikStraightenArms", "hikInfo", "setCharacterObject", "hikSetCharacterObject"];
+pub const NAMES: &[&str] = &["hikCreateSkeleton", "hikCreateDefinition", "hikRemoveCharacterObject", "GetHIKNodeName", "hikGetNodeIdFromName", "hikGetNodeCount", "hikGetSkNode", "hikGetCurrentCharacter", "hikSetCurrentCharacter", "hikGetCurrentSource", "hikSetCurrentSource", "hikSetCurrentSourceFromCharacter", "hikSetSource", "mayaHIKgetInputCharacter", "hikCharacterLock", "hikToggleLockDefinition", "hikEnableCharacter", "hikDefinitionStatus", "hikNameMatch", "hikMirrorMatching", "hikSaveTemplate", "hikLoadTemplate", "hikCreateControlRig", "hikDeleteControlRig", "hikBakeToSkeleton", "hikBake", "hikBakeToControlRig", "hikStraightenArms", "hikInfo", "setCharacterObject", "hikSetCharacterObject", "hikRemoveSkFromCharacter", "hikSetCharacterInput", "mayaHIKsetCharacterInput", "hikGetCharacterInputString", "hikReadStancePoseTRSOffsets", "hikBakeCharacterPre", "hikBakeCharacterPost"];
 
 pub fn register(c: &mut Commands<Session>) {
     register_types();
@@ -123,6 +123,41 @@ pub fn register(c: &mut Commands<Session>) {
         refresh_rig(g, c)?;
         Ok(Value::Null)
     }).positional("character, slot"));
+    // The procedures of the reference's HumanIK scripts that tools call by name (mGear's HumanIK Mapper among them).
+    c.register(Cmd::new("hikRemoveSkFromCharacter", "Empty a character's slot: character, slot id.", |s, a| {
+        let (Some(cn), Some(slot)) = (a.pos_str(0).map(str::to_string), slot_arg(a, 1)) else { fail!("hikRemoveSkFromCharacter: character, slot") };
+        let g = &mut s.graph;
+        let c = character(g, &cn, "hikRemoveSkFromCharacter")?;
+        set_slot(g, c, slot, None)?;
+        refresh_rig(g, c)?;
+        Ok(Value::Null)
+    }).positional("character, slot"));
+    for name in ["hikSetCharacterInput", "mayaHIKsetCharacterInput"] {
+        c.register(Cmd::new(name, "Drive a character from another: character, source; an empty source stops it.", |s, a| {
+            let Some(t) = a.pos_str(0).map(str::to_string) else { fail!("hikSetCharacterInput: character, source") };
+            let src = a.pos_str(1).filter(|v| !v.trim().is_empty()).unwrap_or("None").trim().to_string();
+            set_source(s, &t, &src)?;
+            Ok(Value::Null)
+        }).positional("character, source"));
+    }
+    c.register(Cmd::new("hikGetCharacterInputString", "What drives a character: the source character's name, or None, Stance or Control Rig.", |s, a| {
+        let (_, ch) = the_character(s, a, "hikGetCharacterInputString")?;
+        Ok(json!(current_source(&s.graph, ch)))
+    }).undoable(false).positional("character"));
+    c.register(Cmd::new("hikReadStancePoseTRSOffsets", "Take a character's stance from where its joints are now. Locking the definition takes it too.", |s, a| {
+        the_character(s, a, "hikReadStancePoseTRSOffsets")?;
+        Ok(Value::Null)
+    }).undoable(false).positional("character"));
+    c.register(Cmd::new("hikBakeCharacterPre", "Ready a character's bake: selects every node in its definition, the nodes HumanIK drives.", |s, a| {
+        let (_, ch) = the_character(s, a, "hikBakeCharacterPre")?;
+        let nodes: Vec<String> = slots_of(&s.graph, ch).into_values().collect();
+        s.run("select", json!({"args": nodes, "replace": true}))?;
+        Ok(json!(nodes))
+    }).positional("character"));
+    c.register(Cmd::new("hikBakeCharacterPost", "After a character's bake: nothing is left to undo.", |s, a| {
+        the_character(s, a, "hikBakeCharacterPost")?;
+        Ok(Value::Null)
+    }).undoable(false).positional("character"));
     c.register(Cmd::new("GetHIKNodeName", "The name of a slot by its id.", |_s, a| Ok(json!(slot_arg(a, 0).map(|i| slot_names()[i].clone()).unwrap_or_default()))).undoable(false).positional("id"));
     c.register(Cmd::new("hikGetNodeIdFromName", "The id of a slot by its name, -1 if there is none.", |_s, a| Ok(json!(a.pos_str(0).and_then(slot_index).map(|i| i as i64).unwrap_or(-1)))).undoable(false).positional("name"));
     c.register(Cmd::new("hikGetNodeCount", "How many slots a definition has.", |_s, _a| Ok(json!(SLOT_COUNT))).undoable(false));

@@ -45,6 +45,7 @@ pub mod hud;
 pub mod hotbox;
 pub mod ramp_controls;
 pub mod update;
+pub mod mgear;
 pub mod environment;
 pub mod user_folder;
 pub mod sys_host;
@@ -394,6 +395,12 @@ pub extern "C" fn aztek_fetch_json(url: *const c_char) -> *mut c_char {
     out(update::get_json(&cstr(url)))
 }
 
+/// The newest mGear release for this Aztek, as mgear::release. Blocks: call it off the interface thread.
+#[no_mangle]
+pub extern "C" fn aztek_mgear_release() -> *mut c_char {
+    out_json(mgear::release())
+}
+
 #[no_mangle]
 pub extern "C" fn aztek_update_cancel() {
     update::cancel();
@@ -636,6 +643,14 @@ pub extern "C" fn aztek_ui_take_ops() -> *mut c_char {
 pub extern "C" fn aztek_ui_event(ev: *const c_char) {
     let ev: Value = serde_json::from_str(&cstr(ev)).unwrap_or(Value::Null);
     with(|h| h.core.ui_event(&ev));
+}
+
+/// The shelf bar's shelves, {"shelves": [names], "current": index}: scripts see them as $gShelfTopLevel's shelfLayouts.
+#[no_mangle]
+pub extern "C" fn aztek_ui_set_shelves(json: *const c_char) {
+    let v: Value = serde_json::from_str(&cstr(json)).unwrap_or(Value::Null);
+    let names: Vec<String> = v["shelves"].as_array().into_iter().flatten().filter_map(|x| x.as_str().map(str::to_string)).collect();
+    scriptui::set_builtin_shelves(&names, v["current"].as_u64().unwrap_or(0) as usize);
 }
 
 /// Script UI: how commands reach the shell for what must answer at once (dialogs, playblast).

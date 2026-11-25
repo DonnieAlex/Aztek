@@ -1356,7 +1356,7 @@ const DRAW_CHANNELS: &[&str] = &[
 ];
 
 /// Rigging and animation nodes that are all attributes and connections.
-const PLAIN_NODES: &[&str] = &["timeSliderBookmark", "audio", "xgmSplineBase", "xgmModifierScale", "xgmModifierSculpt", "xgmModifierClump", "xgmModifierNoise", "xgmModifierCut", "xgmModifierCollide", "xgmModifierDisplace", "xgmModifierGuide", "xgmModifierLinearWire", "xgmCurveToSpline", "xgmModifierSplineCache", "AlembicNode", "collider", "rigidBody", "dynamicConstraint", "heldNode", "unknown", "network", "blendWeighted", "makeNurbCircle", "makeNurbPlane", "makeNurbsSquare", "motionPath", "ramp", "extrude", "reverseSurface", "transformGeometry", "pointOnCurveInfo", "curveInfo", "nearestPointOnCurve", "container", "controller", "timeWarp", "hierarchyTreeNode", "curveFromMeshEdge", "characterMap", "keyingGroup", "filter", "filterEuler", "filterResample", "filterSimplify", "filterClosestSample", "characterOffset"];
+const PLAIN_NODES: &[&str] = &[crate::skin_layers::DATA_TYPE, "timeSliderBookmark", "audio", "xgmSplineBase", "xgmModifierScale", "xgmModifierSculpt", "xgmModifierClump", "xgmModifierNoise", "xgmModifierCut", "xgmModifierCollide", "xgmModifierDisplace", "xgmModifierGuide", "xgmModifierLinearWire", "xgmCurveToSpline", "xgmModifierSplineCache", "AlembicNode", "collider", "rigidBody", "dynamicConstraint", "heldNode", "unknown", "network", "blendWeighted", "makeNurbCircle", "makeNurbPlane", "makeNurbsSquare", "motionPath", "ramp", "extrude", "reverseSurface", "transformGeometry", "pointOnCurveInfo", "curveInfo", "nearestPointOnCurve", "container", "controller", "timeWarp", "hierarchyTreeNode", "curveFromMeshEdge", "characterMap", "keyingGroup", "filter", "filterEuler", "filterResample", "filterSimplify", "filterClosestSample", "characterOffset"];
 /// The same under a transform.
 const PLAIN_SHAPES: &[&str] = &["hairSystem", "imagePlane", "poseInterpolator", "xgmSplineDescription", "solver", "particles", "field", "emitter", "follicle", "distanceDimShape", "paramDimension", "annotationShape", "dropoffLocator", "lattice", "baseLattice", "softModHandle", "mayaUsdProxyShape", "AL_usdmaya_ProxyShape", "ProxyUsdGeomCamera"];
 
@@ -3895,6 +3895,7 @@ fn build(s: &mut Session, doc: &Doc, import: bool) -> Vec<String> {
         }
     }
     crate::hik::after_load(&mut b.s.graph);
+    crate::scripted::link_geom_matrices(&mut b.s.graph);
     b.replay_post_edits();
     // Keys on a joint an IK handle drives: on the joint in the file, on the solver's FK rotate here.
     for c in &doc.conns {
@@ -4021,6 +4022,10 @@ pub fn read_text(s: &mut Session, text: &str, import: bool) -> Vec<String> {
             if !found && doc.nodes.iter().any(missing) {
                 match loaded {
                     Err(e) => before.push(format!("plug-in {name} did not load: {e}")),
+                    // mGear's come from Help > Install > mGear, built for Aztek.
+                    Ok(_) if ["mgear_solvers", "mGearWeightDriver", "weightDriver", "cvwrap"].contains(&name.as_str()) => {
+                        before.push(format!("plug-in {name} was not found on the plug-in path: it is mGear's, which Help > Install > mGear installs"))
+                    }
                     Ok(_) => before.push(format!("plug-in {name} was not found on the plug-in path")),
                 }
             }
@@ -5400,6 +5405,16 @@ impl Writer<'_> {
             text.push_str(&attr_add_lines(a));
         }
         text.push_str(&self.plain_attr_lines(id));
+        // Skin layers: the layers as one string, and the skinCluster they are for.
+        if n.ty().name == crate::skin_layers::DATA_TYPE {
+            if let Some(sk) = crate::skin_layers::skin_of_data(g, id) {
+                if let Some(l) = crate::skin_layers::layers_of(g, sk) {
+                    let json = serde_json::to_string(&crate::plug::Data::to_json(&l)).unwrap_or_default();
+                    let _ = writeln!(text, "\tsetAttr \".lj\" -type \"string\" {};", quoted(&json));
+                }
+                self.conns.push(format!("connectAttr {} {};", quoted(&format!("{}.msg", g.path(sk))), quoted(&format!("{}.sc", g.path(id)))));
+            }
+        }
         // The reference's HIKState2SK reads each joint it drives.
         if n.ty().name == "HIKState2SK" {
             let k = id;
@@ -5515,6 +5530,10 @@ impl Writer<'_> {
         for (dst, src) in list {
             let g = &self.s.graph;
             let (Some(dn), Some(sn)) = (g.node(dst.node), g.node(src.node)) else { continue };
+            // A plug-in deformer's world matrix is linked here; the reference hands it over without a connection.
+            if crate::scripted::linked_geom_attr(g, dst.node) == Some(dst.attr as usize) {
+                continue;
+            }
             // Keys on a joint an IK solver drives live on the solver's FK rotate here; in the file they go on the
             // joint, as the reference keeps them.
             if dn.ty().name == "ikSolve" {

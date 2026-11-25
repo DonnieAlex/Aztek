@@ -21,6 +21,8 @@ struct PaintStroke {
     skin: aztek_scene::plug::NodeId,
     inf: u32,
     bind: aztek_scene::skin::SkinBind,
+    /// With Skin Tools layers on the skin, the brush paints the current layer's target instead.
+    layers: Option<(aztek_scene::skin_layers::Layers, u32, aztek_scene::skin_layers::Target)>,
     applied: bool,
     invert: bool,
     smooth: bool,
@@ -1543,8 +1545,13 @@ impl View {
                     if let Some((i, wp, n)) = self.vp.brush_hit(&core.s, &items, px) {
                         let skin = aztek_scene::skin::skin_of(&core.s.graph, items[i].shape);
                         if let Some(skin) = skin {
+                            let layers = aztek_scene::skin_layers::layers_of(&core.s.graph, skin).and_then(|l| {
+                                let id = l.current?;
+                                let t = aztek_scene::skin_layers::paint_target(&core.s.graph, skin, &l, id)?;
+                                Some((l, id, t))
+                            });
                             if let (Some(b), Some(inf)) = (aztek_scene::skin::bind_of(&core.s.graph, skin), aztek_scene::skin::paint_influence(&core.s, skin)) {
-                                self.stroke = Some(PaintStroke { skin, inf, bind: (*b).clone(), applied: false, invert: mods & CTRL != 0, smooth: mods & SHIFT != 0, last: None });
+                                self.stroke = Some(PaintStroke { skin, inf, bind: (*b).clone(), layers, applied: false, invert: mods & CTRL != 0, smooth: mods & SHIFT != 0, last: None });
                                 self.paint_dab(core, &items, i, wp, n);
                                 self.vp.brush = Some((wp, n));
                             }
@@ -2286,14 +2293,32 @@ impl View {
             }
             None => vec![wp],
         };
+        let brush = aztek_scene::skin_layers::brush();
         for at in dabs {
-            aztek_scene::skin::stamp(&mut st.bind, &items[i].mesh, &items[i].world, at, Some(n), st.inf, &ctx, st.invert, st.smooth);
+            match st.layers.as_mut() {
+                Some((l, id, t)) => {
+                    aztek_scene::skin_layers::stamp_layer(l, *id, *t, &items[i].mesh, &items[i].world, at, Some(n), &ctx, &brush, st.invert, st.smooth);
+                }
+                None => {
+                    aztek_scene::skin::stamp(&mut st.bind, &items[i].mesh, &items[i].world, at, Some(n), st.inf, &ctx, st.invert, st.smooth);
+                }
+            }
         }
         st.last = Some(wp);
         if st.applied {
             core.s.undo();
         }
-        st.applied = aztek_scene::skin::commit_paint(&mut core.s.graph, st.skin, st.bind.clone()).is_ok();
+        st.applied = match st.layers.as_ref() {
+            Some((l, id, t)) => {
+                let mut l = l.clone();
+                if brush.mirror {
+                    let what = [matches!(t, aztek_scene::skin_layers::Target::Influence(_)), *t == aztek_scene::skin_layers::Target::Mask, *t == aztek_scene::skin_layers::Target::Dq];
+                    let _ = aztek_scene::skin_layers::mirror(&mut core.s.graph, st.skin, &mut l, *id, what);
+                }
+                aztek_scene::skin_layers::commit(&mut core.s.graph, st.skin, l).is_ok()
+            }
+            None => aztek_scene::skin::commit_paint(&mut core.s.graph, st.skin, st.bind.clone()).is_ok(),
+        };
         core.version += 1;
     }
 

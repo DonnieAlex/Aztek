@@ -362,6 +362,7 @@ ShelfBar::ShelfBar(std::function<void(const QString&, const QString&)> run, QWid
     lay->addLayout(side);
     tabs_ = new QTabWidget(this);
     tabs_->setObjectName("shelfTabs");
+    connect(tabs_, &QTabWidget::currentChanged, this, [this] { emit shelves_changed(); });
     tabs_->setDocumentMode(true);
     tabs_->tabBar()->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(tabs_->tabBar(), &QWidget::customContextMenuRequested, this, [this](const QPoint& p) {
@@ -473,8 +474,16 @@ void ShelfBar::resizeEvent(QResizeEvent* e) {
 
 void ShelfBar::save() const {
     QJsonArray own;
-    for (const QJsonValue& shelf : shelves_)
-        if (!shelf.toObject().contains("shared")) own.append(shelf);
+    for (const QJsonValue& shelf : shelves_) {
+        if (shelf.toObject().contains("shared")) continue;
+        // A script's button that runs a function of the script lasts as long as the script's session.
+        QJsonObject o = shelf.toObject();
+        QJsonArray kept;
+        for (const QJsonValue& it : o["items"].toArray())
+            if (!it.toObject()["transient"].toBool()) kept.append(it);
+        o["items"] = kept;
+        own.append(o);
+    }
     QSettings settings;
     settings.setValue("shelves/json", QJsonDocument(own).toJson(QJsonDocument::Compact));
     // Each shelf also as the reference's shelf_Name.mel in the prefs shelves folder (#117), which another Aztek or
@@ -539,7 +548,11 @@ void ShelfBar::rebuild() {
             b->setToolTip(label + "\n" + it["command"].toString());
             b->setStatusTip(label);
             QString command = it["command"].toString(), lang = it["language"].toString("mel");
-            connect(b, &QToolButton::clicked, this, [this, command, lang] { run_(command, lang); });
+            const QString script = it["scriptPath"].toString();
+            if (it["transient"].toBool() && !script.isEmpty())
+                connect(b, &QToolButton::clicked, this, [this, script] { if (fire_script) fire_script(script); });
+            else
+                connect(b, &QToolButton::clicked, this, [this, command, lang] { run_(command, lang); });
             b->on_menu = [this, si, i](QPoint g) { button_menu(g, si, i); };
             page->addWidget(b);
         }
@@ -547,6 +560,54 @@ void ShelfBar::rebuild() {
     }
     tabs_->setCurrentIndex(qBound(0, cur, int(tabs_->count()) - 1));
     tabs_->blockSignals(false);
+    emit shelves_changed();
+}
+
+QStringList ShelfBar::shelf_names() const {
+    QStringList out;
+    for (const QJsonValue& v : shelves_) out << v.toObject()["name"].toString();
+    return out;
+}
+
+int ShelfBar::current() const {
+    return qMax(0, tabs_->currentIndex());
+}
+
+void ShelfBar::add_script_button(const QString& shelf, const QString& path, const QJsonObject& props) {
+    int si = shelf_names().indexOf(shelf);
+    if (si < 0) return;
+    // As the reference's shelfButton: -label, -image (or -image1), -command with -sourceType, -annotation.
+    QString label = props.value("label").toString(props.value("annotation").toString());
+    QString image = props.value("image").toString(props.value("image1").toString());
+    QJsonValue cmd = props.value("command");
+    QString lang = props.value("sourceType").toString("mel").toLower() == "python" ? "python" : "mel";
+    QJsonObject item{{"label", label}, {"icon", image}, {"language", lang}, {"scriptPath", path}};
+    if (cmd.isString()) item["command"] = cmd.toString();
+    else item["transient"] = true;
+    if (props.contains("annotation")) item["annotation"] = props["annotation"];
+    QJsonObject s = shelves_[si].toObject();
+    QJsonArray items = s["items"].toArray();
+    items.append(item);
+    s["items"] = items;
+    shelves_[si] = s;
+    save();
+    rebuild();
+}
+
+void ShelfBar::remove_script_button(const QString& path) {
+    for (int si = 0; si < shelves_.size(); ++si) {
+        QJsonObject s = shelves_[si].toObject();
+        QJsonArray items = s["items"].toArray();
+        for (int i = 0; i < items.size(); ++i) {
+            if (items[i].toObject()["scriptPath"].toString() != path) continue;
+            items.removeAt(i);
+            s["items"] = items;
+            shelves_[si] = s;
+            save();
+            rebuild();
+            return;
+        }
+    }
 }
 
 void ShelfBar::select_shelf(const QString& name) {

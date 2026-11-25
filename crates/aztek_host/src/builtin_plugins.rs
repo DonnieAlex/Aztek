@@ -88,6 +88,22 @@ pub const BUILTINS: &[Builtin] = &[
         nodes: &[],
     },
     Builtin {
+        name: "gpuCache",
+        doc: "GPU caches, as the reference's gpuCache plug-in: the gpuCache command writes objects' geometry over a frame range to Alembic files, and the gpuCache shape plays such a file back in the views at the scene's time, a light stand-in for a heavy rig.",
+        commands: &["gpuCache"],
+        register: |s| aztek_scene::gpu_cache::register(&mut s.commands),
+        more: none,
+        nodes: &["gpuCache"],
+    },
+    Builtin {
+        name: "ngSkinTools2",
+        doc: "Skin Tools, as the reference has it built in: layered skin weights on a skinCluster, with masks, dual quaternion weights, mirror, flood and brush tools, import, export and transfer, and the ngSkinTools2 Python API.",
+        commands: &["skinLayers", "skinLayersTool"],
+        register: |s| aztek_scene::skin_layers::register(&mut s.commands),
+        more: none,
+        nodes: &["ngst2SkinLayerData"],
+    },
+    Builtin {
         name: "AbcImport",
         doc: "Alembic import, as the reference's AbcImport plug-in: AbcImport and the AlembicNode that streams an animated file.",
         commands: &["AbcImport"],

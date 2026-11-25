@@ -122,6 +122,9 @@ impl Core {
         c.mel_state.set_global_string("gMainWindow", crate::scriptui::MAIN_WINDOW);
         c.mel_state.set_global_string("gMainProgressBar", crate::scriptui::MAIN_PROGRESS);
         c.mel_state.set_global_string("gPlayBackSlider", crate::scriptui::TIME_SLIDER);
+        c.mel_state.set_global_string("gChannelBoxName", crate::channel_box::MAIN);
+        c.mel_state.set_global_string("gMainPane", crate::scriptui::MAIN_PANE);
+        c.mel_state.set_global_string("gShelfTopLevel", crate::scriptui::SHELF_TOP);
         c.ensure_defaults();
         #[cfg(feature = "python")]
         crate::python::register_commands(&mut c.s);
@@ -131,6 +134,7 @@ impl Core {
         // The features kept as plug-ins: there from the start unless turned off.
         crate::builtin_plugins::load_defaults(&mut c.s);
         crate::user_folder::register_commands(&mut c.s);
+        crate::mgear::register_commands(&mut c.s);
         crate::environment::register_commands(&mut c.s);
         crate::environment::startup();
         aztek_scene::unit_tables::tag_commands(&mut c.s.commands);
@@ -989,6 +993,7 @@ pub const UI_COMMANDS: &[(&str, &str)] = &[
     ("EditMembershipTool", "The edit membership tool: which points a deformer holds."),
     ("ShapeEditor", "The Shape Editor: blend shapes and their targets."),
     ("HumanIK", "The Human IK window: characters, sources, definitions and controls."),
+    ("SkinToolsWindow", "The Skin Tools window: skin layers, their masks and the layer tools."),
     ("HIKCharacterControlsTool", "The Human IK window."),
     ("ToolSettingsWindow", "Show the Tool Settings."),
     ("SelectTool", "The select tool."),

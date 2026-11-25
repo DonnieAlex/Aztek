@@ -46,6 +46,9 @@ char* aztek_update_latest(void);
 char* aztek_update_download(const char* url, const char* path, const char* digest);
 void aztek_update_progress(uint64_t* done, uint64_t* total);
 void aztek_update_cancel(void);
+// mGear built for this Aztek: the newest release with a zip for it, {tag, version, asset: {name, url, size, digest}}
+// or {error}. Blocks.
+char* aztek_mgear_release(void);
 // A GET of a JSON document (the welcome screen's announcements): the body, or {error}. Blocks.
 char* aztek_fetch_json(const char* url);
 
@@ -55,6 +58,8 @@ char* aztek_ui_take_ops(void);
 void aztek_ui_event(const char* json);
 typedef void (*AztekUiHook)(const char* kind, const char* json);
 void aztek_ui_set_hook(AztekUiHook hook);
+// The shelf bar's shelves, {"shelves": [names], "current": index}, for scripts to find as $gShelfTopLevel.
+void aztek_ui_set_shelves(const char* json);
 void aztek_ui_answer(const char* json);
 void aztek_ui_progress_cancel(void);
 int aztek_ui_in_hook(void);

@@ -73,6 +73,8 @@ const SCRIPTS: &[(&str, &str)] = &[
     ("others/performDuplicateSpecial.mel", include_str!("../../../../scripts/others/performDuplicateSpecial.mel")),
     ("others/performDynamics.mel", include_str!("../../../../scripts/others/performDynamics.mel")),
     ("others/performExtrude.mel", include_str!("../../../../scripts/others/performExtrude.mel")),
+    ("others/performFileDropAction.mel", include_str!("../../../../scripts/others/performFileDropAction.mel")),
+    ("others/performFileImportAction.mel", include_str!("../../../../scripts/others/performFileImportAction.mel")),
     ("others/performGroup.mel", include_str!("../../../../scripts/others/performGroup.mel")),
     ("others/performJointOrient.mel", include_str!("../../../../scripts/others/performJointOrient.mel")),
     ("others/performNormalizeSkinWeights.mel", include_str!("../../../../scripts/others/performNormalizeSkinWeights.mel")),

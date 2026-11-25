@@ -24,6 +24,34 @@ elif _name == "maya.app.flux.core":
     def pix(value):
         return int(dpi(value))
 
+    def getPixmap(name, width=None, height=None):
+        """A named image as a QPixmap: a file of that name on the icon path (XBMLANGPATH), else Qt's resource of that
+        name. Aztek carries none of the reference's own images, so one of those comes back empty, as a missing image
+        does there. Scaled to width and height when given, as dpi scales them."""
+        import os
+        try:
+            from PySide6 import QtGui
+        except ImportError:
+            from PySide2 import QtGui
+        name = str(name)
+        found = None
+        if os.path.isfile(name):
+            found = name
+        else:
+            for d in os.environ.get("XBMLANGPATH", "").split(os.pathsep):
+                d = d.replace("%B", "")
+                for ext in ("", ".png", ".svg", ".xpm"):
+                    f = os.path.join(d, name + ext)
+                    if d and os.path.isfile(f):
+                        found = f
+                        break
+                if found:
+                    break
+        px = QtGui.QPixmap(found) if found else QtGui.QPixmap(":/" + name if name.endswith((".png", ".svg")) else ":/" + name + ".png")
+        if not px.isNull() and (width or height):
+            px = px.scaled(pix(width or px.width()), pix(height or px.height()))
+        return px
+
 elif _name == "maya.internal.nodes.proximitywrap.node_interface":
     class NodeInterface(object):
         def __init__(self, *args, **kwargs):

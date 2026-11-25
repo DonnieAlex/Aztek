@@ -258,8 +258,15 @@ fn given(a: &Args) -> Option<Value> {
     a.get("value").cloned().or_else(|| a.positional.first().cloned())
 }
 
+/// The FBX versions as the reference's export options list them; a label's first year, spaces gone and 00 added, is
+/// the version's value.
+const VERSION_LABELS: &[&str] = &["FBX 2020", "FBX 2019", "FBX 2018", "FBX 2016/2017", "FBX 2014/2015", "FBX 2013", "FBX 2012", "FBX 2011", "FBX 2010", "FBX 2009", "FBX 2006"];
+
 fn setting_cmd(name: &'static str) -> impl Fn(&mut Session, &Args) -> CmdResult + Send + Sync + 'static {
     move |_s, a| {
+        if a.bool("uiVersionList") {
+            return Ok(json!(VERSION_LABELS));
+        }
         if a.bool("query") || given(a).is_none() {
             return Ok(match name {
                 "FBXImportUpAxis" | "FBXExportUpAxis" if word(name).is_empty() => json!(if crate::world::up_z() { "z" } else { "y" }),
@@ -321,6 +328,11 @@ pub fn register(c: &mut Commands<Session>) {
             CommandDef::<Session>::new(o.name, &doc, unit_cmd(o.name))
         } else {
             CommandDef::<Session>::new(o.name, &doc, setting_cmd(o.name))
+        };
+        let cmd = if o.name == "FBXExportFileVersion" {
+            cmd.flag(FlagDef::new("uiVersionList", "uivl", ArgType::Bool, Value::Null, "The versions as the export options list them, newest first."))
+        } else {
+            cmd
         };
         c.register(cmd.positional("value").flag(val()).flag(q()).undoable(false));
     }

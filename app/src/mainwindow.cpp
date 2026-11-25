@@ -155,6 +155,23 @@ MainWindow::MainWindow() {
     shelf_capture() = [this](QAction* a) { add_to_shelf(a); };
     shelf_holder->addWidget(shelf_bar_);
     shelf_bar_->set_corner(make_feedback_button(shelf_bar_));
+    // Scripts reach the views' pane as $gMainPane and the shelves as $gShelfTopLevel, by the reference's names.
+    ScriptUi::get()->add_builtin_editor("MainPane", "paneLayout", panels_);
+    shelf_bar_->fire_script = [](const QString& path) {
+        QByteArray text = QJsonDocument(QJsonObject{{"path", path}, {"fire", QJsonArray{"command"}}}).toJson(QJsonDocument::Compact);
+        aztek_ui_event(text.constData());
+        Host::get()->poke();
+        ScriptUi::get()->sync();
+    };
+    auto shelves_for_scripts = [this] {
+        ScriptUi::ShelfHooks hooks;
+        hooks.add = [this](const QString& shelf, const QString& path, const QJsonObject& props) { shelf_bar_->add_script_button(shelf, path, props); };
+        hooks.remove = [this](const QString& path) { shelf_bar_->remove_script_button(path); };
+        hooks.select = [this](const QString& shelf) { shelf_bar_->select_shelf(shelf); };
+        ScriptUi::get()->set_shelves(shelf_bar_, shelf_bar_->shelf_names(), shelf_bar_->current(), hooks);
+    };
+    connect(shelf_bar_, &ShelfBar::shelves_changed, this, shelves_for_scripts);
+    shelves_for_scripts();
     watch_menus();
     build_toolbox();
     build_docks();
@@ -771,6 +788,25 @@ QMenu* MainWindow::skin_menu() {
     cmd(m, "Go to Bind Pose", "dagPose", QJsonObject{{"restore", true}, {"global", true}, {"bindPose", true}});
     m->addSeparator();
     m->addAction("Paint Skin Weights", [this] { set_tool("paintSkin"); show_tool_settings(); });
+    // Skin Tools: layered weights on the skinCluster, painted with the same brush.
+    m->addAction("Skin Tools", [this] { show_named_window("skinTools"); });
+    m->addAction("Initialize Skin Layers", [] {
+        bool any = false;
+        for (const QJsonValue& s : state()["selection"].toArray()) {
+            QString obj = s.toString().section('.', 0, 0);
+            if (ask("findRelatedSkinCluster", QJsonObject{{"args", QJsonArray{obj}}}).toString().isEmpty()) continue;
+            exec("skinLayers", QJsonObject{{"args", QJsonArray{obj}}, {"initialize", true}});
+            any = true;
+        }
+        if (!any) log("// Warning: select a skinned mesh //", 4);
+    });
+    m->addAction("Delete Skin Layers", [] {
+        for (const QJsonValue& s : state()["selection"].toArray()) {
+            QString obj = s.toString().section('.', 0, 0);
+            if (ask("findRelatedSkinCluster", QJsonObject{{"args", QJsonArray{obj}}}).toString().isEmpty()) continue;
+            exec("skinLayers", QJsonObject{{"args", QJsonArray{obj}}, {"delete", true}});
+        }
+    });
     cmd(m, "Hammer Skin Weights", "weightHammerVerts", {});
     cmd(m, "Remove Unused Influences", "removeUnusedInfluences", {});
     cmd(m, "Substitute Geometry", "substituteGeometry", {});
@@ -1272,6 +1308,9 @@ void MainWindow::build_menu_set(const QString& set) {
     help->addAction("Welcome Screen", [this] { show_welcome(); });
     help->addAction("This doesn't feel right!", [this] { open_feedback(this); });
     help->addAction("Check for Updates...", [this] { check_for_updates(this, [this] { return close(); }); });
+    // Tools animators and riggers add to the reference, each built and checked for Aztek.
+    QMenu* install = help->addMenu("Install");
+    install->addAction("mGear...", [this] { install_mgear(this); });
     help->addAction("Thanks", [this] { show_thanks(this); });
     help->addAction("About Aztek", [this] { show_about(this); });
     mb->addMenu(help);
@@ -2033,6 +2072,12 @@ bool droppable(const QString& f) {
 
 void MainWindow::dragEnterEvent(QDragEnterEvent* e) {
     if (e->mimeData()->hasUrls()) {
+        // With performFileDropAction redefined, any file is offered to it.
+        const QString owner = ask("whatIs", QJsonObject{{"args", QJsonArray{"performFileDropAction"}}}).toString();
+        if (owner.startsWith("Mel procedure") && !owner.contains("performFileDropAction.mel")) {
+            e->acceptProposedAction();
+            return;
+        }
         for (const QUrl& u : e->mimeData()->urls()) {
             if (droppable(u.toLocalFile())) {
                 e->acceptProposedAction();
@@ -2045,8 +2090,19 @@ void MainWindow::dragEnterEvent(QDragEnterEvent* e) {
 // A dropped file is imported, as the reference does, with the import options last used for its type; a USD file
 // becomes a stage, as the reference's USD plug-in makes it.
 void MainWindow::dropEvent(QDropEvent* e) {
+    // A tool that redefined performFileDropAction (mGear's guide templates and skin packs) takes the files first, as
+    // the reference hands them to it; Aztek's own definition is the import below.
+    const QString owner = ask("whatIs", QJsonObject{{"args", QJsonArray{"performFileDropAction"}}}).toString();
+    const bool redefined = owner.startsWith("Mel procedure") && !owner.contains("performFileDropAction.mel");
     for (const QUrl& u : e->mimeData()->urls()) {
         const QString f = u.toLocalFile();
+        if (f.isEmpty()) continue;
+        if (redefined) {
+            QString quoted = f;
+            quoted.replace("\\", "/").replace("\"", "\\\"");
+            mel("performFileDropAction \"" + quoted + "\";");
+            continue;
+        }
         // Read as File > Import reads it, by the import options kept for its type (#110).
         if (droppable(f)) import_file(f);
     }
