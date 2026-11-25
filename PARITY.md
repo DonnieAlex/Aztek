@@ -4511,3 +4511,8 @@ anti-aliased edge also takes that surface's colour from the pixel round about th
 mixed into an edge pixel is not bounced back either. The background is a working aid only, as in the reference, and
 Harold renders with its own background (black, alpha 0). Not yet checked in the built app against the screenshots in
 the issue.
+
+### What changed (25/11/2026, #289)
+
+A saved maximized window from before the Time and Range Sliders became docks can reopen with its floating panels.
+Aztek places the sliders under the views before restoring the window size and maximized state.
