@@ -2752,8 +2752,10 @@ void MainWindow::closeEvent(QCloseEvent* e) {
 void MainWindow::restore_saved_window() {
     QSettings s;
     if (!s.contains("window/geometry")) return;
-    restoreGeometry(s.value("window/geometry").toByteArray());
+    // Restore the docks before maximising. Qt can keep a pending copy of a maximised layout that refers to
+    // the old dock items when restore_layout reseats the sliders from a legacy layout (#289).
     restore_layout(s.value("window/state").toByteArray());
+    restoreGeometry(s.value("window/geometry").toByteArray());
 }
 
 void MainWindow::run_startup(const QString& script, const QString& screenshot) {
