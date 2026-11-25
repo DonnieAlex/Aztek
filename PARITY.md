@@ -4512,6 +4512,23 @@ mixed into an edge pixel is not bounced back either. The background is a working
 Harold renders with its own background (black, alpha 0). Not yet checked in the built app against the screenshots in
 the issue.
 
+### What changed (25/11/2026, #289)
+
+A saved maximized window from before the Time and Range Sliders became docks can reopen with its floating panels.
+Aztek places the sliders under the views before restoring the window size and maximized state.
+
+### What changed (25/11/2026, #306)
+
+The Attribute Editor follows the active theme. Sections, tabs, menus, controls and link icons update when the theme
+changes while the editor is open. Keyed and connected fields keep the same state colours as the Channel Box.
+
+### What changed (25/11/2026, #312)
+
+The Time and Range Sliders keep their own height, as the reference's do. Going from a Rendering workspace back to
+General left them stretched to the height the Script Editor had under the views, and their edge could be dragged
+taller. They now give that space back to the views and their top edge doesn't drag. Checked with a small Qt program
+built the same way; not yet looked at in the built app on macOS.
+
 ### Welcome screen: a release's notes under its own release (25/11/2026)
 
 What's new takes each release's own notes from GitHub instead of grouping a date-ordered commit list. GitHub orders
@@ -4521,3 +4538,4 @@ tab fix, merged after 2.647, was listed under 2.647 although that release did no
 compare API and are listed under the running version's "-- not released yet" heading, with "(this version)" beside
 the release it names. A build whose commit isn't on GitHub, one from a fork say, still shows the upstream's releases.
 A 403 names GitHub's hourly limit for unsigned requests and asks for a wait, rather than reading as a broken server.
+

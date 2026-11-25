@@ -1470,23 +1470,17 @@ QDockWidget* MainWindow::slider_dock(const QString& title, const QString& id) {
     return d;
 }
 
-// A saved window layout. One kept before the sliders were docks of their own has no place for them: they go under the
-// views, the Time Slider over the Range Slider, as a fresh layout has them.
+// A saved window layout. One kept before the sliders were docks of their own (#272) has no place for them and is not
+// restored: the window keeps the fresh layout it was built with. Restoring it and then taking the sliders out and docking
+// them again, before the window was first shown, left the main window's layout holding a freed item, and Aztek crashed
+// at start on Windows wherever such a layout was saved.
 void MainWindow::restore_layout(const QByteArray& state) {
+    QByteArray name;
+    for (QChar c : QStringLiteral("TimeSlider")) name.append(char(c.unicode() >> 8)).append(char(c.unicode() & 0xff));
+    if (!state.contains(name)) return;
     restoreState(state);
     // A layout keeps the corners it was saved with; the bottom right is the sliders' now.
     setCorner(Qt::BottomRightCorner, Qt::BottomDockWidgetArea);
-    QByteArray name;
-    for (QChar c : QStringLiteral("TimeSlider")) name.append(char(c.unicode() >> 8)).append(char(c.unicode() & 0xff));
-    if (state.contains(name)) return;
-    for (QDockWidget* d : {time_dock_, range_dock_}) {
-        d->setFloating(false);
-        removeDockWidget(d);
-    }
-    addDockWidget(Qt::BottomDockWidgetArea, time_dock_, Qt::Vertical);
-    splitDockWidget(time_dock_, range_dock_, Qt::Vertical);
-    time_dock_->show();
-    range_dock_->show();
 }
 
 // The slider docks go back under whatever a workspace docked below the views, as the reference keeps them.
@@ -1687,6 +1681,10 @@ void MainWindow::build_bottom() {
     play->addAction(icon("next"), "Step forward one frame", [this] { step_time(1); });
     play->addAction(icon("last"), "Go to end of playback range", [this] { go_to_time(time_slider_->end()); });
     row1->addWidget(play);
+    // The sliders keep their own height, as the reference's do: a dock area left tall by an editor docked under the
+    // views (the Rendering workspace's Script Editor) gives the space back rather than stretching them, and the edge
+    // between them and the views doesn't drag (#312).
+    time_row->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     time_dock_->setWidget(time_row);
     auto* range_row = new QWidget(range_dock_);
     range_row->setObjectName("rangeSliderRow");
@@ -1793,6 +1791,7 @@ void MainWindow::build_bottom() {
     auto_key_->setCheckable(true);
     auto_key_->setObjectName("autoKey");
     row2->addWidget(tb);
+    range_row->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     range_dock_->setWidget(range_row);
 
     help_line_ = new QLabel(this);
@@ -2752,8 +2751,10 @@ void MainWindow::closeEvent(QCloseEvent* e) {
 void MainWindow::restore_saved_window() {
     QSettings s;
     if (!s.contains("window/geometry")) return;
-    restoreGeometry(s.value("window/geometry").toByteArray());
+    // Restore the docks before maximising. Qt can keep a pending copy of a maximised layout that refers to
+    // the old dock items when restore_layout reseats the sliders from a legacy layout (#289).
     restore_layout(s.value("window/state").toByteArray());
+    restoreGeometry(s.value("window/geometry").toByteArray());
 }
 
 void MainWindow::run_startup(const QString& script, const QString& screenshot) {
