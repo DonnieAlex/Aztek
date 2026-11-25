@@ -35,7 +35,8 @@ The typed prefix is matched against every candidate, without rebuilding the inde
 4. case-insensitive substring, worst.
 
 With nothing typed the list is alphabetical; with a prefix, shorter names come first within a rank, then alphabetical
-order. Filtering is case-insensitive for matching but the rank keeps an exact-case prefix above the rest.
+order. Filtering is case-insensitive for matching but the rank keeps an exact-case prefix above the rest. A greyed
+entry keeps its fit, after enabled entries of the same fit and before a worse fit.
 
 ## Keys and mouse
 
@@ -81,7 +82,8 @@ segment for a Python keyword. Accepting closes the popup. Undo takes the inserti
 ### Both
 
 - The index is built once from the host: the command registry, the procedure lists, and the Python API, and kept in
-  memory. Filtering runs over that memory.
+  memory. Filtering runs over that memory. The session's own MEL procedures are re-read when the command list is
+  prepared, so one defined while working appears without reopening the panel.
 - A module Aztek ships as an empty package is listed greyed with "Empty package in Aztek" rather than hidden or
   invented. Nothing that Aztek does not register or ship is offered.
 - Completion is suppressed inside a comment or a string, where names mean nothing.

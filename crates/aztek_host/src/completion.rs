@@ -73,6 +73,17 @@ pub fn procedures(core: &Core) -> (Vec<Value>, Vec<Value>) {
     (procs, builtins)
 }
 
+/// The procedures defined in the session now, for the editor to add to its index between edits.
+pub fn live_procedures(core: &Core) -> Value {
+    let v: Vec<Value> = crate::mel::global_proc_signatures(core)
+        .into_iter()
+        .map(|(name, signature)| {
+            json!({"name": name, "signature": signature, "doc": "MEL procedure, defined in this session."})
+        })
+        .collect();
+    Value::Array(v)
+}
+
 /// The whole host half of the completion index, as the editor's query returns it.
 pub fn core_index(core: &Core) -> Value {
     let (procs, builtins) = procedures(core);

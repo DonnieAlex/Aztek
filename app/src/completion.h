@@ -97,6 +97,7 @@ private:
 
     void ensure_index();
     void ensure_python();
+    void refresh_live_procedures();
     bool python_loaded_ = false;
     void load_python(const QJsonObject& py);
     const PyClass* py_class(const QString& module, const QString& name);

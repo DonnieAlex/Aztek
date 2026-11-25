@@ -562,6 +562,7 @@ pub extern "C" fn aztek_query(what: *const c_char, arg: *const c_char) -> *mut c
             "state" => query::state(c),
             "commands" => query::commands(c),
             "completionCore" => completion::core_index(c),
+            "liveProcedures" => completion::live_procedures(c),
             "flagDefaults" => c
                 .s
                 .commands

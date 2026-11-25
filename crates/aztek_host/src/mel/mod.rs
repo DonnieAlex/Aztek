@@ -14,7 +14,7 @@ pub(crate) mod pattern;
 mod value;
 
 pub use call::*;
-pub use interp::{call_for_value, global_proc_names, has_global_proc, run, run_callback, MelState};
+pub use interp::{call_for_value, global_proc_names, global_proc_signatures, has_global_proc, run, run_callback, MelState};
 pub use value::{fmt_float, Value as MelValue};
 
 /// Every procedure and built-in function the Script Editor's completion can name: the session's globals first, the

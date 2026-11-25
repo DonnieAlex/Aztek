@@ -304,6 +304,21 @@ void ScriptCompletion::load_python(const QJsonObject& py) {
     }
 }
 
+// The procedures the session defines while the panel is open: the index's list was read once, so they are asked for
+// again when the command list is prepared or a call's hint is wanted.
+void ScriptCompletion::refresh_live_procedures() {
+    for (const QJsonValue& pv : query("liveProcedures").toArray()) {
+        const QJsonObject o = pv.toObject();
+        const QString name = o.value("name").toString();
+        if (name.isEmpty()) continue;
+        Proc p;
+        p.name = name;
+        p.signature = o.value("signature").toString();
+        p.doc = o.value("doc").toString();
+        procs_.insert(name, p);
+    }
+}
+
 void ScriptCompletion::ensure_python() {
     if (python_loaded_) return;
     python_loaded_ = true;
@@ -476,6 +491,7 @@ ScriptCompletion::Analysis ScriptCompletion::analyse(QPlainTextEdit* editor) {
         if (cm.hasMatch()) {
             const QString callee_name = cm.captured(1);
             const auto ci = commands_.constFind(callee_name);
+            if (ci == commands_.constEnd() && !procs_.contains(callee_name)) refresh_live_procedures();
             if (ci != commands_.constEnd() || procs_.contains(callee_name)) {
                 const Inside in = inside_call(line, open, line.size(), false);
                 a.mode = Analysis::Hint;
@@ -725,7 +741,9 @@ void ScriptCompletion::build_candidates(const Analysis& a) {
     preserve_order_ = a.mode == Analysis::Flags || a.mode == Analysis::Hint;
     switch (a.mode) {
     case Analysis::Members:
-        if (a.python && py_modules_.contains(a.base)) {
+        if (a.python && (a.base == "maya.cmds" || a.base == "aztek.cmds")) {
+            add_command_candidates(true);
+        } else if (a.python && py_modules_.contains(a.base)) {
             add_module_members(a.base);
         } else if (a.python && py_modules_.isEmpty()) {
             add_module_members(a.base);
@@ -798,6 +816,7 @@ void ScriptCompletion::build_candidates(const Analysis& a) {
                 e.doc = c.doc;
                 base_.append(e);
             }
+            refresh_live_procedures();
             for (const Proc& p : procs_) {
                 if (seen.contains(p.name)) continue;
                 CompletionEntry e;
@@ -831,10 +850,10 @@ void ScriptCompletion::apply_filter() {
     QVector<QPair<int, CompletionEntry>> ranked;
     ranked.reserve(base_.size());
     for (const CompletionEntry& e : base_) {
-        int rank = rank_of(e.label, applied_prefix_);
-        if (rank < 0) continue;
-        if (!e.enabled) rank += 100;
-        ranked.append({rank, e});
+        const int fit = rank_of(e.label, applied_prefix_);
+        if (fit < 0) continue;
+        // A greyed entry keeps its place by fit: after an enabled entry of the same fit, before a worse fit.
+        ranked.append({fit * 2 + (e.enabled ? 0 : 1), e});
     }
     const bool unfiltered = applied_prefix_.isEmpty();
     std::stable_sort(ranked.begin(), ranked.end(), [this, unfiltered](const auto& a, const auto& b) {
@@ -870,7 +889,9 @@ void ScriptCompletion::refresh(QPlainTextEdit* editor) {
     hint_current_ = a.hint_current;
     if (a.mode == Analysis::Hint) hint_ = true;
 
-    const QString key = QString::number(static_cast<int>(a.mode)) + "|" + a.base + "|" + (a.command ? a.command->name : QString()) + "|" + (a.python ? "py" : "mel");
+    QString key = QString::number(static_cast<int>(a.mode)) + "|" + a.base + "|" + (a.command ? a.command->name : QString()) + "|" + (a.python ? "py" : "mel");
+    // Python word completion also carries the import aliases, so it follows an import added while typing.
+    if (a.mode == Analysis::Words && a.python) key += "|" + QString::number(editor->document()->revision());
     if (key != applied_key_) {
         applied_key_ = key;
         applied_prefix_.clear();
