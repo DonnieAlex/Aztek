@@ -29,6 +29,7 @@
 #include <QPointer>
 #include <QPushButton>
 #include <QRadioButton>
+#include <QRegularExpression>
 #include <QScrollArea>
 #include <QMouseEvent>
 #include <QPainter>
@@ -995,7 +996,7 @@ QList<AeBox> transform_boxes() {
     display.subs << box("Selection", {row("selectionChildHighlighting")});
     l << display;
     l << box("Node Behavior", {row("caching"), row("nodeState")});
-    l << box("UUID", {shown("", "", "uuid")});
+    l << box("UUID", {shown("__uuid", "", "uuidValue")});
     l << box("Extra Attributes", {});
     return l;
 }
@@ -1100,7 +1101,7 @@ QList<AeBox> mesh_boxes() {
     l << box("Deformation", {});
     l << box("Arnold", {});
     l << box("Node Behavior", {row("caching"), row("nodeState")});
-    l << box("UUID", {shown("", "", "uuid")});
+    l << box("UUID", {shown("__uuid", "", "uuidValue")});
     l << box("Extra Attributes", {});
     return l;
 }
@@ -1114,7 +1115,7 @@ QList<AeBox> blend_boxes() {
     deformer.subs << box("GPU", {shown("blockGPU", "Block GPU", "check")});
     l << deformer;
     l << box("Node Behavior", {row("caching"), row("nodeState")});
-    l << box("UUID", {shown("", "", "uuid")});
+    l << box("UUID", {shown("__uuid", "", "uuidValue")});
     l << box("Extra Attributes", {});
     return l;
 }
@@ -1136,7 +1137,7 @@ QList<AeBox> skin_boxes() {
     deformer.subs << box("GPU", {shown("blockGPU", "Block GPU", "check")});
     l << deformer;
     l << box("Node Behavior", {row("caching"), row("nodeState")});
-    l << box("UUID", {shown("", "", "uuid")});
+    l << box("UUID", {shown("__uuid", "", "uuidValue")});
     l << box("Extra Attributes", {});
     return l;
 }
@@ -1179,7 +1180,7 @@ QList<AeBox> deformer_boxes(const QString& type) {
     display.rows[0].extra = "template";
     l << display;
     l << box("Node Behavior", {row("caching"), row("nodeState")});
-    l << box("UUID", {shown("", "", "uuid")});
+    l << box("UUID", {shown("__uuid", "", "uuidValue")});
     l << box("Extra Attributes", {});
     return l;
 }
@@ -1207,7 +1208,7 @@ QList<AeBox> curve_boxes() {
     display.subs << box("Selection", {row("selectionChildHighlighting")});
     l << display;
     l << box("Node Behavior", {row("caching"), row("nodeState")});
-    l << box("UUID", {shown("", "", "uuid")});
+    l << box("UUID", {shown("__uuid", "", "uuidValue")});
     l << box("Extra Attributes", {});
     return l;
 }
@@ -1265,7 +1266,7 @@ QList<AeBox> surface_boxes() {
     l << display;
     l << box("Arnold", {});
     l << box("Node Behavior", {row("caching"), row("nodeState")});
-    l << box("UUID", {shown("", "", "uuid")});
+    l << box("UUID", {shown("__uuid", "", "uuidValue")});
     l << box("Extra Attributes", {});
     return l;
 }
@@ -1310,7 +1311,7 @@ QList<AeBox> openpbr_boxes() {
     l << box("Hardware Shading", {shown("", "Hardware Shader", "combo", "None")});
     l << box("Arnold", {});
     l << box("Node Behavior", {row("caching"), row("nodeState")});
-    l << box("UUID", {shown("", "", "uuid")});
+    l << box("UUID", {shown("__uuid", "", "uuidValue")});
     l << box("Extra Attributes", {});
     return l;
 }
@@ -1352,7 +1353,7 @@ QList<AeBox> camera_boxes() {
               shown("displayFilmOrigin", "Display Film Origin", "check"), shown("displayFilmPivot", "Display Film Pivot", "check"),
               shown("overscan", "Overscan", "slider", "0,10")});
     l << box("Node Behavior", {row("caching"), row("nodeState")});
-    l << box("UUID", {shown("", "", "uuid")});
+    l << box("UUID", {shown("__uuid", "", "uuidValue")});
     l << box("Extra Attributes", {});
     return l;
 }
@@ -1412,7 +1413,7 @@ QList<AeBox> poly_boxes(const QString& type) {
                                 shown("componentTagSuffix", "Component Tag Suffix", "text")},
              1);
     l << box("Node Behavior", {row("caching"), row("nodeState")});
-    l << box("UUID", {shown("", "", "uuid")});
+    l << box("UUID", {shown("__uuid", "", "uuidValue")});
     l << box("Extra Attributes", {});
     return l;
 }
@@ -1732,13 +1733,13 @@ QList<AeBox> light_boxes(const QString& type) {
     AeBox depth;
     depth.title = "Depth Map Shadow Attributes";
     depth.open = -1;
-    depth.rows = {row("useDepthMapShadows"), shown("dmapResolution", "Resolution", "int"), shown("useMidDist", "Use Mid Dist", "check"),
-                  shown("useAutoFocus", "Use Auto Focus", "check"), shown("dmapFocus", "Focus", "float"),
+    depth.rows = {row("useDepthMapShadows"), shown("dmapResolution", "Resolution", "int"), shown("useMidDistDmap", "Use Mid Dist", "check"),
+                  shown("useDmapAutoFocus", "Use Auto Focus", "check"), shown("dmapFocus", "Focus", "float"),
                   shown("dmapFilterSize", "Filter Size", "int"), shown("dmapBias", "Bias", "float"),
-                  shown("fogShadowIntensity", "Fog Shadow Intensity", "float"), shown("fogShadowSamples", "Fog Shadow Samples", "int"),
+                  shown("fogShadowIntensity", "Fog Shadow Intensity", "float"), shown("volumeShadowSamples", "Fog Shadow Samples", "int"),
                   shown("diskBasedDmaps", "Disk Based Dmaps", "combo", "Off|Overwrite Existing Dmap(s)|Reuse Existing Dmap(s)"),
-                  shown("dmapName", "Shadow Map File Name", "text"), shown("addSceneName", "Add Scene Name", "check"),
-                  shown("addLightName", "Add Light Name", "check"), shown("addFrameExt", "Add Frame Ext", "check")};
+                  shown("dmapName", "Shadow Map File Name", "text"), shown("dmapSceneName", "Add Scene Name", "check"),
+                  shown("dmapLightName", "Add Light Name", "check"), shown("dmapFrameExt", "Add Frame Ext", "check")};
     if (type == "ambientLight" || type == "volumeLight") depth.rows = {row("useDepthMapShadows")};
     AeBox raytrace;
     raytrace.title = "Ray Trace Shadow Attributes";
@@ -1757,7 +1758,7 @@ QList<AeBox> light_boxes(const QString& type) {
     l.last().rows[0].extra = "template";
     l << box("Arnold", {});
     l << box("Node Behavior", {row("caching"), row("nodeState")});
-    l << box("UUID", {shown("", "", "uuid")});
+    l << box("UUID", {shown("__uuid", "", "uuidValue")});
     l << box("Extra Attributes", {});
     return l;
 }
@@ -2132,6 +2133,38 @@ QWidget* ae_vec3(const QJsonObject& a, QWidget* parent) {
     return w;
 }
 
+// A matrix as the reference's long matrix field: its sixteen values, live, and written back as sixteen numbers.
+QWidget* ae_matrix(const QJsonObject& a, QWidget* parent) {
+    auto* e = new QLineEdit(parent);
+    e->setFixedHeight(20);
+    e->setMinimumWidth(225);
+    QJsonArray v = a["value"].toArray();
+    QStringList parts;
+    for (const QJsonValue& x : v) parts << QString::number(x.toDouble(), 'g', 6);
+    e->setText(parts.join(' '));
+    e->setToolTip(parts.join(' '));
+    const QString plug = a["plug"].toString();
+    bool ro = read_only(a);
+    e->setReadOnly(ro);
+    e->setProperty("plugKey", plug);
+    QObject::connect(e, &QLineEdit::textEdited, e, [e] { e->setProperty("editing", true); });
+    QObject::connect(e, &QLineEdit::editingFinished, e, [e, plug, v] {
+        if (!e->property("editing").toBool()) return;
+        e->setProperty("editing", false);
+        QStringList parts = e->text().split(QRegularExpression("[ ,]+"), Qt::SkipEmptyParts);
+        QJsonArray values;
+        if (parts.size() == 16) {
+            for (const QString& part : parts) values.append(part.toDouble());
+            exec("setAttr", args(QJsonArray{plug, values}));
+        } else {
+            QStringList current;
+            for (const QJsonValue& x : v) current << QString::number(x.toDouble(), 'g', 6);
+            e->setText(current.join(' '));
+        }
+    });
+    return e;
+}
+
 // The reference's three column limit row: the minimum and maximum greyed until enabled, and buttons that take them.
 QWidget* ae_limit_row(const AeBox& group, const QString& axis, const QHash<QString, QJsonObject>& by, QWidget* parent, const QString& label) {
     auto* w = new QWidget(parent);
@@ -2454,6 +2487,23 @@ void ae_render_rows(QVBoxLayout* v, QWidget* parent, const QList<AeRow>& rows, c
             v->addWidget(rw);
             continue;
         }
+        if (r.kind == "uuidValue") {
+            auto* rw = new QWidget(parent);
+            auto* h = new QHBoxLayout(rw);
+            h->setContentsMargins(2, 0, 12, 0);
+            h->setSpacing(4);
+            auto* lab = ae_label(label.isEmpty() ? QString() : label, rw);
+            h->addWidget(lab);
+            auto* e = new QLineEdit(by.value("__uuid")["value"].toString(), rw);
+            e->setReadOnly(true);
+            e->setFixedHeight(20);
+            e->setMinimumWidth(225);
+            e->setObjectName("aeUuid");
+            h->addWidget(e);
+            h->addStretch(1);
+            v->addWidget(rw);
+            continue;
+        }
         if (r.kind == "lightType") {
             auto* rw = new QWidget(parent);
             auto* h = new QHBoxLayout(rw);
@@ -2563,7 +2613,7 @@ void ae_render_rows(QVBoxLayout* v, QWidget* parent, const QList<AeRow>& rows, c
         QWidget* field = nullptr;
         if (!a.isEmpty()) {
             used.insert(r.attr);
-            if (a["type"].toString() == "matrix") field = ae_placeholder(r, a, parent);
+            if (a["type"].toString() == "matrix") field = ae_matrix(a, parent);
             else if (a["type"].toString() == "vec3" && !a["color"].toBool() && r.kind != "color") field = ae_vec3(a, parent);
             else field = ae_field(r, a, style, parent);
             if (auto* cb = qobject_cast<QCheckBox*>(field)) cb->setProperty("plugKey", a["plug"].toString());
@@ -3030,6 +3080,12 @@ void AttributeEditor::refresh() {
             if (a["attr"].toString() == "notes") notes = a["value"];
         }
         QString notes_plug = path + ".notes";
+        if (t.contains("uuid")) {
+            QJsonObject u;
+            u["attr"] = "__uuid";
+            u["value"] = t["uuid"];
+            by.insert("__uuid", u);
+        }
         if (t.contains("geometry")) {
             QJsonObject g;
             g["attr"] = "__geometry";

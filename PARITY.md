@@ -4310,7 +4310,8 @@ Not done:
   bar remains as Aztek's panel chrome, where the reference has only its vertical tab.
 
 **Transform, mesh and joint**
-- Controls whose attributes Aztek lacks are greyed and empty rather than carrying the reference's defaults: world
+- Controls whose attributes Aztek lacks are greyed: numbers are empty and menus and checkboxes hold a template
+  placeholder, not a scene value. They are not live data and cannot be written. This covers world
   rotate and scale pivots, Show Manip Default, Manip History Node, the mesh component display's immediate mode, vertex
   size and backface controls, display edges, UV size, normals and tangents, the tessellation values and the smooth mesh
   controls. They are present so the layout matches, and do nothing because there is no control behind them.
@@ -4383,6 +4384,10 @@ Writes go back to the plug:
   index (checked: Cube "Normalize Collectively" at 1, then index 2 in the scene).
 - Limit rows read the compound `minRotLimit`/`maxRotLimit` and write the child plugs (`minRotXLimit` and its enable);
   the current value follows the rotate component. Tested on a joint: the minimum reached 10 and the enable turned on.
+- The UUID frame reads the node's own UUID, and the Offset Parent Matrix control shows its sixteen live values and
+  writes them back as sixteen numbers (tested: its first value reached the scene and read back). A light's shadow
+  rows use the real `useMidDistDmap`, `useDmapAutoFocus`, `volumeShadowSamples`, `dmapSceneName`, `dmapLightName` and
+  `dmapFrameExt` attributes, so they read and write rather than sitting greyed.
 - Texture buttons still open Create Render Node; the map button on a connected attribute selects its source.
 
 Tabs switch to the node they name. A node without a template of its own uses the generic sections and Extra Attributes

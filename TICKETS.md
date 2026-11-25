@@ -26,8 +26,9 @@ Requests waiting or in progress, newest detail kept. Move to Done with the date 
   Deformation chain; skinCluster's related tabs and Manage actions; blendShape in-betweens and target management;
   materials' Type list and the node families that still use the generic section layout; drawn samples; the NURBS
   component table and advanced tessellation; the cluster handle's Origin frame and the sculpt's advanced maps. The
-  data path is live and checked by `crates/aztek_host/tests/attribute_editor_live.rs` and the manual runs recorded in
-  PARITY.md; controls with no Aztek attribute remain disabled placeholders.
+  data path is live and checked by `crates/aztek_host/tests/attribute_editor_live.rs` (live values and undo, rename
+  tabs, primitive Create UVs names/index, light type selection) and the manual runs recorded in PARITY.md; controls
+  with no Aztek attribute remain disabled placeholders.
 - Found 16/11/2026: `namespaceInfo -lon` at the root lists only the scene's namespaces; the reference also lists UI and
   shared, which scripts skip by name. Not changed: `core_forms.rs` and `core_cmds.rs` hold the current answer.
 - Left from the issues closed 15/11 and 16/11/2026 (PARITY.md, Issues 37 to 83): Paint Skin Weights' ramp editing

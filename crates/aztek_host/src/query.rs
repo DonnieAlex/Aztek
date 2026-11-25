@@ -561,7 +561,7 @@ fn node_attrs(g: &Graph, id: NodeId) -> Value {
         }
     }
     json!({"name": n.name(), "path": path, "type": n.ty().name, "doc": n.ty().doc, "attrs": attrs, "weights": weights,
-           "inputNode": input_node, "outputNode": output_node, "geometry": geometry})
+           "inputNode": input_node, "outputNode": output_node, "geometry": geometry, "uuid": n.uuid()})
 }
 
 /// The attribute editor's tabs for a node: the transform, its shape, and the shape's history, as the reference shows them.
