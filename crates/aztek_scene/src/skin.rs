@@ -114,6 +114,30 @@ pub fn bind_of(g: &Graph, sk: NodeId) -> Option<Arc<SkinBind>> {
     Some(b)
 }
 
+/// The skin's undeformed mesh and the world matrix it was bound with: where its points were at bind time.
+pub(crate) fn bind_mesh(g: &mut Graph, sk: NodeId) -> Option<(Mesh, DMat4)> {
+    let b = bind_of(g, sk)?;
+    g.evaluate();
+    let m = g.value(&plug(sk, SK_IN)).ok()?.as_mesh().cloned()?;
+    Some(((*m).clone(), b.geom))
+}
+
+/// Puts per point weights on a skin, keeping its bind matrices and locks.
+pub(crate) fn write_weights(g: &mut Graph, sk: NodeId, weights: Vec<Vec<(u32, f64)>>) -> CmdResult<()> {
+    let Some(mut b) = bind_of(g, sk).map(|b| (*b).clone()) else { fail!("{}: no bind data", g.path(sk)) };
+    b.weights = weights;
+    set_bind(g, sk, b)
+}
+
+/// Each point's blend between linear and dual quaternion skinning, and the method that reads it.
+pub(crate) fn write_blend_weights(g: &mut Graph, sk: NodeId, w: Vec<f64>) -> CmdResult<()> {
+    crate::deform::set_floats(g, sk, SK_BLEND, w)
+}
+
+pub(crate) fn blend_weights(g: &Graph, sk: NodeId) -> Option<Vec<f64>> {
+    g.node(sk).and_then(|n| crate::deform::floats_of(n.data(), SK_BLEND)).map(|x| x.0.clone())
+}
+
 fn set_bind(g: &mut Graph, sk: NodeId, b: SkinBind) -> CmdResult<()> {
     g.set_value(plug(sk, SK_BIND), PlugValue::Data(Some(Arc::new(b))))?;
     Ok(())
@@ -548,7 +572,7 @@ fn weight_at(pw: &[(u32, f64)], inf: u32) -> f64 {
     pw.iter().find(|x| x.0 == inf).map(|x| x.1).unwrap_or(0.0)
 }
 
-fn neighbours(m: &Mesh, p: u32) -> Vec<u32> {
+pub(crate) fn neighbours(m: &Mesh, p: u32) -> Vec<u32> {
     let mut out = Vec::new();
     m.for_each_point_edge(p, |e| out.push(m.edge_other_point(e, p)));
     out
@@ -651,6 +675,14 @@ impl Default for PaintCtx {
 /// The painted influence's weight at each point of a skinned mesh, for numbers shown beside them.
 pub fn influence_weights(s: &Session, mesh: NodeId) -> Option<Vec<f64>> {
     let sk = skin_of(&s.graph, mesh)?;
+    // With Skin Tools layers, what the current layer holds for its paint target.
+    if let Some(l) = crate::skin_layers::layers_of(&s.graph, sk) {
+        if let Some(id) = l.current {
+            if let Some(t) = crate::skin_layers::paint_target(&s.graph, sk, &l, id) {
+                return Some(crate::skin_layers::target_values(&l, id, t));
+            }
+        }
+    }
     let inf = paint_influence(s, sk)?;
     let b = bind_of(&s.graph, sk)?;
     Some(b.weights.iter().map(|pw| weight_at(pw, inf)).collect())
@@ -1793,7 +1825,7 @@ fn short_name(g: &Graph, id: NodeId) -> String {
 }
 
 /// Left/right spellings a mirrored joint's name might use.
-fn mirrored_name(name: &str) -> Option<String> {
+pub(crate) fn mirrored_name(name: &str) -> Option<String> {
     for (a, b) in [("L_", "R_"), ("R_", "L_"), ("l_", "r_"), ("r_", "l_"), ("left", "right"), ("right", "left"), ("Left", "Right"), ("Right", "Left")] {
         if let Some(rest) = name.strip_prefix(a) {
             return Some(format!("{b}{rest}"));

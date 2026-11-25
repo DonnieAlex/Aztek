@@ -240,6 +240,7 @@ void MainWindow::build_runtime() {
     window("ChannelControlEditor", "channelControl", "Channel Control");
     window("ShapeEditor", "shapeEditor", "Shape Editor");
     window("HumanIK", "humanIK", "Humanoid IK");
+    window("SkinToolsWindow", "skinTools", "Skin Tools");
     window("HIKCharacterControlsTool", "humanIK", "Humanoid IK");
     window("ModelingToolkitWindow", "modelingToolkit", "Modeling Toolkit");
     window("GridOptions", "gridOptions", "Grid Options");

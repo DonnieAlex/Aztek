@@ -2112,7 +2112,8 @@ class MObjectArray(_Array):
 
 
 def _attr_fn(type_name, long=""):
-    if long in _ANGLE_ATTRS:
+    # rotate is a compound of three angles: the compound is three doubles, its children unit attributes.
+    if long in _ANGLE_ATTRS and type_name != "vec3":
         return MFn.kUnitAttribute
     return {
         "enum": MFn.kEnumAttribute,

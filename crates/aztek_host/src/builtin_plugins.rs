@@ -96,6 +96,14 @@ pub const BUILTINS: &[Builtin] = &[
         nodes: &["gpuCache"],
     },
     Builtin {
+        name: "ngSkinTools2",
+        doc: "Skin Tools, as the reference has it built in: layered skin weights on a skinCluster, with masks, dual quaternion weights, mirror, flood and brush tools, import, export and transfer, and the ngSkinTools2 Python API.",
+        commands: &["skinLayers", "skinLayersTool"],
+        register: |s| aztek_scene::skin_layers::register(&mut s.commands),
+        more: none,
+        nodes: &["ngst2SkinLayerData"],
+    },
+    Builtin {
         name: "AbcImport",
         doc: "Alembic import, as the reference's AbcImport plug-in: AbcImport and the AlembicNode that streams an animated file.",
         commands: &["AbcImport"],

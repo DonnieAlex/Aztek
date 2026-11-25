@@ -990,6 +990,7 @@ pub const UI_COMMANDS: &[(&str, &str)] = &[
     ("EditMembershipTool", "The edit membership tool: which points a deformer holds."),
     ("ShapeEditor", "The Shape Editor: blend shapes and their targets."),
     ("HumanIK", "The Human IK window: characters, sources, definitions and controls."),
+    ("SkinToolsWindow", "The Skin Tools window: skin layers, their masks and the layer tools."),
     ("HIKCharacterControlsTool", "The Human IK window."),
     ("ToolSettingsWindow", "Show the Tool Settings."),
     ("SelectTool", "The select tool."),

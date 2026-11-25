@@ -788,6 +788,25 @@ QMenu* MainWindow::skin_menu() {
     cmd(m, "Go to Bind Pose", "dagPose", QJsonObject{{"restore", true}, {"global", true}, {"bindPose", true}});
     m->addSeparator();
     m->addAction("Paint Skin Weights", [this] { set_tool("paintSkin"); show_tool_settings(); });
+    // Skin Tools: layered weights on the skinCluster, painted with the same brush.
+    m->addAction("Skin Tools", [this] { show_named_window("skinTools"); });
+    m->addAction("Initialize Skin Layers", [] {
+        bool any = false;
+        for (const QJsonValue& s : state()["selection"].toArray()) {
+            QString obj = s.toString().section('.', 0, 0);
+            if (ask("findRelatedSkinCluster", QJsonObject{{"args", QJsonArray{obj}}}).toString().isEmpty()) continue;
+            exec("skinLayers", QJsonObject{{"args", QJsonArray{obj}}, {"initialize", true}});
+            any = true;
+        }
+        if (!any) log("// Warning: select a skinned mesh //", 4);
+    });
+    m->addAction("Delete Skin Layers", [] {
+        for (const QJsonValue& s : state()["selection"].toArray()) {
+            QString obj = s.toString().section('.', 0, 0);
+            if (ask("findRelatedSkinCluster", QJsonObject{{"args", QJsonArray{obj}}}).toString().isEmpty()) continue;
+            exec("skinLayers", QJsonObject{{"args", QJsonArray{obj}}, {"delete", true}});
+        }
+    });
     cmd(m, "Hammer Skin Weights", "weightHammerVerts", {});
     cmd(m, "Remove Unused Influences", "removeUnusedInfluences", {});
     cmd(m, "Substitute Geometry", "substituteGeometry", {});

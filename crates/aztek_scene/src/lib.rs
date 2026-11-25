@@ -2,6 +2,7 @@
 
 pub mod alembic;
 pub mod gpu_cache;
+pub mod skin_layers;
 pub mod anim;
 pub mod extensions;
 pub mod sys_misc;

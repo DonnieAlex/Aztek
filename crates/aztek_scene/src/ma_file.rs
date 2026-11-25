@@ -1356,7 +1356,7 @@ const DRAW_CHANNELS: &[&str] = &[
 ];
 
 /// Rigging and animation nodes that are all attributes and connections.
-const PLAIN_NODES: &[&str] = &["timeSliderBookmark", "audio", "xgmSplineBase", "xgmModifierScale", "xgmModifierSculpt", "xgmModifierClump", "xgmModifierNoise", "xgmModifierCut", "xgmModifierCollide", "xgmModifierDisplace", "xgmModifierGuide", "xgmModifierLinearWire", "xgmCurveToSpline", "xgmModifierSplineCache", "AlembicNode", "collider", "rigidBody", "dynamicConstraint", "heldNode", "unknown", "network", "blendWeighted", "makeNurbCircle", "makeNurbPlane", "makeNurbsSquare", "motionPath", "ramp", "extrude", "reverseSurface", "transformGeometry", "pointOnCurveInfo", "curveInfo", "nearestPointOnCurve", "container", "controller", "timeWarp", "hierarchyTreeNode", "curveFromMeshEdge", "characterMap", "keyingGroup", "filter", "filterEuler", "filterResample", "filterSimplify", "filterClosestSample", "characterOffset"];
+const PLAIN_NODES: &[&str] = &[crate::skin_layers::DATA_TYPE, "timeSliderBookmark", "audio", "xgmSplineBase", "xgmModifierScale", "xgmModifierSculpt", "xgmModifierClump", "xgmModifierNoise", "xgmModifierCut", "xgmModifierCollide", "xgmModifierDisplace", "xgmModifierGuide", "xgmModifierLinearWire", "xgmCurveToSpline", "xgmModifierSplineCache", "AlembicNode", "collider", "rigidBody", "dynamicConstraint", "heldNode", "unknown", "network", "blendWeighted", "makeNurbCircle", "makeNurbPlane", "makeNurbsSquare", "motionPath", "ramp", "extrude", "reverseSurface", "transformGeometry", "pointOnCurveInfo", "curveInfo", "nearestPointOnCurve", "container", "controller", "timeWarp", "hierarchyTreeNode", "curveFromMeshEdge", "characterMap", "keyingGroup", "filter", "filterEuler", "filterResample", "filterSimplify", "filterClosestSample", "characterOffset"];
 /// The same under a transform.
 const PLAIN_SHAPES: &[&str] = &["hairSystem", "imagePlane", "poseInterpolator", "xgmSplineDescription", "solver", "particles", "field", "emitter", "follicle", "distanceDimShape", "paramDimension", "annotationShape", "dropoffLocator", "lattice", "baseLattice", "softModHandle", "mayaUsdProxyShape", "AL_usdmaya_ProxyShape", "ProxyUsdGeomCamera"];
 
@@ -5405,6 +5405,16 @@ impl Writer<'_> {
             text.push_str(&attr_add_lines(a));
         }
         text.push_str(&self.plain_attr_lines(id));
+        // Skin layers: the layers as one string, and the skinCluster they are for.
+        if n.ty().name == crate::skin_layers::DATA_TYPE {
+            if let Some(sk) = crate::skin_layers::skin_of_data(g, id) {
+                if let Some(l) = crate::skin_layers::layers_of(g, sk) {
+                    let json = serde_json::to_string(&crate::plug::Data::to_json(&l)).unwrap_or_default();
+                    let _ = writeln!(text, "\tsetAttr \".lj\" -type \"string\" {};", quoted(&json));
+                }
+                self.conns.push(format!("connectAttr {} {};", quoted(&format!("{}.msg", g.path(sk))), quoted(&format!("{}.sc", g.path(id)))));
+            }
+        }
         // The reference's HIKState2SK reads each joint it drives.
         if n.ty().name == "HIKState2SK" {
             let k = id;

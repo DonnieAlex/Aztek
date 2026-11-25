@@ -1066,10 +1066,10 @@ print(cmds.pluginInfo("broken", q=True, loaded=True), cmds.loadPlugin("noSuch", 
         ),
         &[
             // The plug-ins that come with Aztek are loaded from the start.
-            "False ['AbcExport', 'AbcImport', 'fbx', 'gltf', 'gpuCache', 'matrixNodes', 'mayaHIK', 'mayaUsdPlugin', 'objExport', 'quatNodes', 'xjenToolkit']",
+            "False ['AbcExport', 'AbcImport', 'fbx', 'gltf', 'gpuCache', 'matrixNodes', 'mayaHIK', 'mayaUsdPlugin', 'ngSkinTools2', 'objExport', 'quatNodes', 'xjenToolkit']",
             "Plug-in \"testPlugin\" was not found on the plug-in path.",
             "['testPlugin']",
-            "True ['AbcExport', 'AbcImport', 'fbx', 'gltf', 'gpuCache', 'matrixNodes', 'mayaHIK', 'mayaUsdPlugin', 'objExport', 'quatNodes', 'testPlugin', 'xjenToolkit'] Testers 1.2 True",
+            "True ['AbcExport', 'AbcImport', 'fbx', 'gltf', 'gpuCache', 'matrixNodes', 'mayaHIK', 'mayaUsdPlugin', 'ngSkinTools2', 'objExport', 'quatNodes', 'testPlugin', 'xjenToolkit'] Testers 1.2 True",
             "['asksCmd', 'boomCmd', 'innerCmd', 'makeLoc', 'modCmd', 'plainCmd'] ['chatty', 'doubler']",
             "['testPlugin'] True",
             "cannot start",
@@ -1327,6 +1327,35 @@ fn python_api() {
     plugins();
     real_world();
     rig_tools();
+    skin_tools();
+}
+
+/// Skin Tools' API, the reference's ngSkinTools2.api, on a bound cylinder.
+fn skin_tools() {
+    fresh();
+    mel("select -cl; joint -n j0 -p 0 0 0; select -cl; joint -n j1 -p 0 5 0; polyCylinder -n tube -h 10 -sy 4; move 0 5 0 tube; skinCluster -tsb -n sk j0 j1 tube;");
+    expect(
+        "from ngSkinTools2 import api\n\
+         layers = api.init_layers('tube')\n\
+         base = layers.list()[0]\n\
+         top = layers.add('top')\n\
+         s = api.FloodSettings(); s.mode = api.PaintMode.replace; s.intensity = 1.0\n\
+         api.flood_weights(top, influence='j1', settings=s)\n\
+         top.opacity = 0.5\n\
+         n = len(top.get_weights('j1'))\n\
+         top.set_weights(api.NamedPaintTarget.MASK, [1.0] * n)\n\
+         import maya.cmds as cmds\n\
+         w = cmds.skinPercent('sk', 'tube.vtx[0]', q=True, t='j1')\n\
+         print(base.name, top.name, [l.name for l in layers.list()], top.opacity, round(w, 3) >= 0.5, api.get_layers_enabled('tube'), api.target_info.get_related_skin_cluster('tube'))",
+        &["base weights top ['base weights', 'top'] 0.5 True True sk"],
+    );
+    expect(
+        "from ngSkinTools2 import api\n\
+         m = api.Mirror('tube'); m.axis = 'y'; m.mirror_direction = api.MirrorOptions.directionPositiveToNegative\n\
+         print(m.axis, m.mirror_direction, api.Layers('tube').current_layer().name)\n\
+         layers = api.Layers('tube'); layers.delete(layers.layer_by_name('top')); print(len(layers.list()))",
+        &["y positiveToNegative top", "1"],
+    );
 }
 
 /// What rigging tools (mGear's pymaya among them) ask of the API: the world as a DAG node, the parent of a top-level
@@ -1351,5 +1380,13 @@ fn rig_tools() {
          c = om.MFnCompoundAttribute(a)\n\
          print(a.hasFn(om.MFn.kCompoundAttribute), a.hasFn(om.MFn.kNumericAttribute), p.isCompound, c.numChildren(), om.MFnAttribute(c.child(1)).name, p.child(2).partialName(useLongNames=True))",
         &["True True True 3 translateY translateZ"],
+    );
+    expect(
+        "import maya.api.OpenMaya as om\n\
+         sel = om.MSelectionList(); sel.add('top')\n\
+         p = om.MFnDependencyNode(sel.getDependNode(0)).findPlug('rotate', False)\n\
+         c = p.child(0).attribute()\n\
+         print(p.attribute().hasFn(om.MFn.kCompoundAttribute), c.hasFn(om.MFn.kUnitAttribute), c.hasFn(om.MFn.kCompoundAttribute))",
+        &["True True False"],
     );
 }
