@@ -526,15 +526,15 @@ void MainWindow::show_welcome(bool at_startup) {
                     QString md;
                     int shown = 0;
                     if (!unreleased.isEmpty()) {
-                        md += "\n### Not in a release yet\n\n";
+                        const QString running = mine.isEmpty() ? QString("Not released yet")
+                            : QString("%1  (this version) -- not released yet").arg(QString(AZTEK_VERSION).toHtmlEscaped());
+                        md += "\n### " + running + "\n\n";
                         for (const QJsonValue& v : unreleased) {
                             if (shown >= 100) break;
                             const QJsonObject c = v.toObject();
-                            const QString sha = c["sha"].toString();
                             QString message = c["commit"].toObject()["message"].toString().trimmed().split("\n\n").first();
                             message.replace('\n', ' ');
-                            md += "- " + linked(message.toHtmlEscaped())
-                                  + (!mine.isEmpty() && sha.startsWith(mine) ? "  *(this version)*" : "") + "\n";
+                            md += "- " + linked(message.toHtmlEscaped()) + "\n";
                             ++shown;
                         }
                     }
@@ -546,8 +546,8 @@ void MainWindow::show_welcome(bool at_startup) {
                         const bool this_version = !mine.isEmpty() && target.startsWith(mine);
                         if (!listed.contains(target) && !this_version) continue;
                         const QString name = r["name"].toString(r["tag_name"].toString());
-                        md += QString("\n### %1, %2%3\n\n").arg(name, when(r["published_at"].toString()).toString("dd/MM/yyyy HH:mm"),
-                                                                    this_version ? "  (this version)" : "");
+                        md += QString("\n### %1%2, %3\n\n").arg(name, this_version ? "  (this version)" : QString(),
+                                                                    when(r["published_at"].toString()).toString("dd/MM/yyyy HH:mm"));
                         const QString body = linked(r["body"].toString().trimmed());
                         QStringList kept;
                         bool full = false;
