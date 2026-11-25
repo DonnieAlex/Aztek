@@ -494,6 +494,14 @@ pub extern "C" fn aztek_query(what: *const c_char, arg: *const c_char) -> *mut c
                 Value::Null
             }
             "animCurves" => query::anim_curves(c, &arg),
+            "timeSliderCurves" => {
+                let g = &c.s.graph;
+                if aztek_scene::anim_time::slider_shows_layer_weight() && !aztek_scene::anim_layers::selected_weight_curves(g).is_empty() {
+                    json!(aztek_scene::anim::slider_curves(g, g.selection()).into_iter().map(|curve| g.path(curve)).collect::<Vec<_>>())
+                } else {
+                    Value::Null
+                }
+            }
             "nodeGraph" => query::node_graph(c, &arg),
             "uiRequests" => core::take_ui_requests(),
             "registerUiNames" => {

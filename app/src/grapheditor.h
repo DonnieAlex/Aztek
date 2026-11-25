@@ -112,6 +112,7 @@ private:
     CurveCanvas* canvas_ = nullptr;
     QLineEdit *stats_t_ = nullptr, *stats_v_ = nullptr;
     QString tree_key_;
+    bool show_layer_weight_ = true;
 };
 
 } // namespace az

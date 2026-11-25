@@ -1372,22 +1372,32 @@ pub fn orphans(g: &Graph, doomed: &[NodeId]) -> Vec<NodeId> {
     }
 }
 
-/// Key times on these nodes' curves, sorted and unique.
-pub fn key_times(g: &Graph, nodes: &[NodeId]) -> Vec<f64> {
-    let mut t: Vec<f64> = Vec::new();
+/// The curves supplying the time slider's key ticks.
+pub fn slider_curves(g: &Graph, nodes: &[NodeId]) -> Vec<NodeId> {
+    let mut curves = Vec::new();
     for &n in nodes {
         for (p, c) in curves_on(g, n) {
             if crate::anim_edit::is_driven_curve(g, c) {
                 continue;
             }
-            t.extend(keys_of(g, c).keys.iter().map(|k| k.t));
+            curves.push(c);
             // The active layers' keys show, every selected layer's among them.
-            for x in crate::anim_layers::active_curves(g, &p) {
-                if x != c {
-                    t.extend(keys_of(g, x).keys.iter().map(|k| k.t));
-                }
-            }
+            curves.extend(crate::anim_layers::active_curves(g, &p).into_iter().filter(|&x| x != c));
         }
+    }
+    if crate::anim_time::slider_shows_layer_weight() {
+        curves.extend(crate::anim_layers::selected_weight_curves(g).into_iter().map(|(_, c)| c));
+    }
+    curves.sort_unstable();
+    curves.dedup();
+    curves
+}
+
+/// Key times on these nodes' curves, sorted and unique.
+pub fn key_times(g: &Graph, nodes: &[NodeId]) -> Vec<f64> {
+    let mut t = Vec::new();
+    for c in slider_curves(g, nodes) {
+        t.extend(keys_of(g, c).keys.iter().map(|k| k.t));
     }
     t.sort_by(f64::total_cmp);
     t.dedup_by(|a, b| (*a - *b).abs() < 1e-6);
