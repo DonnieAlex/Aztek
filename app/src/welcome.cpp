@@ -5,6 +5,7 @@
 // under the links, and a bar along the foot shows how far Aztek is towards parity.
 
 #include "mainwindow.h"
+#include "examples.h"
 #include "aztek.h"
 #include "host.h"
 #include "icons.h"
@@ -140,15 +141,6 @@ QString label_of(const QString& name) {
     QString label = words.join(' ');
     if (!label.isEmpty()) label[0] = label[0].toUpper();
     return label;
-}
-
-// The examples folder: beside the program, in the source tree when running from a build, where the Linux packages
-// put it, inside Aztek.app on macOS. Empty when there is none.
-QString examples_folder() {
-    const QString base = QCoreApplication::applicationDirPath();
-    for (const QString& where : {base + "/examples", base + "/../examples", base + "/../share/aztek/examples", base + "/../Resources/examples"})
-        if (QDir(where).exists() && !QDir(where).entryList({"*.ma"}, QDir::Files).isEmpty()) return QDir(where).absolutePath();
-    return QString();
 }
 
 // A GET in a thread of its own, the answer back on the interface thread. Through the update check's HTTPS client and
@@ -407,7 +399,7 @@ void MainWindow::show_welcome(bool at_startup) {
     examples->setRootIsDecorated(true);
     const QString root = examples_folder();
     if (root.isEmpty()) {
-        auto* it = new QTreeWidgetItem(examples, {"No examples folder beside this copy of Aztek"});
+        auto* it = new QTreeWidgetItem(examples, {"The examples couldn't be written to your data folder"});
         it->setDisabled(true);
     } else {
         auto add_scenes = [](QTreeWidgetItem* under, QTreeWidget* tree, const QDir& dir) {

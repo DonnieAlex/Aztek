@@ -5,6 +5,7 @@
 #include "aztek.h"
 #include "colorchooser.h"
 #include "editors.h"
+#include "examples.h"
 #include "host.h"
 #include "fbxui.h"
 #include "fileoptions.h"
@@ -383,9 +384,7 @@ QMenu* MainWindow::file_menu() {
     QMenu* examples = m->addMenu("Examples");
     connect(examples, &QMenu::aboutToShow, this, [this, examples] {
         examples->clear();
-        // Beside the program, in the source tree when running from a build, where the Linux packages put them, and
-        // inside Aztek.app on macOS.
-        const QString base = QCoreApplication::applicationDirPath();
+        // The folder that came with this copy, or the copy built into the program (examples.h).
         auto label_of = [](const QString& name) {
             static const QHash<QString, QString> kept = {{"ik", "IK"}, {"fk", "FK"}, {"uv", "UV"}, {"uvs", "UVs"}, {"usd", "USD"}, {"nurbs", "NURBS"}};
             QStringList words = QFileInfo(name).completeBaseName().split('_', Qt::SkipEmptyParts);
@@ -402,9 +401,9 @@ QMenu* MainWindow::file_menu() {
                 menu->addAction(label_of(name), [this, path] { if (confirm_unsaved()) open_file(path); });
             }
         };
-        for (const QString& where : {base + "/examples", base + "/../examples", base + "/../share/aztek/examples", base + "/../Resources/examples"}) {
+        const QString where = examples_folder();
+        if (!where.isEmpty()) {
             const QDir root(where);
-            if (!root.exists() || root.entryList({"*.ma"}, QDir::Files).isEmpty()) continue;
             // A submenu per area (examples/modelling, examples/rigging...), then the scenes at the top, then the scripts.
             for (const QString& sub : root.entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name)) {
                 const QDir dir(root.absoluteFilePath(sub));
@@ -425,7 +424,6 @@ QMenu* MainWindow::file_menu() {
                     });
                 }
             }
-            break;
         }
         if (examples->isEmpty()) examples->addAction("(none found)")->setEnabled(false);
     });

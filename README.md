@@ -489,7 +489,8 @@ Left to right: a Venom rig, whose download names no author; Toph, a fan art rig 
 ## Examples
 
 File > Examples opens over fifty scenes from the `examples` folder, a submenu per area, and the example scripts in the
-Script Editor. Every one opens without a warning; a test plays each.
+Script Editor. Every one opens without a warning; a test plays each. Every copy of Aztek has them: the packages carry
+the folder, and the program carries its own copy, which it writes to your data folder when no folder came with it.
 
 ![Twelve of the example scenes in the viewport](docs/examples.jpg)
 
