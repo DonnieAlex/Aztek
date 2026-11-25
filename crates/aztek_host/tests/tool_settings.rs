@@ -112,6 +112,30 @@ fn step_snap_relative_and_absolute() {
 }
 
 #[test]
+fn curve_snap_keeps_the_move_on_the_curve_far_from_the_cursor() {
+    // #280: moving away from the curve with C held still snaps to it.
+    let mut vp = view(Tool::Move);
+    vp.snap = 3;
+    let mut d = drag(Handle::Center, false, DVec3::ZERO, &["pCube1"]);
+    let a = DVec3::new(-2.0, 1.0, 0.0);
+    let b = DVec3::new(2.0, 1.0, 0.0);
+    d.snap_curves.push((a, b));
+    let screen = vp.screen();
+    let pa = screen.project(a).unwrap();
+    let pb = screen.project(b).unwrap();
+    let normal = (pb - pa).normalize().perp();
+    for distance in [10.0, 150.0] {
+        let cursor = (pa + pb) * 0.5 + normal * distance;
+        let (cmd, call) = vp.drag_call(&d, cursor, 1.0).unwrap();
+        assert_eq!(cmd, "move");
+        let by = call["by"].as_array().unwrap();
+        for (actual, expected) in by.iter().zip([0.0, 1.0, 0.0]) {
+            assert!((actual.as_f64().unwrap() - expected).abs() < 1e-9, "{call}");
+        }
+    }
+}
+
+#[test]
 fn j_held_steps_with_no_step_set() {
     let mut c = Core::new();
     c.mel("polyCube;");

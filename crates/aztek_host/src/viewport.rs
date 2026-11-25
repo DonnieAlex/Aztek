@@ -2689,8 +2689,8 @@ impl Viewport {
         p
     }
 
-    /// The point on the curves' segments nearest px on screen, within 40 pixels of it.
-    fn nearest_on_curves(&self, segs: &[(DVec3, DVec3)], px: DVec2) -> Option<DVec3> {
+    /// The point on the curves' segments nearest px on screen, up to the given distance.
+    fn nearest_on_curves(&self, segs: &[(DVec3, DVec3)], px: DVec2, max_dist: f64) -> Option<DVec3> {
         let screen = self.screen();
         let mut best: Option<(f64, DVec3)> = None;
         for &(a, b) in segs {
@@ -2698,7 +2698,7 @@ impl Viewport {
             let ab = pb - pa;
             let t = if ab.length_squared() < 1e-9 { 0.0 } else { ((px - pa).dot(ab) / ab.length_squared()).clamp(0.0, 1.0) };
             let dist = (pa + ab * t - px).length();
-            if dist < 40.0 && best.is_none_or(|x| dist < x.0) {
+            if dist < max_dist && best.is_none_or(|x| dist < x.0) {
                 best = Some((dist, a.lerp(b, t)));
             }
         }
@@ -2709,7 +2709,7 @@ impl Viewport {
     /// as place_point does.
     pub fn place_joint_point(&self, curves: &[(DVec3, DVec3)], px: DVec2) -> DVec3 {
         if self.snap == 3 {
-            if let Some(p) = self.nearest_on_curves(curves, px) {
+            if let Some(p) = self.nearest_on_curves(curves, px, 40.0) {
                 return p;
             }
         }
@@ -3868,7 +3868,7 @@ impl Viewport {
                     None => return world,
                 }
             }
-            3 => match self.nearest_on_curves(&d.snap_curves, px) {
+            3 => match self.nearest_on_curves(&d.snap_curves, px, f64::INFINITY) {
                 Some(p) => p,
                 None => return world,
             },

@@ -4298,3 +4298,8 @@ The viewport grid is drawn after the solid geometry and tested against its depth
 object passes through the grid, the lines in front of the surface show and the ones behind it are hidden, so it is
 easy to see where the object crosses the ground plane. Before, the grid was drawn first and every solid surface covered
 it. See-through materials still draw after the grid. `tools/ui_checks/grid_depth.py` checks it in the built app.
+
+### Move tool curve snapping (25/11/2026, #280)
+
+A Move drag with Snap to Curve enabled follows the nearest point on the curve even when the cursor moves farther
+than 40 pixels away. This applies to the C shortcut and the Snap to Curves toggle.
