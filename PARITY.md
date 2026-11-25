@@ -4356,6 +4356,11 @@ Not done:
 - A cluster handle's Origin sits in a Cluster Attributes frame where the reference leaves it unframed; the sculpt's
   advanced sculpt maps and attribute buttons are not built.
 
+The node types with a template of their own and those still on the generic page are listed in
+[docs/ATTRIBUTE_EDITOR_NODE_TYPES.md](docs/ATTRIBUTE_EDITOR_NODE_TYPES.md): 80 of the 685 types Aztek exposes
+have the reference's sections, and the other 605 show one section named after the type with all of its
+attributes, which read and write as they do anywhere else.
+
 ### Script Editor chrome (24/11/2026)
 
 The floating Script Editor window follows the reference's (2026.3): the File, Edit, History, Command, Tabs and Help menus
