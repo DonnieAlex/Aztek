@@ -383,6 +383,8 @@ impl Ui {
             ComponentMode::Vertex => "vertex",
             ComponentMode::Edge => "edge",
             ComponentMode::Face => "face",
+            ComponentMode::Uv => "uv",
+            ComponentMode::VertexFace => "vertexFace",
         };
         self.exec(s, "selectMode", json!({"args": [name]}));
     }
@@ -883,6 +885,8 @@ impl Ui {
                     ComponentMode::Vertex => "Vertex",
                     ComponentMode::Edge => "Edge",
                     ComponentMode::Face => "Face",
+                    ComponentMode::Uv => "UV",
+                    ComponentMode::VertexFace => "Vertex Face",
                 },
                 format!("{:?}", vp.tool),
                 items.len()
