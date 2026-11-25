@@ -1361,6 +1361,9 @@ The Renderer menu's Realtime is now Default and is what every view starts in; Vi
 that can't draw Default falls back to Legacy with a warning, as before. `AZTEK_VIEW_RENDERER=legacy` starts test
 builds in Legacy.
 
+On 24/11/2026 (#285), Bounce Light keeps the brightness of emissive surfaces above display white when sampling
+the visible scene. Brighter emitters can light nearby surfaces more strongly. The effect uses screen-space samples.
+
 ### Mesh history in scene files (23/11/2026, #209)
 
 A mesh's construction history now goes through `.ma` and `.mb` as the reference keeps it, in place of being baked into

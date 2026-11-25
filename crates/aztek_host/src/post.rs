@@ -257,6 +257,11 @@ void main() {
 /// sends back. Both are smoothed over the pixels round about that lie on the same surface, which takes the sampling's
 /// grain out and keeps edges sharp.
 const COMPOSITE_MAIN: &str = r#"
+// Keep the displayed scene in range while the bounce pass reads its full brightness.
+vec3 display_color(ivec2 at) {
+    return clamp(texelFetch(sampler2D(t_scene, s_point), at, 0).rgb, 0.0, 1.0);
+}
+
 // The view's background where nothing was drawn: no depth, and still the grey it was cleared to.
 bool cleared(vec3 color, float d) {
     return d <= 0.0 && all(lessThan(abs(color - vec3(pc.bg_bottom.w)), vec3(0.5 / 255.0)));
@@ -280,7 +285,7 @@ vec3 lit(vec3 color, vec4 got, ivec2 at) {
 
 // The picture at a pixel centre.
 vec3 picture(vec2 c) {
-    vec3 color = texelFetch(sampler2D(t_scene, s_point), ivec2(c), 0).rgb;
+    vec3 color = display_color(ivec2(c));
     float d = depth_at(c);
     // Nothing drawn here: the gradient, top of the view to bottom. What was drawn without depth keeps its colour.
     if (pc.bg_top.w > 0.5 && cleared(color, d)) return mix(pc.bg_top.rgb, pc.bg_bottom.rgb, c.y * pc.size.w);
@@ -336,7 +341,7 @@ void main() {
     vec2 c = floor(gl_FragCoord.xy) + 0.5;
     vec3 here = picture(c);
     ivec2 at = ivec2(c);
-    vec3 color = texelFetch(sampler2D(t_scene, s_point), at, 0).rgb;
+    vec3 color = display_color(at);
     float d = depth_at(c);
     if (pp.dof.z < 1.0 || !blurs(at, color, d)) {
         o = vec4(here, 1.0);
@@ -358,7 +363,7 @@ void main() {
         vec2 q = c + vec2(cos(angle), sin(angle)) * r;
         ivec2 qa = clamp(ivec2(q), ivec2(0), ivec2(pc.size.xy) - 1);
         vec2 qc = vec2(qa) + 0.5;
-        vec3 qcolor = texelFetch(sampler2D(t_scene, s_point), qa, 0).rgb;
+        vec3 qcolor = display_color(qa);
         float dq = depth_at(qc);
         if (blurs(qa, qcolor, dq)) {
             float zq = distance_at(qc, dq);
