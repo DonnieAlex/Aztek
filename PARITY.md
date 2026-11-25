@@ -4271,8 +4271,8 @@ defined in the session); and 184 MEL built-in functions. MEL flags appear after 
 then short form in the registry's order, filtered by either name. A command or procedure completes at the start of a
 statement, after `;`, and after `=`, `(`, `[`, `{`, `,` or a backtick, so assignments and backtick calls complete as
 they do at the prompt. `maya.` offers the shipped modules, `maya.api.`
-offers its four API modules, `maya.cmds.` offers the command registry, `maya.mel.` offers `eval` because that is all
-the module has, and `maya.OpenMaya.` and `maya.api.OpenMaya.` offer the API's classes. A class's members, inherited
+offers its four API modules, `maya.cmds.` offers the command registry (the nine MEL-only commands greyed, as `maya.cmds` has no functions for them),
+`maya.mel.` offers `eval` because that is all the module has, and `maya.OpenMaya.` and `maya.api.OpenMaya.` offer the API's classes. A class's members, inherited
 ones included, are loaded from the embedded module on first use and kept; a class entry shows the constructor
 signature. A command after `(` offers its flags as Python keyword arguments with the argument hint. Import aliases
 (`import maya.cmds as mc`, `from maya.api import OpenMaya as om`) resolve. A module Aztek ships but that has no

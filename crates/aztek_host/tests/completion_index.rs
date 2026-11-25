@@ -70,8 +70,9 @@ fn python_modules_and_classes_are_the_ones_aztek_ships() {
     assert_eq!(kids, vec!["OpenMaya", "OpenMayaAnim", "OpenMayaRender", "OpenMayaUI"]);
     assert!(find(&modules["maya.mel"]["entries"], "eval")["kind"] == "function");
     assert!(find(&modules["maya.api.OpenMaya"]["entries"], "MFnMesh")["kind"] == "class");
-    // maya.cmds is the command registry; the editor fills it from the commands above.
+    // maya.cmds is the command registry; the editor fills it from the commands above, and greys the MEL-only names.
     assert!(modules["maya.cmds"]["entries"].as_array().unwrap().is_empty());
+    assert!(v["python"]["melOnly"].as_array().unwrap().iter().any(|n| n == "isParentOf"));
 }
 
 #[test]

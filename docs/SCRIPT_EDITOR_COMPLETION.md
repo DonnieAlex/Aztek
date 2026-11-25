@@ -67,7 +67,9 @@ segment for a Python keyword. Accepting closes the popup. Undo takes the inserti
 - `maya.` offers `cmds`, `mel`, `OpenMaya`, `OpenMayaAnim`, `OpenMayaMPx`, `OpenMayaUI`, `api`, `standalone`, `utils`,
   `app` and `internal`, as Aztek's importer provides them.
 - `maya.api.` offers `OpenMaya`, `OpenMayaAnim`, `OpenMayaUI` and `OpenMayaRender`.
-- `maya.cmds.` offers the command registry: every command Aztek registers, with its flags and help.
+- `maya.cmds.` offers the command registry: every command Aztek registers, with its flags and help. The nine MEL-only
+  commands (`isParentOf`, `lsType`, `listTransforms`, `findRelatedDeformer`, `getChain`, `getAllChains`, `gotoBindPose`,
+  `setConstraintRestPosition`, `moveIKtoFK`) are shown greyed, because `maya.cmds` has no function for them.
 - `maya.mel.` offers what that module has, which is `eval`.
 - `maya.OpenMaya.` and `maya.api.OpenMaya.` offer the classes of each API.
 - A class offers its members, inherited ones included, with the method signature and any docstring the class carries.

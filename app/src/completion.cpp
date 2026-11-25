@@ -283,6 +283,7 @@ void ScriptCompletion::ensure_index() {
 }
 
 void ScriptCompletion::load_python(const QJsonObject& py) {
+    for (const QJsonValue& v : py.value("melOnly").toArray()) mel_only_.insert(v.toString());
     const QJsonObject modules = py.value("modules").toObject();
     for (auto it = modules.constBegin(); it != modules.constEnd(); ++it) {
         const QJsonObject o = it.value().toObject();
@@ -672,6 +673,12 @@ void ScriptCompletion::add_command_candidates(bool python) {
         e.category = python ? QStringLiteral("function") : QStringLiteral("command");
         e.detail = python ? python_signature(c) : (c.positional.isEmpty() ? c.name : c.name + " <" + c.positional + ">");
         e.doc = c.doc;
+        // Nine commands are MEL only: maya.cmds has no function for them. Shown greyed rather than hidden.
+        if (python && mel_only_.contains(c.name)) {
+            e.enabled = false;
+            e.category = QStringLiteral("MEL only");
+            e.doc = QStringLiteral("MEL only: maya.cmds has no function for this command.");
+        }
         base_.append(e);
     }
 }

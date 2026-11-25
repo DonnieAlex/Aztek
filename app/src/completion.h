@@ -5,6 +5,7 @@
 #include <QHash>
 #include <QJsonObject>
 #include <QPointer>
+#include <QSet>
 #include <QString>
 #include <QStringList>
 #include <QVector>
@@ -143,6 +144,7 @@ private:
     QHash<QString, PyModule> py_modules_;
     QHash<QString, PyClass> py_classes_;
     QString py_error_;
+    QSet<QString> mel_only_;
 
     QVector<CompletionEntry> base_;
     QVector<CompletionEntry> entries_;
