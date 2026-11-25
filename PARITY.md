@@ -4261,6 +4261,15 @@ in the reference's 160 pixel column, put a checkbox and its text at the value co
 rows, use its 68 pixel fields, and draw separators where the templates do. Controls the reference has and Aztek has no attribute for are present
 and greyed, never left out.
 
+The open tab survives edits: a value commit, a menu or checkbox change, a Channel Box or script change, undo and redo,
+and a rename all rebuild the panel in place, keeping the tab on show (keyed by the node's UUID, so a rename keeps it)
+and the field and caret being edited. A genuine selection change still shows the newly selected node's tab, except in
+a pinned Copy Tab window. The sections keep their own open state, and every page its scroll position, through the same
+rebuilds. A field wears the Channel Box's field colours, with read-only and disabled fields darker, connected values
+yellow, keyed ones red and locked ones the button grey; the name field shows the node's real name, selects it on entry,
+renames on Enter and goes back to the old name on Escape or a refused rename. `tools/ui_checks/attribute_editor_sections.py`
+checks the tab, sections, scroll, undo and redo, rename and a tab switch in the built app.
+
 The transform tab follows AEtransformMain and AEtransformNoScroll: Transform Attributes with Offset Parent Matrix;
 Pivots with Local Space and World Space; Limit Information with Translate, Rotate and Scale, each with the reference's
 Min, Current and Max columns, enable boxes and arrows; Display with Display Handle, Display Local Axis, Selection
@@ -4312,8 +4321,8 @@ Not done:
   against the reference; the order is not saved, and a torn-off tab's window keeps no order.
 - Attribute Names' Short mode shows the long names, as Aztek keeps no short ones. Long changes the template layouts'
   labels only, not the generic material rows'.
-- The name field is intentionally empty. Long attribute names elide at the left of their column. The dock's own title
-  bar remains as Aztek's panel chrome, where the reference has only its vertical tab.
+- Long attribute names elide at the left of their column. The dock's own title bar remains as Aztek's panel chrome,
+  where the reference has only its vertical tab.
 
 **Transform, mesh and joint**
 - Controls whose attributes Aztek lacks are greyed: numbers are empty and menus and checkboxes hold a template

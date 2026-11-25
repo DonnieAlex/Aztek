@@ -3019,7 +3019,8 @@ AttributeEditor::AttributeEditor(QWidget* parent, const QString& pinned) : Panel
     empty_->hide();
     lay->addWidget(empty_, 1);
     connect(tabs_, &QTabWidget::currentChanged, this, [this](int i) {
-        if (i >= 0) current_tab_ = tabs_->tabText(i);
+        QWidget* w = i >= 0 ? tabs_->widget(i) : nullptr;
+        current_tab_ = w ? w->property("stateKey").toString() : QString();
     });
 
     auto* bottom = new QHBoxLayout();
@@ -3064,9 +3065,14 @@ void AttributeEditor::refresh() {
     for (QSlider* sl : findChildren<QSlider*>())
         if (sl->isSliderDown()) return;
     last_ = now;
+    // The tab on show, and the node the selection gave the panel, both by their key (the node's UUID, or its path
+    // when it has none): a rename keeps them, and only a new focus is a selection change that moves to another tab.
     QString keep = current_tab_;
+    if (auto* page = tabs_->currentWidget()) {
+        const QString key = page->property("stateKey").toString();
+        if (!key.isEmpty()) keep = key;
+    }
     const QString focus_path = ae["focus"].toString();
-    const QString focus_tab = focus_path.section('|', -1);
     // The field being typed in, and where the tab was scrolled to, come back after the rebuild: a value set and Tab
     // to the next field rebuilds the editor, and the cursor goes on to that next field, as in the reference.
     QString focus_key;
@@ -3097,8 +3103,6 @@ void AttributeEditor::refresh() {
         tabs_->removeTab(0);
         w->deleteLater();
     }
-    int select = -1;
-    int focus_index = 0;
     for (const QJsonValue& tv : ae["tabs"].toArray()) {
         QJsonObject t = tv.toObject();
         QString node_type = t["type"].toString();
@@ -3552,14 +3556,11 @@ void AttributeEditor::refresh() {
             e->setObjectName("aeField");
             e->installEventFilter(this);
         }
-        int idx = tabs_->addTab(page, t["name"].toString());
-        if (t["name"].toString() == keep) select = idx;
-        if (t["name"].toString() == focus_tab) focus_index = idx;
+        tabs_->addTab(page, t["name"].toString());
     }
-    if (select < 0) select = focus_index;
-    // The order the tabs were dragged into, for the tabs still here.
+    // The order the tabs were dragged into, for the tabs still here. Signals stay off until the tab is chosen, or
+    // the removals and moves would write a tab into current_tab_ that is not on show.
     if (!tab_order().isEmpty()) {
-        tabs_->blockSignals(true);
         tabs_->tabBar()->blockSignals(true);
         int at = 0;
         for (const QString& name : tab_order()) {
@@ -3569,14 +3570,31 @@ void AttributeEditor::refresh() {
                     break;
                 }
         }
-        for (int i = 0; i < tabs_->count(); ++i)
-            if (tabs_->tabText(i) == keep) select = i;
-            else if (tabs_->tabText(i) == focus_tab) focus_index = i;
-        if (select < 0) select = focus_index;
         tabs_->tabBar()->blockSignals(false);
-        tabs_->blockSignals(false);
     }
+    // Find the tab to show now that the order is settled. A new focus (another node selected, or the panel first
+    // built) shows that node's tab; any other refresh keeps the tab the user has on show.
+    int select = -1;
+    int focus_index = -1;
+    QString focus_node_key;
+    for (int i = 0; i < tabs_->count(); ++i) {
+        QWidget* w = tabs_->widget(i);
+        const QString key = w ? w->property("stateKey").toString() : QString();
+        if (key == keep) select = i;
+        if (w && w->property("nodePath").toString() == focus_path) {
+            focus_index = i;
+            focus_node_key = key;
+        }
+    }
+    const bool selection_changed = focus_node_key != last_focus_;
+    last_focus_ = focus_node_key;
+    if (selection_changed && focus_index >= 0) select = focus_index;
+    else if (select < 0) select = focus_index;
+    if (select < 0) select = 0;
+    tabs_->blockSignals(false);
     tabs_->setCurrentIndex(select);
+    if (QWidget* shown = tabs_->currentWidget()) current_tab_ = shown->property("stateKey").toString();
+    else current_tab_.clear();
     // Nothing selected: the reference's own message in the panel.
     if (tabs_->count() == 0) {
         tabs_->hide();
