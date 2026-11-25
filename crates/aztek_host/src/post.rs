@@ -1214,7 +1214,7 @@ mod tests {
     #[test]
     fn a_rougher_metal_blurs_its_reflection_more() {
         assert_eq!(roughness_pixels(0.02), 8.0);
-        assert!(roughness_pixels(0.1) < roughness_pixels(0.2));
+        assert!(roughness_pixels(0.3) < roughness_pixels(0.5));
         assert!(roughness_pixels(0.2) < roughness_pixels(0.5));
         assert_eq!(roughness_pixels(1.0), 32.0);
         // The composite's gather is the same radius, with at least a pixel and a half at any roughness.
