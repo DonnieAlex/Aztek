@@ -4359,3 +4359,63 @@ Not done: the history output filter (Show Both, Show MEL Only, Show Python Only)
 filtered by language; Command Completion, Object Path Completion, Show Tooltip Help and Show quick help are greyed
 because the editor has no completion, so the Quick Help side bar they would show is not built; the MEL tab icon is
 drawn from the reference's file name, as the reference's `mel_tab.png` is not on disk.
+
+### The Attribute Editor's live data (25/11/2026)
+
+![The Attribute Editor showing live values](docs/attribute-editor-live.png)
+
+Every tab is built from the node itself. `query::attribute_editor` reads each node's attributes with their live values,
+plugs, limits, enum names, connection sources and lock state, and the tab list, focus path and name from the scene.
+The panel rebuilds whenever `Host::sceneChanged` fires, which its 50 ms poll of the scene's version does after a script,
+a Channel Box edit, a manipulator release, a frame change during playback, undo or redo. A tab that was hidden refreshes
+when it is shown. So a translate written in the Channel Box appears in the transform tab, a keyed value appears at the
+played frame, and an undo puts the old value back; all of these were run against the built app.
+
+Writes go back to the plug:
+- A numeric field commits on Enter or focus loss, clamps to the attribute's hard minimum and maximum when it has them,
+  and sets the plug through `setAttr`; one change is one undo step. Compound vectors write their child plugs, and
+  colours write their three components.
+- Sliders write while the handle moves and again on release. Press and release open and close one undo chunk, so a
+  whole drag is one undo step (checked: a blend shape weight drag undoes from 0.7 back to 0.35 in one undo).
+- Checkboxes, option menus, the limit enable boxes, the colour slider and the colour dialog write their plugs. The
+  light Type menu runs `aztekChangeLightType`, keeps the new shape selected and the tab follows it; Illuminates by
+  Default writes the light set. The poly primitives' Create UVs menu reads its real enum names and writes the chosen
+  index (checked: Cube "Normalize Collectively" at 1, then index 2 in the scene).
+- Limit rows read the compound `minRotLimit`/`maxRotLimit` and write the child plugs (`minRotXLimit` and its enable);
+  the current value follows the rotate component. Tested on a joint: the minimum reached 10 and the enable turned on.
+- Texture buttons still open Create Render Node; the map button on a connected attribute selects its source.
+
+Tabs switch to the node they name. A node without a template of its own uses the generic sections and Extra Attributes
+with its real values (a `reverse` utility showed its input X, Y and Z from the scene). Deleting a node removes its tab;
+renaming a node changes its tab and the name placeholder. The name row shows the node type, the node name as a
+placeholder with the full path in its tooltip, and connection arrows that carry the connected path and select it.
+
+Evidence is in `crates/aztek_host/tests/attribute_editor_live.rs`: the values are live and undo returns the old one,
+a rename moves the tab, a primitive's Create UVs carries its names and value, and a light type change keeps the new
+shape selected. The manual runs behind the screenshots covered a translate field, rotate child, joint radius, scale
+and blend weight sliders, Visibility, Template, Use Outliner Color and Draw Label checkboxes, Inherits Transform,
+rotate order, Create UVs, light intensity, colour and type, camera focal length, limit fields and enables, undo and
+redo, a time change, and a generic `reverse` tab.
+
+Still not binding, honestly:
+- Controls with no Aztek attribute stay disabled. Numeric fields are empty; menus and checkboxes hold the template's
+  placeholder rather than a scene value, so they are not live data and cannot be written. This covers the world
+  pivots, Show Manip Default, Manip History Node, most of the mesh component display, tessellation, smooth mesh
+  subdiv controls, DQS and relative-space skin values, disk-based depth maps, the camera's Angle of View and film
+  rolls, NURBS advanced tessellation, component tags and the sculpt's advanced maps.
+- A material's Type list is disabled: Aztek has no command to change a material's type. A light's Type is live.
+- `Load Selected Attributes`, the Show filters, Show View Labels and Show Color Managed Pots are greyed with no
+  feature behind them; Help has no local pages.
+- skinCluster's related history and bind pose tabs are not tabified with it, and Manage Deformed Geometry's add and
+  remove entries are greyed. blendShape in-betweens have no sliders or markers, target management is absent, and
+  Support Negative Weights is greyed.
+- The mesh Deformation frame does not list a deformer chain; a NURBS curve has no Components table.
+- A tab's right-click menu is not built. Reorder and tear-off are wired in the tab bar but were not exercised against
+  the reference; their order is not saved and a torn-off window keeps none.
+- Attribute Names' Short mode shows long names, as no short names are kept; Long changes template layouts only, not
+  the generic material rows'.
+- The sample sphere and light sample are drawn, not rendered with the material or light.
+- While a field is being typed in or a slider is held, the panel waits for the edit to finish before rebuilding, so a
+  scene change made in that moment shows afterwards, not during it. A panel behind another dock refreshes when shown.
+- The name field is intentionally empty (the node name is its placeholder), long names elide at the left, and the
+  dock's own title bar remains as Aztek's panel chrome.

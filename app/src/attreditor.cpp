@@ -360,6 +360,7 @@ protected:
         if (e->button() == Qt::LeftButton) {
             jump(e);
             setSliderDown(true);
+            emit sliderPressed();
             e->accept();
             return;
         }
@@ -376,6 +377,7 @@ protected:
     void mouseReleaseEvent(QMouseEvent* e) override {
         if (e->button() == Qt::LeftButton && isSliderDown()) {
             setSliderDown(false);
+            emit sliderReleased();
             e->accept();
             return;
         }
@@ -474,6 +476,12 @@ QWidget* ranged_field(const QJsonObject& a, double lo, double hi, QWidget* paren
     auto* s = new AttrSlider(Qt::Horizontal, row);
     s->setMinimumWidth(8);
     s->setRange(0, 1000);
+    s->setProperty("plugKey", plug);
+    auto clamp = [a](double v) {
+        if (a["hardMin"].isDouble()) v = qMax(v, a["hardMin"].toDouble());
+        if (a["hardMax"].isDouble()) v = qMin(v, a["hardMax"].toDouble());
+        return v;
+    };
     auto to_pos = [lo, hi](double v) { return int(qBound(0.0, (v - lo) / qMax(1e-9, hi - lo), 1.0) * 1000 + 0.5); };
     s->setValue(to_pos(value));
     bool ro = read_only(a);
@@ -483,22 +491,28 @@ QWidget* ranged_field(const QJsonObject& a, double lo, double hi, QWidget* paren
     if (a["locked"].toBool()) e->setObjectName("lockedField");
     s->setEnabled(!ro);
     bool is_int = type == "int";
-    auto value_of = [lo, hi, is_int](int p) {
-        double v = lo + (hi - lo) * p / 1000.0;
+    auto value_of = [lo, hi, is_int, clamp](int p) {
+        double v = clamp(lo + (hi - lo) * p / 1000.0);
         return is_int ? QJsonValue(qint64(std::round(v))) : QJsonValue(v);
     };
+    QObject::connect(s, &QSlider::sliderPressed, s, [plug] { exec("undoInfo", QJsonObject{{"openChunk", true}}); });
     QObject::connect(s, &QSlider::sliderMoved, e, [e, value_of, plug, is_int](int p) {
         QJsonValue v = value_of(p);
         e->setText(is_int ? QString::number(v.toInteger()) : fmt3(v.toDouble()));
         exec_quiet("setAttr", args(QJsonArray{plug, v}));
         Host::get()->poke();
     });
-    QObject::connect(s, &QSlider::sliderReleased, e, [s, value_of, plug] { exec("setAttr", args(QJsonArray{plug, value_of(s->value())})); });
+    QObject::connect(s, &QSlider::sliderReleased, e, [s, value_of, plug] {
+        exec("setAttr", args(QJsonArray{plug, value_of(s->value())}));
+        exec("undoInfo", QJsonObject{{"closeChunk", true}});
+    });
     QObject::connect(e, &QLineEdit::textEdited, e, [e] { e->setProperty("editing", true); });
-    QObject::connect(e, &QLineEdit::editingFinished, e, [e, plug, is_int] {
+    QObject::connect(e, &QLineEdit::editingFinished, e, [e, plug, is_int, clamp] {
         if (!e->property("editing").toBool()) return;
         e->setProperty("editing", false);
-        exec("setAttr", args(QJsonArray{plug, is_int ? QJsonValue(qint64(e->text().toDouble())) : QJsonValue(e->text().toDouble())}));
+        double v = clamp(e->text().toDouble());
+        e->setText(is_int ? QString::number(qint64(std::round(v))) : fmt3(v));
+        exec("setAttr", args(QJsonArray{plug, is_int ? QJsonValue(qint64(std::round(v))) : QJsonValue(v)}));
     });
     h->addWidget(e);
     h->addWidget(s, 1);
@@ -553,12 +567,14 @@ QWidget* color_field(const QJsonObject& a, QWidget* parent) {
     s->setMinimumWidth(8);
     s->setRange(0, 1000);
     s->setValue(int(shown.valueF() * 1000 + 0.5));
+    s->setProperty("plugKey", plug);
     s->setEnabled(!ro);
     auto colour_at = [shown, stored](int p) {
         QColor c = QColor::fromHsvF(qMax(0.0f, shown.hsvHueF()), shown.hsvSaturationF(), p / 1000.0);
         auto dec = [stored](double x) { return stored ? x : std::pow(x, 2.2); };
         return QJsonArray{dec(c.redF()), dec(c.greenF()), dec(c.blueF())};
     };
+    QObject::connect(s, &QSlider::sliderPressed, swatch, [plug] { exec("undoInfo", QJsonObject{{"openChunk", true}}); });
     QObject::connect(s, &QSlider::sliderMoved, swatch, [swatch, colour_at, plug, shown](int p) {
         QJsonArray c = colour_at(p);
         swatch->setStyleSheet(QString("background-color: %1; border: 1px solid #222;").arg(QColor::fromHsvF(qMax(0.0f, shown.hsvHueF()), shown.hsvSaturationF(), p / 1000.0).name()));
@@ -568,6 +584,7 @@ QWidget* color_field(const QJsonObject& a, QWidget* parent) {
     QObject::connect(s, &QSlider::sliderReleased, swatch, [s, colour_at, plug] {
         QJsonArray c = colour_at(s->value());
         exec("setAttr", QJsonObject{{"args", QJsonArray{plug, c.at(0), c.at(1), c.at(2)}}, {"type", "double3"}});
+        exec("undoInfo", QJsonObject{{"closeChunk", true}});
     });
     h->addWidget(s, 1);
     if (a["mappable"].toBool()) h->addWidget(map_button(a, w));
@@ -964,7 +981,7 @@ QList<AeBox> transform_boxes() {
     AeBox display = box("Display",
                         {row("displayHandle"), row("displayLocalAxis"), shown("selectHandle", "Selection Handle", "vec3"),
                          shown("showManipDefault", "Show Manip Default", "combo", "None"), shown("manipHistoryNode", "Manip History Node", "text"),
-                         shown("", "Visibility", "check2", ""), row("lodVisibility"), row("hideOnPlayback"), row("hiddenInOutliner"),
+                         shown("visibility", "Visibility", "check2"), row("lodVisibility"), row("hideOnPlayback"), row("hiddenInOutliner"),
                          row("useOutlinerColor"), row("outlinerColor")});
     display.rows[5].extra = "template";
     display.subs << box("Ghosting Information", {row("ghosting"), row("ghostPreSteps"), row("ghostPostSteps"), row("ghostStepSize")});
@@ -2013,6 +2030,7 @@ QWidget* ae_field(const AeRow& r, const QJsonObject& a, const QString& style, QW
         box->setFixedWidth(r.kind == "widecombo" ? 300 : 148);
         box->setEnabled(!ro);
         QString plug = a["plug"].toString();
+        box->setProperty("plugKey", plug);
         QObject::connect(box, QOverload<int>::of(&QComboBox::activated), box, [plug](int i) { set_plug(plug, i, "int"); });
         return box;
     }
@@ -2021,6 +2039,7 @@ QWidget* ae_field(const AeRow& r, const QJsonObject& a, const QString& style, QW
         cb->setChecked(a["value"].toBool() || (a["value"].isDouble() && a["value"].toDouble() != 0));
         cb->setEnabled(!ro);
         QString plug = a["plug"].toString();
+        cb->setProperty("plugKey", plug);
         QObject::connect(cb, &QCheckBox::toggled, cb, [plug](bool on) { set_plug(plug, on, "bool"); });
         return cb;
     }
@@ -2190,6 +2209,7 @@ QWidget* ae_limit_row(const AeBox& group, const QString& axis, const QHash<QStri
         if (!a.isEmpty()) {
             cb->setChecked(a["value"].toBool());
             QString plug = a["plug"].toString();
+            cb->setProperty("plugKey", plug);
             QObject::connect(cb, &QCheckBox::toggled, cb, [plug](bool on) { set_plug(plug, on, "bool"); });
         } else {
             cb->setEnabled(false);
@@ -2389,6 +2409,7 @@ void ae_render_rows(QVBoxLayout* v, QWidget* parent, const QList<AeRow>& rows, c
                 if (!at.isEmpty()) {
                     cb->setChecked(at["value"].toBool());
                     QString plug = at["plug"].toString();
+                    cb->setProperty("plugKey", plug);
                     QObject::connect(cb, &QCheckBox::toggled, cb, [plug](bool on) { set_plug(plug, on, "bool"); });
                     used.insert(name);
                 } else {
@@ -2411,7 +2432,7 @@ void ae_render_rows(QVBoxLayout* v, QWidget* parent, const QList<AeRow>& rows, c
             v->addWidget(rw);
             continue;
         }
-        if (r.kind == "slider" && !a.isEmpty()) {
+        if (r.kind == "slider" && !a.isEmpty() && !(a["min"].isDouble() && a["max"].isDouble())) {
             QStringList bounds = (r.extra.isEmpty() ? r.fallback : r.extra).split(',');
             if (bounds.size() == 2) {
                 a["min"] = bounds.at(0).toDouble();
@@ -2525,6 +2546,7 @@ void ae_render_rows(QVBoxLayout* v, QWidget* parent, const QList<AeRow>& rows, c
                 if (!at.isEmpty()) {
                     cb->setChecked(at["value"].toBool());
                     QString plug = at["plug"].toString();
+                    cb->setProperty("plugKey", plug);
                     QObject::connect(cb, &QCheckBox::toggled, cb, [plug](bool on) { set_plug(plug, on, "bool"); });
                     used.insert(name);
                 } else {
@@ -2544,6 +2566,8 @@ void ae_render_rows(QVBoxLayout* v, QWidget* parent, const QList<AeRow>& rows, c
             if (a["type"].toString() == "matrix") field = ae_placeholder(r, a, parent);
             else if (a["type"].toString() == "vec3" && !a["color"].toBool() && r.kind != "color") field = ae_vec3(a, parent);
             else field = ae_field(r, a, style, parent);
+            if (auto* cb = qobject_cast<QCheckBox*>(field)) cb->setProperty("plugKey", a["plug"].toString());
+            if (auto* box = qobject_cast<QComboBox*>(field)) box->setProperty("plugKey", a["plug"].toString());
             if (checklike) {
                 if (auto* cb = qobject_cast<QCheckBox*>(field)) cb->setText(label);
                 else for (QCheckBox* cb : field->findChildren<QCheckBox*>()) cb->setText(label);
@@ -3038,11 +3062,14 @@ void AttributeEditor::refresh() {
         typeLabel->setObjectName("aeTypeLabel");
         typeLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
         typeLabel->setFixedWidth(160);
+        typeLabel->setToolTip(path);
         nh->addWidget(typeLabel);
         auto* name = new QLineEdit(nameRow);
         name->setObjectName("aeNameField");
         name->setFixedSize(152, 20);
         name->setText(QString());
+        name->setPlaceholderText(path.section('|', -1));
+        name->setToolTip(path);
         connect(name, &QLineEdit::editingFinished, name, [name, path] {
             if (!name->text().trimmed().isEmpty() && name->text().trimmed() != path.section('|', -1))
                 exec("rename", args(QJsonArray{path, name->text().trimmed()}));
@@ -3057,8 +3084,8 @@ void AttributeEditor::refresh() {
         in->setIcon(connect_icon(true));
         in->setIconSize(QSize(14, 14));
         in->setFixedSize(18, 9);
-        in->setToolTip("Go to input connection");
         const QString inputNode = t["inputNode"].toString();
+        in->setToolTip(inputNode.isEmpty() ? "Go to input connection" : "Go to input connection: " + inputNode);
         in->setEnabled(!inputNode.isEmpty());
         if (!inputNode.isEmpty())
             connect(in, &QToolButton::clicked, in, [inputNode] { exec("select", args(QJsonArray{inputNode})); });
@@ -3067,8 +3094,8 @@ void AttributeEditor::refresh() {
         out->setIcon(connect_icon(false));
         out->setIconSize(QSize(14, 14));
         out->setFixedSize(18, 9);
-        out->setToolTip("Go to output connection");
         const QString outputNode = t["outputNode"].toString();
+        out->setToolTip(outputNode.isEmpty() ? "Go to output connection" : "Go to output connection: " + outputNode);
         out->setEnabled(!outputNode.isEmpty());
         if (!outputNode.isEmpty())
             connect(out, &QToolButton::clicked, out, [outputNode] { exec("select", args(QJsonArray{outputNode})); });

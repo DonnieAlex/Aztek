@@ -515,6 +515,7 @@ fn change_type(s: &mut Session, a: &Args) -> CmdResult {
     let t = old_node.type_arc().clone();
     let held: Vec<(String, PlugValue)> = t.attrs.iter().enumerate().filter(|(_, x)| x.has(flags::STORABLE) && x.has(flags::INPUT) && !x.is_array()).map(|(i, x)| (x.name.clone(), old_node.value(i).clone())).collect();
     let selected = g.selection().to_vec();
+    let old_selected = selected.contains(&old);
     g.delete_node(old)?;
     let new = g.create_node(&types::find(ty).unwrap(), &name, tr, false)?;
     for (attr, v) in held {
@@ -524,7 +525,10 @@ fn change_type(s: &mut Session, a: &Args) -> CmdResult {
             }
         }
     }
-    let keep: Vec<NodeId> = selected.into_iter().filter(|&x| g.node(x).is_some()).collect();
+    let mut keep: Vec<NodeId> = selected.into_iter().filter(|&x| g.node(x).is_some()).collect();
+    if old_selected {
+        keep.push(new);
+    }
     g.select(&keep, SelectMode::Replace);
     Ok(json!(g.path(new)))
 }
