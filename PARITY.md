@@ -4272,3 +4272,43 @@ Not done: the history output filter (Show Both, Show MEL Only, Show Python Only)
 filtered by language; Command Completion, Object Path Completion, Show Tooltip Help and Show quick help are greyed
 because the editor has no completion, so the Quick Help side bar they would show is not built; the MEL tab icon is
 drawn from the reference's file name, as the reference's `mel_tab.png` is not on disk.
+
+### mGear's menus, run item by item (25/11/2026)
+
+Every item of mGear 5.4.8's menus (136) was triggered in the running application, with nothing selected, with a rig
+control selected and with a skinned mesh selected, after building mGear's biped template. What failed and was put
+right: a top-level node's parent as the world DAG node in the API, `translate` and `rotate` as compounds of three
+(`MFnCompoundAttribute`), `instObjGroups` on every DAG node with object sets listed through it, `$gMainPane`,
+`$gShelfTopLevel` and `$gChannelBoxName` with the shelves as `shelfLayout`s scripts can put buttons on,
+`performFileDropAction` and `performFileImportAction` (a tool that redefines the first takes dropped files),
+`maya.app.flux.core.getPixmap`, `OpenMayaUI.MQtUtil.findMenuItem` by menu path, the HumanIK commands mGear's mapper
+calls (`hikRemoveSkFromCharacter`, `hikSetCharacterInput`, `mayaHIKsetCharacterInput`, `hikGetCharacterInputString`,
+`hikReadStancePoseTRSOffsets`, `hikBakeCharacterPre`, `hikBakeCharacterPost`), `FBXExportFileVersion -uiVersionList`,
+and the gpuCache plug-in: the `gpuCache` command writes Alembic files over a frame range and the `gpuCache` shape plays
+one back in the views. What still reports an error does so in the reference too: items that need a different selection
+(Copy Skin Add, Match Pos with BBox, Bake and Clear Spring nodes, Settings and Export Guide Template on a non-guide,
+Select Skin Deformers on a control, Characterize Biped without the mocap skeleton), and on a freshly bound mesh,
+Duplicate symmetrical and Proxy Slicer, which set channels that binding locked. mGear moved to Help > Install > mGear.
+Not done: gpuCache shapes draw without their materials.
+
+### Skin Tools (25/11/2026)
+
+The reference's Skin Tools (ngSkinTools 2, built in) as the `ngSkinTools2` plug-in, loaded at start. A skinCluster
+with layers has an `ngst2SkinLayerData` node (`ngSkinToolsData_<skinCluster>`) holding the stack; each layer has
+weights for some influences, a mask, dual quaternion weights, opacity, an on/off switch, a paint target and locked
+influences, and a layer with children is a group whose mask and opacity cover its children. The stack blends from the
+bottom up into the skinCluster's weights (and its blendWeights, with skinningMethod 2, when a layer has dual
+quaternion weights): a layer covers what is below by opacity times mask, and a point whose layer weights add up to
+less than one takes the rest from below. Skin > Skin Tools opens the window (layers, paint target, mode, intensity,
+iterations, flood, Assign From Closest Joint, Unify Weights, Mirror with axis, direction and seam width, Export,
+Import, Transfer); Skin > Initialize Skin Layers and Delete Skin Layers work on the selection. With layers on a skin
+the Paint Skin Weights brush paints the current layer's target in replace, add, scale, smooth or sharpen, and its
+colour feedback shows that target. Mirror pairs influences by name (L_/R_, _L/_R, left/right and parts like
+arm_L0_jnt) and else by mirrored bind position. Layers save in `.ma` files, and export to and import from JSON files
+by closest point or vertex id. `ngSkinTools2.api` gives `init_layers`, `Layers` and `Layer` (name, enabled, opacity,
+index, parent, children, paint_target, locked_influences, get_weights, set_weights, configure_mirror), `flood_weights`
+with `FloodSettings` and `PaintMode`, `assign_from_closest_joint`, `unify_weights`, `Mirror` and `MirrorOptions`,
+`export_json`, `import_json`, `transfer_layers`, `target_info` and `NamedPaintTarget`. The commands under it are
+Aztek's own, `skinLayers` and `skinLayersTool`, as the reference documents none.
+Not done: the reference's JSON file layout is not read (the files are Aztek's), the volume-neighbour smoothing and
+influence glob mapping options are accepted but not used, and the brush has no separate on-screen help.
