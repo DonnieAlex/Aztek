@@ -160,6 +160,11 @@ pub fn slider_range() -> Option<(f64, f64)> {
     slider().range
 }
 
+/// Whether the time slider shows keys on selected animation layers' own weights.
+pub fn slider_shows_layer_weight() -> bool {
+    slider().layer_weight
+}
+
 /// play -playSound: whether the sound plays along (on until a script turns it off).
 static PLAY_SOUND: AtomicBool = AtomicBool::new(true);
 

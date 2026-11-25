@@ -300,6 +300,14 @@ pub(crate) fn curve_at(g: &Graph, c: NodeId, t: f64) -> f64 {
     anim::keys_of(g, c).eval(t, anim::infinity(pre), anim::infinity(post))
 }
 
+/// The keyed weight plugs of the layers picked in the layer editor.
+pub fn selected_weight_curves(g: &Graph) -> Vec<(PlugRef, NodeId)> {
+    ordered_layers(g).into_iter().filter(|&l| layer_flag(g, l, L_SELECTED)).filter_map(|l| {
+        let plug = PlugRef::new(l, L_WEIGHT as i32);
+        anim::curve_of(g, &plug).map(|curve| (plug, curve))
+    }).collect()
+}
+
 /// A layer's foreground and background weights at a frame: its weight may be keyed.
 pub(crate) fn layer_weights_at(g: &Graph, l: NodeId, t: f64) -> (f64, f64) {
     if layer_off(g, l) {
