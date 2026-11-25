@@ -51,6 +51,12 @@ built for that Qt, into that Python, builds against all three and stages the res
 wheels need glibc 2.28, so the same versions build on Rocky 8. Nothing comes from the system's Qt or Python; later builds reuse the fetched ones, and
 `tools/bundle/versions.sh` holds the versions.
 
+Run what was built with `build/Aztek/AppRun`, not `build/aztek`: AppRun points the program at its own Qt and Python.
+A build folder that was once configured against the system's Qt is configured again against the fetched one; to
+start completely afresh, `rm -rf build build-debug` and run the script again. For a crash, `./build.sh --debug` keeps
+its symbols in `build-debug/Aztek`, and `gdb -ex run -ex bt --args sh build-debug/Aztek/AppRun` prints a backtrace
+with Aztek's own functions named.
+
 **macOS.** The script installs what is missing before it builds: Xcode's command line tools, [Homebrew](https://brew.sh)
 (added to `~/.zprofile` when it isn't on the path), CMake, Ninja, MoltenVK and Rust; `--deps` also updates them. Every build fetches Qt 6.8.3, Python 3.13 and PySide6 6.8.3 and puts them, with MoltenVK, inside
 `build/aztek.app`, signed ad hoc, or with your Developer ID when `AZTEK_SIGN_IDENTITY` names one (docs/PACKAGING.md). `--package` also makes `dist/aztek-macos-<arch>.zip`, and `--install` puts Aztek.app

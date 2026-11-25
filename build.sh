@@ -65,6 +65,16 @@ EXTRA=(-DCMAKE_PREFIX_PATH="$QTDIR" -DPython3_EXECUTABLE="$PY" -DPython3_INCLUDE
 [ -n "${CONDA_PREFIX:-}" ] && EXTRA+=(-DCMAKE_IGNORE_PREFIX_PATH="$CONDA_PREFIX")
 export PYO3_PYTHON="$PY"
 
+# A build folder configured against another Qt (the system's, from before Qt was fetched, or an older fetch) keeps
+# that Qt in its cache whatever CMAKE_PREFIX_PATH says, and the program then mixes two Qts and crashes at start (#289).
+# Forget the cached configuration in that case; the compiled objects are rebuilt against the right Qt.
+if [ -f "$DIR/CMakeCache.txt" ]; then
+  CACHED_QT=$(sed -n 's/^Qt6_DIR:PATH=//p' "$DIR/CMakeCache.txt")
+  if [ -n "$CACHED_QT" ] && [ "${CACHED_QT#"$QTDIR"}" = "$CACHED_QT" ]; then
+    echo "$DIR was configured against the Qt in $CACHED_QT; configuring it again against $QTDIR"
+    rm -rf "$DIR/CMakeCache.txt" "$DIR/CMakeFiles"
+  fi
+fi
 cmake -B "$DIR" -G Ninja -DCMAKE_BUILD_TYPE="$TYPE" "${EXTRA[@]}"
 cmake --build "$DIR"
 APP=$DIR/Aztek

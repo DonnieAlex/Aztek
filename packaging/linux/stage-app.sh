@@ -19,7 +19,12 @@ mkdir -p "$(dirname "$OUT")"
 OUT=$(cd "$(dirname "$OUT")" && pwd)/$(basename "$OUT")
 
 rm -rf "$OUT"
-DESTDIR=$OUT cmake --install "$BUILD" --prefix /usr --strip
+# A debug build keeps its symbols, so a backtrace from the staged AppRun names Aztek's own functions (#289).
+STRIP=(--strip)
+case "$(sed -n 's/^CMAKE_BUILD_TYPE:[A-Z]*=//p' "$BUILD/CMakeCache.txt" 2>/dev/null)" in
+  Debug | RelWithDebInfo) STRIP=() ;;
+esac
+DESTDIR=$OUT cmake --install "$BUILD" --prefix /usr ${STRIP[@]+"${STRIP[@]}"}
 LIB=$OUT/usr/lib
 mkdir -p "$LIB"
 
