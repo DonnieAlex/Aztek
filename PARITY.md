@@ -4520,3 +4520,4 @@ tab fix, merged after 2.647, was listed under 2.647 although that release did no
 2.647 were pushed down into 2.643. The commits after the newest release the running build includes come from the
 compare API and are listed under the running version's "-- not released yet" heading, with "(this version)" beside
 the release it names. A build whose commit isn't on GitHub, one from a fork say, still shows the upstream's releases.
+A 403 names GitHub's hourly limit for unsigned requests and asks for a wait, rather than reading as a broken server.
