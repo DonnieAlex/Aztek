@@ -4242,7 +4242,7 @@ Projected Center sets snapMode -meshCenter while the viewport does not use that 
 
 ### Script Editor chrome (24/11/2026)
 
-The floating Script Editor window follows Autodesk Maya 2026.3's: the File, Edit, History, Command, Tabs and Help menus
+The floating Script Editor window follows the reference's (2026.3): the File, Edit, History, Command, Tabs and Help menus
 with the reference's items, order, separators, tick and radio states, shortcuts and tear-off strips; the toolbar's
 fourteen icon buttons in the reference's four groups, the search field with Search down and Search up, and the goto
 line field with Go, at the reference's 23 pixel buttons, drawn icons, enabled and ticked states (Show line numbers
@@ -4259,10 +4259,6 @@ Not done: the history output filter (Show Both, Show MEL Only, Show Python Only)
 filtered by language; Command Completion is implemented (see Script Editor completion below); Object Path Completion,
 Show Tooltip Help and Show quick help are greyed because there is no object path index and no Quick Help side bar; the
 MEL tab icon is drawn from the reference's file name, as the reference's `mel_tab.png` is not on disk.
-
-### Viewport grid depth (25/11/2026, #297)
-
-The perspective grid stays visible in front of opaque surfaces and is hidden where it runs behind them.
 
 ### Script Editor completion (25/11/2026)
 
@@ -4295,3 +4291,10 @@ without a description; and commands or Python modules a plug-in registers after 
 appear when the Script Editor is reopened (the session's MEL procedures are re-read as the command list is prepared). `maya.mel` itself has only `eval`. The Python API's class list and signatures come from
 the embedded modules, not a hand-written list: 100 classes in `maya.api.OpenMaya`, 99 in `maya.OpenMaya`, and 385
 class records across the shipped API modules.
+
+### What changed (25/11/2026, #297)
+
+The viewport grid is drawn after the solid geometry and tested against its depth, as the reference draws it: where an
+object passes through the grid, the lines in front of the surface show and the ones behind it are hidden, so it is
+easy to see where the object crosses the ground plane. Before, the grid was drawn first and every solid surface covered
+it. See-through materials still draw after the grid. `tools/ui_checks/grid_depth.py` checks it in the built app.
