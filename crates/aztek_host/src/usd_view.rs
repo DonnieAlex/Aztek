@@ -130,7 +130,7 @@ fn make_pipes(gpu: &Gpu) -> Pipes {
             let rs = vk::PipelineRasterizationStateCreateInfo::default().polygon_mode(vk::PolygonMode::FILL).cull_mode(vk::CullModeFlags::NONE).front_face(vk::FrontFace::CLOCKWISE).line_width(1.0);
             let ms = vk::PipelineMultisampleStateCreateInfo::default().rasterization_samples(gpu.samples);
             let ds = vk::PipelineDepthStencilStateCreateInfo::default().depth_test_enable(true).depth_write_enable(!blending).depth_compare_op(vk::CompareOp::GREATER_OR_EQUAL);
-            let blend = crate::render::scene_blend(false);
+            let blend = crate::render::scene_blend(false, false);
             let cb = vk::PipelineColorBlendStateCreateInfo::default().attachments(&blend);
             let dyns = [vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR];
             let dy = vk::PipelineDynamicStateCreateInfo::default().dynamic_states(&dyns);

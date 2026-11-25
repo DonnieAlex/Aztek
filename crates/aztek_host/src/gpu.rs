@@ -239,6 +239,30 @@ pub struct Gpu {
     pub albedo_msaa_image: vk::Image,
     pub albedo_msaa_view: vk::ImageView,
     pub albedo_msaa_alloc: Option<Allocation>,
+    /// The Realtime renderer's reflection for each pixel: the fresnel-weighted reflection colour in rgb, the roughness
+    /// used for its environment lookup in a (above zero wherever a material is drawn). The screen-space reflection pass
+    /// reads it (#302).
+    pub mat_image: vk::Image,
+    pub mat_view: vk::ImageView,
+    pub mat_alloc: Option<Allocation>,
+    pub mat_msaa_image: vk::Image,
+    pub mat_msaa_view: vk::ImageView,
+    pub mat_msaa_alloc: Option<Allocation>,
+    /// The rest of a material the reflection pass needs: transmission, IOR as (IOR - 1) / 2, metalness, and 1 where a
+    /// Realtime material was drawn. RGBA8 is enough for these (#302).
+    pub mat_aux_image: vk::Image,
+    pub mat_aux_view: vk::ImageView,
+    pub mat_aux_alloc: Option<Allocation>,
+    pub mat_aux_msaa_image: vk::Image,
+    pub mat_aux_msaa_view: vk::ImageView,
+    pub mat_aux_msaa_alloc: Option<Allocation>,
+    /// Where the guides' pass resolves the material attachments it doesn't draw, keeping the scene's (#302).
+    pub overlay_mat_spare_image: vk::Image,
+    pub overlay_mat_spare_view: vk::ImageView,
+    pub overlay_mat_spare_alloc: Option<Allocation>,
+    pub overlay_mat_aux_spare_image: vk::Image,
+    pub overlay_mat_aux_spare_view: vk::ImageView,
+    pub overlay_mat_aux_spare_alloc: Option<Allocation>,
     /// How open each pixel is to the light around it, worked out from the scene's depth before the picture is put together.
     pub ao_pass: vk::RenderPass,
     pub ao_image: vk::Image,
@@ -251,6 +275,29 @@ pub struct Gpu {
     pub bounce_view: vk::ImageView,
     pub bounce_alloc: Option<Allocation>,
     pub bounce_framebuffer: vk::Framebuffer,
+    /// Screen-space reflections and refraction, worked out from the scene's colour, depth and material before the
+    /// picture is put together (#302).
+    pub refl_image: vk::Image,
+    pub refl_view: vk::ImageView,
+    pub refl_alloc: Option<Allocation>,
+    pub refl_framebuffer: vk::Framebuffer,
+    /// The scene drawn mirrored about the ground plane, for the floor's reflection (#302).
+    pub planar_pass: vk::RenderPass,
+    pub planar_image: vk::Image,
+    pub planar_view: vk::ImageView,
+    pub planar_alloc: Option<Allocation>,
+    pub planar_depth_image: vk::Image,
+    pub planar_depth_view: vk::ImageView,
+    pub planar_depth_alloc: Option<Allocation>,
+    pub planar_framebuffer: vk::Framebuffer,
+    /// The scene without its transmissive surfaces, for glass to see what it lets through (#302).
+    pub back_image: vk::Image,
+    pub back_view: vk::ImageView,
+    pub back_alloc: Option<Allocation>,
+    pub back_depth_image: vk::Image,
+    pub back_depth_view: vk::ImageView,
+    pub back_depth_alloc: Option<Allocation>,
+    pub back_framebuffer: vk::Framebuffer,
     /// The pass that puts the scene on the window, through the post effects.
     pub post_pass: vk::RenderPass,
     /// One per swapchain image, for the post pass.
@@ -311,6 +358,7 @@ impl Gpu {
             .initial_layout(vk::ImageLayout::UNDEFINED)
             .final_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)];
         let ao_pass = device.create_render_pass(&vk::RenderPassCreateInfo::default().attachments(&ao_att).subpasses(&post_sub).dependencies(&post_dep), None)?;
+        let planar_pass = planar_pass(&device)?;
         let pool = device.create_command_pool(
             &vk::CommandPoolCreateInfo::default().queue_family_index(shared.queue_family).flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER),
             None,
@@ -358,6 +406,24 @@ impl Gpu {
             albedo_msaa_image: vk::Image::null(),
             albedo_msaa_view: vk::ImageView::null(),
             albedo_msaa_alloc: None,
+            mat_image: vk::Image::null(),
+            mat_view: vk::ImageView::null(),
+            mat_alloc: None,
+            mat_msaa_image: vk::Image::null(),
+            mat_msaa_view: vk::ImageView::null(),
+            mat_msaa_alloc: None,
+            mat_aux_image: vk::Image::null(),
+            mat_aux_view: vk::ImageView::null(),
+            mat_aux_alloc: None,
+            mat_aux_msaa_image: vk::Image::null(),
+            mat_aux_msaa_view: vk::ImageView::null(),
+            mat_aux_msaa_alloc: None,
+            overlay_mat_spare_image: vk::Image::null(),
+            overlay_mat_spare_view: vk::ImageView::null(),
+            overlay_mat_spare_alloc: None,
+            overlay_mat_aux_spare_image: vk::Image::null(),
+            overlay_mat_aux_spare_view: vk::ImageView::null(),
+            overlay_mat_aux_spare_alloc: None,
             ao_pass,
             ao_image: vk::Image::null(),
             ao_view: vk::ImageView::null(),
@@ -367,6 +433,25 @@ impl Gpu {
             bounce_view: vk::ImageView::null(),
             bounce_alloc: None,
             bounce_framebuffer: vk::Framebuffer::null(),
+            refl_image: vk::Image::null(),
+            refl_view: vk::ImageView::null(),
+            refl_alloc: None,
+            refl_framebuffer: vk::Framebuffer::null(),
+            planar_pass,
+            planar_image: vk::Image::null(),
+            planar_view: vk::ImageView::null(),
+            planar_alloc: None,
+            planar_depth_image: vk::Image::null(),
+            planar_depth_view: vk::ImageView::null(),
+            planar_depth_alloc: None,
+            planar_framebuffer: vk::Framebuffer::null(),
+            back_image: vk::Image::null(),
+            back_view: vk::ImageView::null(),
+            back_alloc: None,
+            back_depth_image: vk::Image::null(),
+            back_depth_view: vk::ImageView::null(),
+            back_depth_alloc: None,
+            back_framebuffer: vk::Framebuffer::null(),
             post_pass,
             framebuffers: Vec::new(),
             in_post: false,
@@ -419,6 +504,39 @@ impl Gpu {
                 }
                 self.bounce_view = vk::ImageView::null();
             }
+            if self.refl_framebuffer != vk::Framebuffer::null() {
+                self.device.destroy_framebuffer(self.refl_framebuffer, None);
+                self.refl_framebuffer = vk::Framebuffer::null();
+                self.device.destroy_image_view(self.refl_view, None);
+                self.device.destroy_image(self.refl_image, None);
+                if let Some(a) = self.refl_alloc.take() {
+                    let _ = self.shared.allocator.lock().unwrap().free(a);
+                }
+                self.refl_view = vk::ImageView::null();
+            }
+            if self.planar_framebuffer != vk::Framebuffer::null() {
+                self.device.destroy_framebuffer(self.planar_framebuffer, None);
+                self.planar_framebuffer = vk::Framebuffer::null();
+            }
+            if self.back_framebuffer != vk::Framebuffer::null() {
+                self.device.destroy_framebuffer(self.back_framebuffer, None);
+                self.back_framebuffer = vk::Framebuffer::null();
+            }
+            for (view, image, alloc) in [
+                (&mut self.planar_view, self.planar_image, &mut self.planar_alloc),
+                (&mut self.planar_depth_view, self.planar_depth_image, &mut self.planar_depth_alloc),
+                (&mut self.back_view, self.back_image, &mut self.back_alloc),
+                (&mut self.back_depth_view, self.back_depth_image, &mut self.back_depth_alloc),
+            ] {
+                if *view != vk::ImageView::null() {
+                    self.device.destroy_image_view(*view, None);
+                    self.device.destroy_image(image, None);
+                    if let Some(a) = alloc.take() {
+                        let _ = self.shared.allocator.lock().unwrap().free(a);
+                    }
+                    *view = vk::ImageView::null();
+                }
+            }
             if self.ao_framebuffer != vk::Framebuffer::null() {
                 self.device.destroy_framebuffer(self.ao_framebuffer, None);
                 self.ao_framebuffer = vk::Framebuffer::null();
@@ -434,6 +552,12 @@ impl Gpu {
             for (view, image, alloc) in [
                 (&mut self.albedo_view, self.albedo_image, &mut self.albedo_alloc),
                 (&mut self.albedo_msaa_view, self.albedo_msaa_image, &mut self.albedo_msaa_alloc),
+                (&mut self.mat_view, self.mat_image, &mut self.mat_alloc),
+                (&mut self.mat_msaa_view, self.mat_msaa_image, &mut self.mat_msaa_alloc),
+                (&mut self.mat_aux_view, self.mat_aux_image, &mut self.mat_aux_alloc),
+                (&mut self.mat_aux_msaa_view, self.mat_aux_msaa_image, &mut self.mat_aux_msaa_alloc),
+                (&mut self.overlay_mat_spare_view, self.overlay_mat_spare_image, &mut self.overlay_mat_spare_alloc),
+                (&mut self.overlay_mat_aux_spare_view, self.overlay_mat_aux_spare_image, &mut self.overlay_mat_aux_spare_alloc),
             ] {
                 if *view != vk::ImageView::null() {
                     self.device.destroy_image_view(*view, None);
@@ -628,10 +752,26 @@ impl Gpu {
                 let (image, view, alloc) = self.color_image("msaa albedo", ALBEDO_FORMAT, self.samples, vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::TRANSIENT_ATTACHMENT, extent)?;
                 (self.albedo_msaa_image, self.albedo_msaa_view, self.albedo_msaa_alloc) = (image, view, Some(alloc));
             }
+            // The Realtime renderer's material: the reflection colour and roughness, and the transmission, IOR and
+            // metalness the screen-space reflection pass reads (#302).
+            let (image, view, alloc) = self.color_image("material", MAT_FORMAT, vk::SampleCountFlags::TYPE_1, vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED, extent)?;
+            (self.mat_image, self.mat_view, self.mat_alloc) = (image, view, Some(alloc));
+            let (image, view, alloc) = self.color_image("material aux", MAT_AUX_FORMAT, vk::SampleCountFlags::TYPE_1, vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED, extent)?;
+            (self.mat_aux_image, self.mat_aux_view, self.mat_aux_alloc) = (image, view, Some(alloc));
+            if multi {
+                let (image, view, alloc) = self.color_image("msaa material", MAT_FORMAT, self.samples, vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::TRANSIENT_ATTACHMENT, extent)?;
+                (self.mat_msaa_image, self.mat_msaa_view, self.mat_msaa_alloc) = (image, view, Some(alloc));
+                let (image, view, alloc) = self.color_image("msaa material aux", MAT_AUX_FORMAT, self.samples, vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::TRANSIENT_ATTACHMENT, extent)?;
+                (self.mat_aux_msaa_image, self.mat_aux_msaa_view, self.mat_aux_msaa_alloc) = (image, view, Some(alloc));
+                let (image, view, alloc) = self.color_image("overlay material spare", MAT_FORMAT, vk::SampleCountFlags::TYPE_1, vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED, extent)?;
+                (self.overlay_mat_spare_image, self.overlay_mat_spare_view, self.overlay_mat_spare_alloc) = (image, view, Some(alloc));
+                let (image, view, alloc) = self.color_image("overlay material aux spare", MAT_AUX_FORMAT, vk::SampleCountFlags::TYPE_1, vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED, extent)?;
+                (self.overlay_mat_aux_spare_image, self.overlay_mat_aux_spare_view, self.overlay_mat_aux_spare_alloc) = (image, view, Some(alloc));
+            }
             let att: Vec<vk::ImageView> = if multi {
-                vec![self.msaa_view, self.depth_view, self.scene_view, self.albedo_msaa_view, self.albedo_view]
+                vec![self.msaa_view, self.depth_view, self.scene_view, self.albedo_msaa_view, self.albedo_view, self.mat_msaa_view, self.mat_view, self.mat_aux_msaa_view, self.mat_aux_view]
             } else {
-                vec![self.scene_view, self.depth_view, self.albedo_view]
+                vec![self.scene_view, self.depth_view, self.albedo_view, self.mat_view, self.mat_aux_view]
             };
             self.scene_framebuffer = self.device.create_framebuffer(
                 &vk::FramebufferCreateInfo::default().render_pass(self.render_pass).attachments(&att).width(extent.width).height(extent.height).layers(1),
@@ -643,10 +783,21 @@ impl Gpu {
             let att: Vec<vk::ImageView> = if multi {
                 let (image, view, alloc) = self.color_image("overlay spare", ALBEDO_FORMAT, vk::SampleCountFlags::TYPE_1, vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED, extent)?;
                 (self.overlay_spare_image, self.overlay_spare_view, self.overlay_spare_alloc) = (image, view, Some(alloc));
-                // The scene's multisampled colour is done with once it is resolved: the guides draw into it afresh.
-                vec![self.msaa_view, self.depth_view, self.overlay_view, self.albedo_msaa_view, self.overlay_spare_view]
+                // The scene's multisampled colour is done with once it is resolved: the guides draw into it afresh. The
+                // material attachments resolve into spares, so the scene's own stay as the reflection pass reads them.
+                vec![
+                    self.msaa_view,
+                    self.depth_view,
+                    self.overlay_view,
+                    self.albedo_msaa_view,
+                    self.overlay_spare_view,
+                    self.mat_msaa_view,
+                    self.overlay_mat_spare_view,
+                    self.mat_aux_msaa_view,
+                    self.overlay_mat_aux_spare_view,
+                ]
             } else {
-                vec![self.overlay_view, self.depth_view, self.albedo_view]
+                vec![self.overlay_view, self.depth_view, self.albedo_view, self.mat_view, self.mat_aux_view]
             };
             self.overlay_framebuffer = self.device.create_framebuffer(
                 &vk::FramebufferCreateInfo::default().render_pass(self.overlay_pass).attachments(&att).width(extent.width).height(extent.height).layers(1),
@@ -687,6 +838,87 @@ impl Gpu {
             let bounce_att = [self.bounce_view];
             self.bounce_framebuffer = self.device.create_framebuffer(
                 &vk::FramebufferCreateInfo::default().render_pass(self.ao_pass).attachments(&bounce_att).width(extent.width).height(extent.height).layers(1),
+                None,
+            )?;
+            let (image, view, alloc) = self.color_image("reflection", AO_FORMAT, vk::SampleCountFlags::TYPE_1, vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED, extent)?;
+            (self.refl_image, self.refl_view, self.refl_alloc) = (image, view, Some(alloc));
+            let refl_att = [self.refl_view];
+            self.refl_framebuffer = self.device.create_framebuffer(
+                &vk::FramebufferCreateInfo::default().render_pass(self.ao_pass).attachments(&refl_att).width(extent.width).height(extent.height).layers(1),
+                None,
+            )?;
+            // The ground plane's reflection: the mirrored scene, at one sample a pixel.
+            let (image, view, alloc) = self.color_image("planar", AO_FORMAT, vk::SampleCountFlags::TYPE_1, vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED, extent)?;
+            (self.planar_image, self.planar_view, self.planar_alloc) = (image, view, Some(alloc));
+            self.planar_depth_image = self.device.create_image(
+                &vk::ImageCreateInfo::default()
+                    .image_type(vk::ImageType::TYPE_2D)
+                    .format(DEPTH_FORMAT)
+                    .extent(vk::Extent3D { width: extent.width, height: extent.height, depth: 1 })
+                    .mip_levels(1)
+                    .array_layers(1)
+                    .samples(vk::SampleCountFlags::TYPE_1)
+                    .usage(vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT),
+                None,
+            )?;
+            let req = self.device.get_image_memory_requirements(self.planar_depth_image);
+            let alloc = self.shared.allocator.lock().unwrap().allocate(&AllocationCreateDesc {
+                name: "planar depth",
+                requirements: req,
+                location: MemoryLocation::GpuOnly,
+                linear: false,
+                allocation_scheme: AllocationScheme::GpuAllocatorManaged,
+            })?;
+            self.device.bind_image_memory(self.planar_depth_image, alloc.memory(), alloc.offset())?;
+            self.planar_depth_alloc = Some(alloc);
+            self.planar_depth_view = self.device.create_image_view(
+                &vk::ImageViewCreateInfo::default()
+                    .image(self.planar_depth_image)
+                    .view_type(vk::ImageViewType::TYPE_2D)
+                    .format(DEPTH_FORMAT)
+                    .subresource_range(vk::ImageSubresourceRange::default().aspect_mask(vk::ImageAspectFlags::DEPTH).level_count(1).layer_count(1)),
+                None,
+            )?;
+            let planar_att = [self.planar_view, self.planar_depth_view];
+            self.planar_framebuffer = self.device.create_framebuffer(
+                &vk::FramebufferCreateInfo::default().render_pass(self.planar_pass).attachments(&planar_att).width(extent.width).height(extent.height).layers(1),
+                None,
+            )?;
+            // What glass lets through: the scene without the transmissive surfaces (#302).
+            let (image, view, alloc) = self.color_image("behind glass", AO_FORMAT, vk::SampleCountFlags::TYPE_1, vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED, extent)?;
+            (self.back_image, self.back_view, self.back_alloc) = (image, view, Some(alloc));
+            self.back_depth_image = self.device.create_image(
+                &vk::ImageCreateInfo::default()
+                    .image_type(vk::ImageType::TYPE_2D)
+                    .format(DEPTH_FORMAT)
+                    .extent(vk::Extent3D { width: extent.width, height: extent.height, depth: 1 })
+                    .mip_levels(1)
+                    .array_layers(1)
+                    .samples(vk::SampleCountFlags::TYPE_1)
+                    .usage(vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT),
+                None,
+            )?;
+            let req = self.device.get_image_memory_requirements(self.back_depth_image);
+            let alloc = self.shared.allocator.lock().unwrap().allocate(&AllocationCreateDesc {
+                name: "behind depth",
+                requirements: req,
+                location: MemoryLocation::GpuOnly,
+                linear: false,
+                allocation_scheme: AllocationScheme::GpuAllocatorManaged,
+            })?;
+            self.device.bind_image_memory(self.back_depth_image, alloc.memory(), alloc.offset())?;
+            self.back_depth_alloc = Some(alloc);
+            self.back_depth_view = self.device.create_image_view(
+                &vk::ImageViewCreateInfo::default()
+                    .image(self.back_depth_image)
+                    .view_type(vk::ImageViewType::TYPE_2D)
+                    .format(DEPTH_FORMAT)
+                    .subresource_range(vk::ImageSubresourceRange::default().aspect_mask(vk::ImageAspectFlags::DEPTH).level_count(1).layer_count(1)),
+                None,
+            )?;
+            let back_att = [self.back_view, self.back_depth_view];
+            self.back_framebuffer = self.device.create_framebuffer(
+                &vk::FramebufferCreateInfo::default().render_pass(self.planar_pass).attachments(&back_att).width(extent.width).height(extent.height).layers(1),
                 None,
             )?;
             for &v in &self.views {
@@ -803,8 +1035,13 @@ impl Gpu {
                 // The albedo, none where nothing is drawn, and its resolve target.
                 vk::ClearValue { color: vk::ClearColorValue { float32: [0.0; 4] } },
                 vk::ClearValue { color: vk::ClearColorValue { float32: [0.0; 4] } },
+                // The material, none where nothing is drawn, and its resolve target.
+                vk::ClearValue { color: vk::ClearColorValue { float32: [0.0; 4] } },
+                vk::ClearValue { color: vk::ClearColorValue { float32: [0.0; 4] } },
+                vk::ClearValue { color: vk::ClearColorValue { float32: [0.0; 4] } },
+                vk::ClearValue { color: vk::ClearColorValue { float32: [0.0; 4] } },
             ];
-            let one = [clears[0], clears[1], clears[3]];
+            let one = [clears[0], clears[1], clears[3], clears[5], clears[7]];
             let clears = if self.samples == vk::SampleCountFlags::TYPE_1 { &one[..] } else { &clears[..] };
             self.device.cmd_begin_render_pass(
                 self.cmd,
@@ -833,8 +1070,8 @@ impl Gpu {
             self.device.cmd_end_render_pass(self.cmd);
             let none = vk::ClearValue { color: vk::ClearColorValue { float32: [0.0; 4] } };
             let depth = vk::ClearValue { depth_stencil: vk::ClearDepthStencilValue { depth: 0.0, stencil: 0 } };
-            let clears = [none, depth, none, none, none];
-            let clears = if self.samples == vk::SampleCountFlags::TYPE_1 { &clears[..3] } else { &clears[..] };
+            let clears = [none, depth, none, none, none, none, none, none, none];
+            let clears = if self.samples == vk::SampleCountFlags::TYPE_1 { &clears[..5] } else { &clears[..] };
             self.device.cmd_begin_render_pass(
                 self.cmd,
                 &vk::RenderPassBeginInfo::default()
@@ -881,6 +1118,66 @@ impl Gpu {
             self.device.cmd_set_viewport(self.cmd, 0, &[vk::Viewport { x: 0.0, y: 0.0, width: self.extent.width as f32, height: self.extent.height as f32, min_depth: 0.0, max_depth: 1.0 }]);
             self.device.cmd_set_scissor(self.cmd, 0, &[vk::Rect2D { offset: vk::Offset2D::default(), extent: self.extent }]);
         }
+    }
+
+    /// Ends the scene pass (or the guides' after it) and begins the screen-space reflections, into `refl_image`.
+    pub fn begin_reflection(&mut self) {
+        unsafe {
+            self.device.cmd_end_render_pass(self.cmd);
+            self.device.cmd_begin_render_pass(
+                self.cmd,
+                &vk::RenderPassBeginInfo::default()
+                    .render_pass(self.ao_pass)
+                    .framebuffer(self.refl_framebuffer)
+                    .render_area(vk::Rect2D { offset: vk::Offset2D::default(), extent: self.extent }),
+                vk::SubpassContents::INLINE,
+            );
+            self.device.cmd_set_viewport(self.cmd, 0, &[vk::Viewport { x: 0.0, y: 0.0, width: self.extent.width as f32, height: self.extent.height as f32, min_depth: 0.0, max_depth: 1.0 }]);
+            self.device.cmd_set_scissor(self.cmd, 0, &[vk::Rect2D { offset: vk::Offset2D::default(), extent: self.extent }]);
+        }
+    }
+
+    /// Begins the ground plane's reflection pass: the scene mirrored below the plane, into `planar_image` (#302).
+    pub fn begin_planar(&mut self) {
+        unsafe {
+            self.device.cmd_begin_render_pass(
+                self.cmd,
+                &vk::RenderPassBeginInfo::default()
+                    .render_pass(self.planar_pass)
+                    .framebuffer(self.planar_framebuffer)
+                    .render_area(vk::Rect2D { offset: vk::Offset2D::default(), extent: self.extent }),
+                vk::SubpassContents::INLINE,
+            );
+            self.device.cmd_set_viewport(self.cmd, 0, &[vk::Viewport { x: 0.0, y: 0.0, width: self.extent.width as f32, height: self.extent.height as f32, min_depth: 0.0, max_depth: 1.0 }]);
+            self.device.cmd_set_scissor(self.cmd, 0, &[vk::Rect2D { offset: vk::Offset2D::default(), extent: self.extent }]);
+        }
+    }
+
+    /// Ends the ground plane's reflection pass.
+    pub fn end_planar(&mut self) {
+        unsafe { self.device.cmd_end_render_pass(self.cmd) };
+    }
+
+    /// Begins the pass that draws the scene without its transmissive surfaces, for glass to see what it lets through
+    /// (#302).
+    pub fn begin_back(&mut self) {
+        unsafe {
+            self.device.cmd_begin_render_pass(
+                self.cmd,
+                &vk::RenderPassBeginInfo::default()
+                    .render_pass(self.planar_pass)
+                    .framebuffer(self.back_framebuffer)
+                    .render_area(vk::Rect2D { offset: vk::Offset2D::default(), extent: self.extent }),
+                vk::SubpassContents::INLINE,
+            );
+            self.device.cmd_set_viewport(self.cmd, 0, &[vk::Viewport { x: 0.0, y: 0.0, width: self.extent.width as f32, height: self.extent.height as f32, min_depth: 0.0, max_depth: 1.0 }]);
+            self.device.cmd_set_scissor(self.cmd, 0, &[vk::Rect2D { offset: vk::Offset2D::default(), extent: self.extent }]);
+        }
+    }
+
+    /// Ends the behind-glass pass.
+    pub fn end_back(&mut self) {
+        unsafe { self.device.cmd_end_render_pass(self.cmd) };
     }
 
     /// Ends the occlusion pass and begins the one that puts the picture on the window: it is drawn between this and
@@ -1035,6 +1332,7 @@ impl Drop for Gpu {
             }
             self.device.destroy_render_pass(self.post_pass, None);
             self.device.destroy_render_pass(self.ao_pass, None);
+            self.device.destroy_render_pass(self.planar_pass, None);
             self.shared.surface_fn.destroy_surface(self.surface, None);
         }
     }
@@ -1046,6 +1344,10 @@ const SCENE_FORMAT: vk::Format = vk::Format::R16G16B16A16_SFLOAT;
 pub const AO_FORMAT: vk::Format = vk::Format::R16G16B16A16_SFLOAT;
 /// The surface colour the scene pass writes beside its picture.
 pub const ALBEDO_FORMAT: vk::Format = vk::Format::R8G8B8A8_UNORM;
+/// The Realtime renderer's material: reflection colour in rgb, the roughness in a.
+pub const MAT_FORMAT: vk::Format = vk::Format::R16G16B16A16_SFLOAT;
+/// Transmission, IOR, metalness and whether a material is there, for the screen-space reflection pass (#302).
+pub const MAT_AUX_FORMAT: vk::Format = vk::Format::R8G8B8A8_UNORM;
 
 pub fn color_range() -> vk::ImageSubresourceRange {
     vk::ImageSubresourceRange::default().aspect_mask(vk::ImageAspectFlags::COLOR).level_count(1).layer_count(1)
@@ -1102,15 +1404,38 @@ unsafe fn scene_pass(device: &ash::Device, samples: vk::SampleCountFlags, overla
         if multi {
             attachments.push(resolved(ALBEDO_FORMAT));
         }
+        // The material the screen-space reflection pass reads (#302). The overlay pass draws nothing into it: with one
+        // sample it is loaded and stored back as it was; with several it resolves into a spare of its own.
+        let keep_mat = overlay && !multi;
+        for format in [MAT_FORMAT, MAT_AUX_FORMAT] {
+            attachments.push(
+                vk::AttachmentDescription::default()
+                    .format(format)
+                    .samples(samples)
+                    .load_op(if keep_mat { vk::AttachmentLoadOp::LOAD } else { vk::AttachmentLoadOp::CLEAR })
+                    .store_op(if multi { vk::AttachmentStoreOp::DONT_CARE } else { vk::AttachmentStoreOp::STORE })
+                    .initial_layout(if keep_mat { vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL } else { vk::ImageLayout::UNDEFINED })
+                    .final_layout(if multi { vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL } else { vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL }),
+            );
+            if multi {
+                attachments.push(resolved(format));
+            }
+        }
         let albedo = if multi { 3 } else { 2 };
+        let mat = if multi { 5 } else { 3 };
+        let mat_aux = if multi { 7 } else { 4 };
         let color_ref = [
             vk::AttachmentReference::default().attachment(0).layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL),
             vk::AttachmentReference::default().attachment(albedo).layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL),
+            vk::AttachmentReference::default().attachment(mat).layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL),
+            vk::AttachmentReference::default().attachment(mat_aux).layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL),
         ];
         let depth_ref = vk::AttachmentReference::default().attachment(1).layout(vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
         let resolve_ref = [
             vk::AttachmentReference::default().attachment(2).layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL),
             vk::AttachmentReference::default().attachment(4).layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL),
+            vk::AttachmentReference::default().attachment(6).layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL),
+            vk::AttachmentReference::default().attachment(8).layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL),
         ];
         let mut sp = vk::SubpassDescription::default()
             .pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS)
@@ -1132,6 +1457,38 @@ unsafe fn scene_pass(device: &ash::Device, samples: vk::SampleCountFlags, overla
                 vk::AccessFlags::COLOR_ATTACHMENT_READ | vk::AccessFlags::COLOR_ATTACHMENT_WRITE | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE,
             )];
         Ok(device.create_render_pass(&vk::RenderPassCreateInfo::default().attachments(&attachments).subpasses(&subpass).dependencies(&dep), None)?)
+}
+
+/// The pass the ground plane's reflection is drawn in (#302): the scene mirrored below the plane, in the display's own
+/// colour at one sample a pixel, with depth of its own.
+unsafe fn planar_pass(device: &ash::Device) -> Res<vk::RenderPass> {
+    let attachments = [
+        vk::AttachmentDescription::default()
+            .format(AO_FORMAT)
+            .samples(vk::SampleCountFlags::TYPE_1)
+            .load_op(vk::AttachmentLoadOp::CLEAR)
+            .store_op(vk::AttachmentStoreOp::STORE)
+            .initial_layout(vk::ImageLayout::UNDEFINED)
+            .final_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL),
+        vk::AttachmentDescription::default()
+            .format(DEPTH_FORMAT)
+            .samples(vk::SampleCountFlags::TYPE_1)
+            .load_op(vk::AttachmentLoadOp::CLEAR)
+            .store_op(vk::AttachmentStoreOp::DONT_CARE)
+            .initial_layout(vk::ImageLayout::UNDEFINED)
+            .final_layout(vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL),
+    ];
+    let color_ref = [vk::AttachmentReference::default().attachment(0).layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)];
+    let depth_ref = vk::AttachmentReference::default().attachment(1).layout(vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+    let subpass = [vk::SubpassDescription::default().pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS).color_attachments(&color_ref).depth_stencil_attachment(&depth_ref)];
+    let dep = [vk::SubpassDependency::default()
+        .src_subpass(vk::SUBPASS_EXTERNAL)
+        .dst_subpass(0)
+        .src_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS)
+        .dst_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS)
+        .src_access_mask(vk::AccessFlags::COLOR_ATTACHMENT_WRITE | vk::AccessFlags::SHADER_READ)
+        .dst_access_mask(vk::AccessFlags::COLOR_ATTACHMENT_WRITE | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE)];
+    Ok(device.create_render_pass(&vk::RenderPassCreateInfo::default().attachments(&attachments).subpasses(&subpass).dependencies(&dep), None)?)
 }
 
 /// What the environment asks for: AZTEK_MSAA=1, 2, 4 or 8. Four without it.

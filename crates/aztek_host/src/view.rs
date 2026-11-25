@@ -305,7 +305,7 @@ impl View {
             return;
         };
         // The last frame is done with them: the post pass reads this size's images.
-        self.post.bind_images(&self.gpu);
+        // (Bound after the lights are read: the reflections fall back on this frame's sky dome.)
         // The camera it looked through is gone (a new scene, a delete): back to the perspective camera.
         if !matches!(self.cam_node.as_str(), "persp" | "top" | "front" | "side") && !matches!(core.s.graph.find(&self.cam_node), Ok(Some(_))) {
             self.cam_node = "persp".to_string();
@@ -346,6 +346,36 @@ impl View {
             core.push("// Warning: the Default renderer needs a graphics device with 256 bytes of push constants: drawing with Legacy //".to_string(), crate::core::LineKind::Warning);
         }
         self.vp.prepare_lights(&self.gpu, &self.r, &mut core.s, &items, realtime);
+        // The post pass reads the scene's images, its material and the sky dome the reflections fall back on.
+        let (env, env_rot, env_set) = self.vp.lit.as_ref().map(|l| l.environment()).unwrap_or(([0.0; 4], [0.0, 0.0, 0.0, 1.0], None));
+        self.post.bind_images(&self.gpu, env_set);
+        let proj_now = self.vp.cam.proj(self.vp.aspect());
+        let (reflector, reflector_up) = ground_reflector(&items);
+        let planar_on = realtime && reflector != aztek_scene::plug::NO_NODE && self.vp.needs_planar();
+        // What glass lets through: the scene without its transmissive surfaces, drawn from the camera's own view
+        // and lights (#302). Nothing is drawn when no material transmits.
+        if realtime && self.vp.needs_back() {
+            self.vp.back = true;
+            self.gpu.begin_back();
+            self.vp.draw(&mut self.gpu, &self.r, &mut core.s, &items, self.dpr, realtime);
+            self.gpu.end_back();
+            self.vp.back = false;
+        }
+        // The ground plane's reflection: the scene mirrored below the world's ground, drawn before the camera's own view
+        // so the floor can read what it reflects (#302).
+        if planar_on {
+            let mirror = if reflector_up[2].abs() > 0.5 { DMat4::from_scale(DVec3::new(1.0, 1.0, -1.0)) } else { DMat4::from_scale(DVec3::new(1.0, -1.0, 1.0)) };
+            let planar_view = self.vp.cam.view() * mirror;
+            self.vp.planar_skip = reflector;
+            self.vp.planar = Some(planar_view);
+            self.vp.write_lights_for(&mut core.s, &items, planar_view, proj_now);
+            self.gpu.begin_planar();
+            self.vp.draw(&mut self.gpu, &self.r, &mut core.s, &items, self.dpr, realtime);
+            self.gpu.end_planar();
+            self.vp.planar = None;
+            // The camera's own lights and shadow map, for the view that follows.
+            self.vp.prepare_lights(&self.gpu, &self.r, &mut core.s, &items, realtime);
+        }
         // The shadow map is drawn before the scene's pass, with the lights read.
         if realtime {
             if self.realtime.is_none() {
@@ -395,7 +425,17 @@ impl View {
             high_quality: realtime,
             bounce: if realtime && d.bounce_light && !d.xray { 1.0 } else { 0.0 },
             dof,
+            reflections: realtime && !d.xray && std::env::var("AZTEK_REFLECTIONS").map_or(true, |v| v != "0"),
+            debug_reflection: std::env::var("AZTEK_REFLECTION_DEBUG").ok().and_then(|v| v.parse().ok()).unwrap_or(0),
+            planar_reflection: planar_on,
+            up: reflector_up,
+            view: self.vp.cam.view().as_mat4(),
+            env,
+            env_rot,
         };
+        // Reflections and refraction, from the scene's colour, depth and material, before the picture is put together.
+        self.gpu.begin_reflection();
+        self.post.draw_reflection(&self.gpu, proj, ortho, &settings);
         self.gpu.begin_occlusion();
         self.post.draw_occlusion(&self.gpu, proj, ortho, &settings);
         if settings.bounce > 0.0 {
@@ -2529,6 +2569,7 @@ impl View {
                 self.vp.grid_extent = v.as_f64().unwrap_or(12.0).max(1.0);
                 self.vp.reset_grid(&mut self.gpu);
             }
+            "viewCubeVisible" => crate::view_cube::set_hidden(!v.as_bool().unwrap_or(true)),
             "viewCube" => {
                 let action = v.get("action").and_then(Value::as_str).unwrap_or("redraw").to_string();
                 self.cube_action(core, &action);
@@ -2725,6 +2766,29 @@ pub fn finish_joint_chain(core: &mut Core) {
 }
 
 /// Component names with their mirror images, on meshes whose symmetry is on.
+/// The mesh a ground plane's reflection is for: the widest flat one at the world's ground, along either up axis, and
+/// that axis. Its own image would hide everything the mirrored scene puts below it (#302).
+fn ground_reflector(items: &[crate::viewport::DrawItem]) -> (aztek_scene::plug::NodeId, [f32; 3]) {
+    let mut best = (aztek_scene::plug::NO_NODE, [0.0, 1.0, 0.0], 0.0);
+    for it in items {
+        let b = it.mesh.bounds();
+        let (lo, hi) = (it.world.transform_point3(b.min), it.world.transform_point3(b.max));
+        // Y up and Z up are both tried: a scene keeps its own geometry whatever the preferences' up axis is.
+        for (axis, up) in [(1usize, [0.0, 1.0, 0.0]), (2usize, [0.0, 0.0, 1.0])] {
+            let height = (hi[axis] - lo[axis]).abs();
+            if height > 0.05 || lo[axis].abs() > 0.05 || hi[axis].abs() > 0.05 {
+                continue;
+            }
+            let (a, c) = if axis == 1 { (0, 2) } else { (0, 1) };
+            let area = ((hi[a] - lo[a]) * (hi[c] - lo[c])).abs();
+            if area > best.2 {
+                best = (it.shape, up, area);
+            }
+        }
+    }
+    (best.0, best.1)
+}
+
 fn with_mirror_images(core: &mut Core, picked: Vec<String>) -> Vec<String> {
     let mut out = Vec::new();
     for name in picked {
@@ -2852,5 +2916,20 @@ mod renderer_tests {
         assert_eq!(RendererKind::parse("Default"), Some(RendererKind::Realtime));
         assert_eq!(RendererKind::parse("eevee"), None);
         assert_eq!(RendererKind::default(), RendererKind::Realtime);
+    }
+}
+
+#[cfg(test)]
+mod reflector_tests {
+    use super::ground_reflector;
+    use aztek_scene::plug::NO_NODE;
+
+    #[test]
+    fn the_reflections_example_has_a_ground_reflector() {
+        let mut s = aztek_scene::Session::new();
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../examples/rendering/reflections.ma");
+        aztek_scene::ma_file::open_scene(&mut s, path).expect("open the reflections example");
+        let items = crate::viewport::gather(&mut s.graph);
+        assert_ne!(ground_reflector(&items).0, NO_NODE);
     }
 }

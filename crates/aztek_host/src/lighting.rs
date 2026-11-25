@@ -537,26 +537,25 @@ impl ViewLights {
     /// Realtime renderer draws one.
     pub fn write_block(&mut self, mode: LightMode, lights: &[SceneLight], view: &DMat4, proj: &DMat4, two_sided: bool, ortho: bool, shadow: Option<ShadowBlock>) {
         let path = mode.shader_mode();
-        // The default path reads nothing of the block but its head.
+        // The default path reads only its head and the inverse projection, which the view's position and size change
+        // every frame; writing it is cheap.
         if path == 0 {
-            if !self.written_default {
-                write(
-                    &self.block,
-                    std::slice::from_ref(&LightBlock {
-                        inv_proj: DMat4::IDENTITY.as_mat4().to_cols_array(),
-                        head: [0; 4],
-                        shadow_matrix: DMat4::IDENTITY.as_mat4().to_cols_array(),
-                        shadow: [-1.0; 4],
-                        shadow_pos: [0.0; 4],
-                        shadow_range: [0.0; 4],
-                        env: [0.0; 4],
-                        env_rot: [0.0, 0.0, 0.0, 1.0],
-                        view_to_world: DMat4::IDENTITY.as_mat4().to_cols_array(),
-                        lights: [GpuLight::zeroed(); MAX_LIGHTS],
-                    }),
-                );
-                self.written_default = true;
-            }
+            write(
+                &self.block,
+                std::slice::from_ref(&LightBlock {
+                    inv_proj: proj.inverse().as_mat4().to_cols_array(),
+                    head: [0; 4],
+                    shadow_matrix: DMat4::IDENTITY.as_mat4().to_cols_array(),
+                    shadow: [-1.0; 4],
+                    shadow_pos: [0.0; 4],
+                    shadow_range: [0.0; 4],
+                    env: [0.0; 4],
+                    env_rot: [0.0, 0.0, 0.0, 1.0],
+                    view_to_world: view.inverse().as_mat4().to_cols_array(),
+                    lights: [GpuLight::zeroed(); MAX_LIGHTS],
+                }),
+            );
+            self.written_default = true;
             return;
         }
         self.written_default = false;
@@ -611,6 +610,12 @@ impl ViewLights {
 
     pub fn mask(&self, shape: NodeId) -> u32 {
         self.masks.get(&shape).copied().unwrap_or(ALL_LIGHTS)
+    }
+
+    /// The sky dome the frame's reflection pass falls back on: its colour and strength (w 1 with an image), its rotation,
+    /// and the descriptor set holding the image.
+    pub fn environment(&self) -> ([f32; 4], [f32; 4], Option<vk::DescriptorSet>) {
+        (self.env, self.env_rot, self.env_set)
     }
 
     pub fn release(self, gpu: &mut Gpu) {

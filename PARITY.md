@@ -4422,3 +4422,52 @@ treated as before.
 
 A Move drag with Snap to Curve enabled follows the nearest point on the curve even when the cursor moves farther
 than 40 pixels away. This applies to the C shortcut and the Snap to Curves toggle.
+
+### What changed (25/11/2026, #302)
+
+The viewport reflects and refracts as the Render View does. Until now it shaded direct light and the sky dome only: a
+red sphere standing on a grey floor lit a red patch into the floor through bounce light, but no image of the sphere
+appeared in it.
+
+The Realtime renderer writes a material image beside its picture and surface colour: the fresnel-weighted reflection
+colour and the roughness it is looked up with, then transmission, IOR and metalness. The material shader no longer adds
+the sky's reflection itself; a post pass works out the reflection from that material before the picture is put
+together.
+
+- Screen-space reflections march the view's own colour and depth, so objects reflect objects. Where a ray leaves the
+  view or meets nothing, the sky dome stands in. The march is jittered by a fixed per-pixel pattern, never by time, so
+  it does not flicker while the camera moves.
+- The widest flat mesh at the ground plane is drawn a second time mirrored below the plane, without the reflector
+  itself, and the floor reads that image. A screen-space march cannot reflect the underside of a sphere standing on
+  the floor, which is most of what the floor sees; the mirrored draw can. Where the surface is the plane and near it,
+  the planar image replaces the screen-space one; a raised or sloped surface keeps the screen-space result.
+- Reflections are blurred by the composite over the reflection image, with a radius that grows with the square of the
+  roughness: a mirror one ray, a rough metal gathers its neighbourhood, and neighbouring pixels on another surface are
+  left out so an edge stays an edge. Metals tint their reflection through the material's fresnel colour; dielectrics
+  keep the sky's.
+- Glass is drawn solid so it has depth and a material, and the post pass takes it apart. The scene is drawn once more
+  without its transmissive surfaces; each glass pixel reads that image bent out towards the rim as a lens bends it and
+  tinted by its transmission colour, fading with the distance the lookup travels. Two glass spheres at different IOR
+  bend the wall behind them differently.
+- The examples get a lighting suite for parity: `examples/rendering/reflections.ma`,
+  `metal_roughness_sweep.ma`, `dielectric_glass.ma`, `tinted_glass.ma`, `emissive_object.ma`, `area_lights.ma`,
+  `environment_hdri.ma` and `checker_sphere.ma`, built by `examples/tools/make_rendering_parity.py`. Each has a
+  reference render (the Render View's path) and a viewport capture under `examples/rendering/reference` and
+  `examples/rendering/viewport`, taken by `tools/render_parity/capture.sh`, which is documented in
+  `tools/render_parity/README.md`.
+- `tools/render_parity/capture.sh` renders each scene through `shotCam` at 640 by 360 and captures the realtime
+  viewport through the same camera with `--viewport-screenshot`, cropping the taller panel to the render's 16:9 field.
+  The capture hides the grid, ViewCube, light and camera icons, handles and selection highlights and keeps textures and
+  the camera's depth of field on.
+- Tests without a GPU in `crates/aztek_host/src/post.rs`: the reflection and refraction directions, the roughness
+  blur radius, the planar ground cover, the material and post bindings the shaders declare, and the eight example
+  scenes with their two pictures. The existing shader compile tests cover the new reflection shader for one sample and
+  for several.
+
+Not done: a reflection of what the view does not show anywhere falls back to the sky; only the widest flat mesh at the
+world's ground is mirrored; Aztek has no transmission depth, so the lookup distance stands in for it and the glass is
+bent as a lens rather than traced through its back surface; the viewport does not draw the sky dome as a background
+(it lights and reflects from it); and at the same focal length the viewport frames about 12% tighter than the Render
+View. Harold reflects a single large floor face onto itself, so the suite's floors are subdivided. The depth of field
+of #300 still works: a camera with `depthOfField` on blurs the viewport after the reflections are added, and the
+guides stay over the finished picture.

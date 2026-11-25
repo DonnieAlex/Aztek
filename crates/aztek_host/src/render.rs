@@ -378,9 +378,10 @@ void main() {
 // The OpenPBR surface as the Realtime renderer draws it: GGX specular and coat, Lambert base, an image or a sky dome
 // for image-based lighting, and the scene's one shadow map. The light block, all six light types and the falloffs are the
 // same as the legacy material shader's, so a light lights the same in either renderer.
-/// The two colour attachments' blending for a pipeline in the scene pass: the picture, and the surface colour bounce
-/// light reads, which only the Realtime renderer's materials write.
-pub(crate) fn scene_blend(albedo: bool) -> [vk::PipelineColorBlendAttachmentState; 2] {
+/// The colour attachments' blending for a pipeline in the scene pass: the picture, the surface colour bounce light reads,
+/// which only the Realtime renderer's materials write, and the two material images the screen-space reflection pass reads
+/// (#302).
+pub(crate) fn scene_blend(albedo: bool, mat: bool) -> [vk::PipelineColorBlendAttachmentState; 4] {
     let blend = vk::PipelineColorBlendAttachmentState::default()
         .blend_enable(true)
         .src_color_blend_factor(vk::BlendFactor::SRC_ALPHA)
@@ -390,7 +391,9 @@ pub(crate) fn scene_blend(albedo: bool) -> [vk::PipelineColorBlendAttachmentStat
         .dst_alpha_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
         .alpha_blend_op(vk::BlendOp::ADD)
         .color_write_mask(vk::ColorComponentFlags::RGBA);
-    [blend, if albedo { blend } else { blend.color_write_mask(vk::ColorComponentFlags::empty()) }]
+    let none = blend.color_write_mask(vk::ColorComponentFlags::empty());
+    let material = vk::PipelineColorBlendAttachmentState::default().blend_enable(false).color_write_mask(vk::ColorComponentFlags::RGBA);
+    [blend, if albedo { blend } else { none }, if mat { material } else { none }, if mat { material } else { none }]
 }
 
 const REALTIME_FS: &str = r#"#version 450
@@ -414,6 +417,11 @@ layout(set = 4, binding = 3) uniform sampler s_shadow_cube;
 layout(location = 0) out vec4 out_color;
 // The surface's diffuse colour, linear: what bounce light arriving here is tinted by.
 layout(location = 1) out vec4 out_albedo;
+// The screen-space reflection pass's material (#302): the fresnel-weighted reflection colour in rgb, the roughness it
+// looks the environment up with in a. Zero where nothing is drawn.
+layout(location = 2) out vec4 out_mat;
+// Transmission, IOR as (IOR - 1) / 2, metalness, and 1 where this shader drew a material.
+layout(location = 3) out vec4 out_aux;
 
 const float PI = 3.141592653589793;
 const float INV_PI = 0.3183098861837907;
@@ -710,6 +718,8 @@ void main() {
     if (pc.gain.w < 0.5) {
         out_color = vec4(pow(max(base + emission, vec3(0.0)), vec3(1.0 / 2.2)), alpha);
         out_albedo = vec4(0.0, 0.0, 0.0, alpha);
+        out_mat = vec4(0.0);
+        out_aux = vec4(0.0);
         return;
     }
     vec3 v = lt.head.w != 0 ? vec3(0.0, 0.0, 1.0) : normalize(-v_view);
@@ -720,7 +730,8 @@ void main() {
     if (pc.n2.w > 0.5) n = facet;
     else if (back) n = -n;
     float transmission = clamp(pc.coat.w, 0.0, 1.0);
-    if (transmission > 0.5) base = mix(base, base * 0.12 + pc.ambient.rgb * 0.5, transmission);
+    // A transmissive surface's colour is its transmission colour, which the material already carries (#302): the
+    // refraction pass tints what it lets through with it, so it is kept as it is.
     // A mapped colour comes from the image; an unmapped one already carries the base weight in the material's colour.
     bool mapped = (flags & 16) != 0 && !outside;
     vec3 layer = mapped ? base * clamp(pc.offs.w, 0.0, 1.0) : base;
@@ -729,7 +740,8 @@ void main() {
     float metal = clamp(pc.frame.x, 0.0, 1.0);
     vec3 diffuse_color = layer * (1.0 - metal) * (1.0 - transmission);
     vec3 lin = emission + diff * diffuse_color * INV_PI + spec;
-    out_albedo = vec4(clamp(diffuse_color, 0.0, 1.0), alpha);
+    // Glass keeps its transmission colour for the refraction pass; a metal's own colour is already in its reflection.
+    out_albedo = vec4(clamp(transmission > 0.5 ? layer : diffuse_color, 0.0, 1.0), alpha);
     // Use Default Lighting: the viewport's key and fill, when no real light is in use.
     if (lt.head.x == 0) {
         vec3 k = normalize(vec3(-0.45, 0.6, 0.65));
@@ -737,32 +749,32 @@ void main() {
         float d = 0.75 * abs(dot(n, k)) + 0.3 * abs(dot(n, f));
         lin += layer * (1.0 - metal) * (0.12 + 0.95 * d);
     }
-    // Image-based lighting: the sky dome, or nothing when the scene has none.
+    // Image-based lighting's diffuse half: the sky's irradiance, a few blurred samples around the normal, so a bright
+    // horizon reaches the surface as it does through Harold's path tracing.
     float rough = clamp(pc.frame.y, 0.02, 1.0);
-    vec3 r = reflect(-v, n);
-    vec3 wd = normalize((lt.view_to_world * vec4(r, 0.0)).xyz);
-    vec3 ld = normalize(qrot(lt.env_rot, wd));
-    vec2 euv = vec2(atan(ld.z, ld.x) / (2.0 * PI) + 0.5, acos(clamp(ld.y, -1.0, 1.0)) / PI);
-    vec3 env = lt.env.w > 0.5 ? textureLod(sampler2D(t_env, s_env), euv, rough * 6.0).rgb : vec3(1.0);
-    env *= lt.env.rgb;
-    // The diffuse half is the sky's irradiance: a few blurred samples around the normal, so a bright horizon reaches the
-    // surface as it does through Harold's path tracing.
     vec3 wn = normalize((lt.view_to_world * vec4(n, 0.0)).xyz);
     vec3 env_d = lt.env.w > 0.5 ? env_irradiance(wn) : vec3(1.0);
     env_d *= lt.env.rgb;
     if (lt.env.w > 0.5 || dot(lt.env.rgb, lt.env.rgb) > 0.0) {
-        float nv = max(dot(n, v), 0.001);
-        float f0d = f_ior(max(pc.incandescence.w, 1.0));
-        vec3 f0 = mix(vec3(f0d) * pc.ambient.rgb * pc.frame.w, layer, metal);
-        vec3 fres = f0 + (max(vec3(1.0 - rough), f0) - f0) * pow(1.0 - nv, 5.0);
         lin += env_d * diffuse_color;
-        lin += env * fres * (1.0 - 0.7 * rough);
-        if (pc.coat.x > 0.0) {
-            vec3 cf0 = vec3(f_ior(max(pc.coat.z, 1.0)));
-            vec3 cfres = cf0 + (max(vec3(1.0 - max(pc.coat.y, 0.02)), cf0) - cf0) * pow(1.0 - nv, 5.0);
-            lin += env * pc.coat.x * cfres;
-        }
     }
+    // The reflection is drawn by the screen-space pass from this material (#302): the environment feeds it where the
+    // view has no scene to reflect, and the scene where it has.
+    float nv = max(dot(n, v), 0.001);
+    float ior = max(pc.incandescence.w, 1.0);
+    vec3 f0 = mix(vec3(f_ior(ior)) * pc.ambient.rgb * pc.frame.w, layer, metal);
+    vec3 fres = f0 + (max(vec3(1.0 - rough), f0) - f0) * pow(1.0 - nv, 5.0);
+    vec3 coeff = fres * (1.0 - 0.7 * rough);
+    float look_rough = rough;
+    if (pc.coat.x > 0.0) {
+        float cr = max(pc.coat.y, 0.02);
+        vec3 cf0 = vec3(f_ior(max(pc.coat.z, 1.0)));
+        vec3 cfres = cf0 + (max(vec3(1.0 - cr), cf0) - cf0) * pow(1.0 - nv, 5.0);
+        coeff += cfres * pc.coat.x;
+        look_rough = min(look_rough, cr);
+    }
+    out_mat = vec4(coeff, look_rough + 0.002);
+    out_aux = vec4(transmission, clamp((ior - 1.0) * 0.5, 0.0, 1.0), metal, 1.0);
     out_color = vec4(pow(max(lin, vec3(0.0)), vec3(1.0 / 2.2)), alpha);
 }
 "#;
@@ -895,6 +907,8 @@ pub struct Renderer {
     pub realtime: bool,
     rt_layout: vk::PipelineLayout,
     rt_pipelines: Vec<(Kind, vk::Pipeline)>,
+    /// The Realtime renderer's pipelines for the ground plane's reflection pass: the picture alone (#302).
+    rt_planar_pipelines: Vec<(Kind, vk::Pipeline)>,
     /// The Realtime shadow set: a 2D map, a cube map, and a sampler for each.
     pub rt_shadow_layout: vk::DescriptorSetLayout,
 }
@@ -973,7 +987,7 @@ impl Renderer {
                     .depth_test_enable(!on_top)
                     .depth_write_enable(matches!(kind, Kind::Shaded | Kind::ShadedCull | Kind::Lines | Kind::ColorTris))
                     .depth_compare_op(vk::CompareOp::GREATER_OR_EQUAL);
-                let blend = scene_blend(false);
+                let blend = scene_blend(false, false);
                 let cb = vk::PipelineColorBlendStateCreateInfo::default().attachments(&blend);
                 let mut dyns = vec![vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR];
                 if feats.wide_lines != 0 && !shaded {
@@ -1045,7 +1059,7 @@ impl Renderer {
                         .depth_test_enable(true)
                         .depth_write_enable(matches!(kind, Kind::Material | Kind::MaterialCull))
                         .depth_compare_op(vk::CompareOp::GREATER_OR_EQUAL);
-                    let blend = scene_blend(false);
+                    let blend = scene_blend(false, false);
                     let cb = vk::PipelineColorBlendStateCreateInfo::default().attachments(&blend);
                     let dyns = [vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR];
                     let dy = vk::PipelineDynamicStateCreateInfo::default().dynamic_states(&dyns);
@@ -1071,6 +1085,7 @@ impl Renderer {
             let rt_realtime = materials && limits.max_push_constants_size as usize >= std::mem::size_of::<RtPush>();
             let mut rt_layout = vk::PipelineLayout::null();
             let mut rt_pipelines = Vec::new();
+            let mut rt_planar_pipelines = Vec::new();
             let mut rt_shadow_layout = vk::DescriptorSetLayout::null();
             if rt_realtime {
                 let tex = crate::textures::set_layout(gpu);
@@ -1116,7 +1131,7 @@ impl Renderer {
                         .depth_test_enable(true)
                         .depth_write_enable(matches!(kind, Kind::Material | Kind::MaterialCull))
                         .depth_compare_op(vk::CompareOp::GREATER_OR_EQUAL);
-                    let blend = scene_blend(true);
+                    let blend = scene_blend(true, true);
                     let cb = vk::PipelineColorBlendStateCreateInfo::default().attachments(&blend);
                     let dyns = [vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR];
                     let dy = vk::PipelineDynamicStateCreateInfo::default().dynamic_states(&dyns);
@@ -1135,6 +1150,23 @@ impl Renderer {
                         .subpass(0);
                     let p = d.create_graphics_pipelines(vk::PipelineCache::null(), &[info], None).map_err(|e| e.1).unwrap()[0];
                     rt_pipelines.push((kind, p));
+                    // The same draw for the ground plane's reflection pass: the picture alone, no material targets.
+                    if matches!(kind, Kind::Material | Kind::MaterialCull) {
+                        let blend = [vk::PipelineColorBlendAttachmentState::default()
+                            .blend_enable(true)
+                            .src_color_blend_factor(vk::BlendFactor::SRC_ALPHA)
+                            .dst_color_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
+                            .color_blend_op(vk::BlendOp::ADD)
+                            .src_alpha_blend_factor(vk::BlendFactor::ONE)
+                            .dst_alpha_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
+                            .alpha_blend_op(vk::BlendOp::ADD)
+                            .color_write_mask(vk::ColorComponentFlags::RGBA)];
+                        let cb = vk::PipelineColorBlendStateCreateInfo::default().attachments(&blend);
+                        let ms = vk::PipelineMultisampleStateCreateInfo::default().rasterization_samples(vk::SampleCountFlags::TYPE_1);
+                        let info = info.color_blend_state(&cb).multisample_state(&ms).render_pass(gpu.planar_pass);
+                        let p = d.create_graphics_pipelines(vk::PipelineCache::null(), &[info], None).map_err(|e| e.1).unwrap()[0];
+                        rt_planar_pipelines.push((kind, p));
+                    }
                 }
                 d.destroy_shader_module(vs, None);
                 d.destroy_shader_module(fs, None);
@@ -1167,7 +1199,7 @@ impl Renderer {
                     .depth_test_enable(true)
                     .depth_write_enable(false)
                     .depth_compare_op(vk::CompareOp::GREATER_OR_EQUAL);
-                let blend = scene_blend(false);
+                let blend = scene_blend(false, false);
                 let cb = vk::PipelineColorBlendStateCreateInfo::default().attachments(&blend);
                 let dyns = [vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR];
                 let dy = vk::PipelineDynamicStateCreateInfo::default().dynamic_states(&dyns);
@@ -1189,7 +1221,7 @@ impl Renderer {
                 d.destroy_shader_module(vs, None);
                 d.destroy_shader_module(fs, None);
             }
-            Renderer { layout, pipelines, line_width: feats.wide_lines != 0, materials, material_layout, light_layout, realtime: rt_realtime, rt_layout, rt_pipelines, rt_shadow_layout }
+            Renderer { layout, pipelines, line_width: feats.wide_lines != 0, materials, material_layout, light_layout, realtime: rt_realtime, rt_layout, rt_pipelines, rt_planar_pipelines, rt_shadow_layout }
         }
     }
 
@@ -1220,6 +1252,15 @@ impl Renderer {
     /// shadow map.
     pub fn bind_realtime(&self, gpu: &Gpu, kind: Kind, color: vk::DescriptorSet, alpha: vk::DescriptorSet, lights: vk::DescriptorSet, env: vk::DescriptorSet, shadow: vk::DescriptorSet) {
         let p = self.rt_pipelines.iter().find(|(k, _)| *k == kind).unwrap().1;
+        unsafe {
+            gpu.device.cmd_bind_pipeline(gpu.cmd, vk::PipelineBindPoint::GRAPHICS, p);
+            gpu.device.cmd_bind_descriptor_sets(gpu.cmd, vk::PipelineBindPoint::GRAPHICS, self.rt_layout, 0, &[color, alpha, lights, env, shadow], &[]);
+        }
+    }
+
+    /// Binds a Realtime material for the ground plane's reflection pass (#302).
+    pub fn bind_realtime_planar(&self, gpu: &Gpu, kind: Kind, color: vk::DescriptorSet, alpha: vk::DescriptorSet, lights: vk::DescriptorSet, env: vk::DescriptorSet, shadow: vk::DescriptorSet) {
+        let p = self.rt_planar_pipelines.iter().find(|(k, _)| *k == kind).unwrap().1;
         unsafe {
             gpu.device.cmd_bind_pipeline(gpu.cmd, vk::PipelineBindPoint::GRAPHICS, p);
             gpu.device.cmd_bind_descriptor_sets(gpu.cmd, vk::PipelineBindPoint::GRAPHICS, self.rt_layout, 0, &[color, alpha, lights, env, shadow], &[]);
