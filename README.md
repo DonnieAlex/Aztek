@@ -32,7 +32,8 @@ From PowerShell, with Visual Studio 2022.
 On a new Mac, `git clone` asks to install Xcode's command line tools first: install them, then run it again. The
 script installs whatever else is missing (Homebrew, which asks for your password, CMake, Ninja, MoltenVK and Rust).
 
-Prebuilt packages are under [Install](#install).
+What you build yourself runs straight away: Windows and macOS only check programs that were downloaded. Prebuilt
+packages are under [Install](#install), and [Running unsigned builds](#running-unsigned-builds) says how to open them.
 
 <details>
 <summary>Build details for Linux, macOS and Windows</summary>
@@ -639,8 +640,8 @@ source is pointed at `git pull`. It goes through the proxy in `HTTPS_PROXY`, min
 | Ubuntu 24.04, 26.04 | `aztek_<version>-1_ubuntu24.04_amd64.deb`, `..._ubuntu26.04_...` | `sudo apt install ./aztek_*.deb` |
 | Any other Linux, x86_64 | `aztek-<version>-x86_64.AppImage` | `chmod +x aztek-*.AppImage`, then run it (Qt, Python and PySide6 are inside) |
 | Linux on 64-bit ARM, glibc 2.34+ (early) | `aztek-<version>-aarch64.AppImage` | `chmod +x aztek-*.AppImage`, then run it. Needs a Vulkan driver (Mesa's on a Raspberry Pi 5, Asahi, Snapdragon laptops) |
-| Windows 10 and 11 | `aztek-<version>-setup-x64.exe`, or the zip | Run it. It isn't signed, so SmartScreen asks first. Its "Add Aztek to PATH" puts the install's `bin` on PATH, so `aztek`, `aztekpy` and `harold` work from any prompt |
-| macOS 14+, Apple silicon (early) | `aztek-macos-arm64.zip` | Unzip and open Aztek.app. If macOS says it can't check it, go to System Settings > Privacy & Security and click Open Anyway, or run `xattr -dr com.apple.quarantine Aztek.app` |
+| Windows 10 and 11 | `aztek-<version>-setup-x64.exe`, or the zip | Run it. It isn't signed, so SmartScreen asks first: see [Running unsigned builds](#running-unsigned-builds). Its "Add Aztek to PATH" puts the install's `bin` on PATH, so `aztek`, `aztekpy` and `harold` work from any prompt |
+| macOS 14+, Apple silicon (early) | `aztek-macos-arm64.zip` | Unzip and open Aztek.app. It isn't notarized, so macOS blocks it the first time: see [Running unsigned builds](#running-unsigned-builds) |
 
 Every package carries Python 3.13 and Qt and PySide6/shiboken6 6.8.3, the VFX Reference Platform CY2027's versions.
 None needs Qt or Python installed. The ARM AppImage is the other exception: it uses
@@ -649,6 +650,29 @@ Rocky 9's Qt and has no PySide6, as there is no arm64 Linux kit or wheel.
 The viewport needs a Vulkan driver: NVIDIA's own driver has one, and Mesa's `mesa-vulkan-drivers` covers AMD and Intel. On macOS it
 draws through MoltenVK, which comes inside Aztek.app.
 [docs/PACKAGING.md](docs/PACKAGING.md) has the details, and how the packages are built.
+
+### Running unsigned builds
+
+The Windows and macOS packages aren't signed with a paid certificate, so the system asks before running them the first
+time. Each new download asks again. Builds made from source are never asked about.
+
+**Windows.** The installer and `aztek.exe` show "Windows protected your PC": click **More info**, then **Run anyway**.
+For the zip, unblock it before unzipping, so the files inside don't each ask: right-click the zip, Properties, tick
+**Unblock**, OK. Or in PowerShell:
+
+    Unblock-File .\aztek-windows-x86_64.zip
+
+Already unzipped, from inside the folder it went to:
+
+    Get-ChildItem -Recurse | Unblock-File
+
+**macOS.** Opening Aztek.app says it can't be checked. Either, once after unzipping:
+
+    xattr -dr com.apple.quarantine ~/Downloads/Aztek/Aztek.app
+
+or open it once, close the warning, go to System Settings > Privacy & Security, scroll down and click **Open Anyway**.
+Since macOS 15, right-click and Open no longer gets past it. To stop the check for every app on the Mac,
+`sudo spctl --global-disable`, then choose Anywhere under Privacy & Security; `sudo spctl --global-enable` turns it back on.
 
 ## Hotkeys
 
