@@ -4280,7 +4280,8 @@ content is listed greyed with "Empty package in Aztek"; nothing absent from the 
 
 Not done: object path completion (no index exists); completion inside a multi-line expression that continued on an
 earlier line; type inference for an arbitrary expression before a dot, so only modules, classes, import aliases and
-command names resolve; and docstrings for most API members, which Aztek's modules do not carry, so their signatures
-show without a description. `maya.mel` itself has only `eval`. The Python API's class list and signatures come from
+command names resolve; docstrings for most API members, which Aztek's modules do not carry, so their signatures show
+without a description; and commands or Python modules a plug-in registers after the panel's index was built, which
+appear when the Script Editor is reopened (the session's MEL procedures are re-read as the command list is prepared). `maya.mel` itself has only `eval`. The Python API's class list and signatures come from
 the embedded modules, not a hand-written list: 100 classes in `maya.api.OpenMaya`, 99 in `maya.OpenMaya`, and 385
 class records across the shipped API modules.

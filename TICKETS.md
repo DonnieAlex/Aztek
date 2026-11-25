@@ -18,8 +18,9 @@ Requests waiting or in progress, newest detail kept. Move to Done with the date 
 ## Waiting
 - Script Editor completion (25/11/2026): the feature is in (PARITY.md, docs/SCRIPT_EDITOR_COMPLETION.md). Left: object
   path completion; a Quick Help side bar; completion across a multi-line expression; type inference for an arbitrary
-  expression before a dot; docstrings for the Python API's members, which the embedded modules do not carry; and
-  `maya.mel` has only `eval` to offer.
+  expression before a dot; docstrings for the Python API's members, which the embedded modules do not carry;
+  commands or Python modules a plug-in registers after the panel's index was built (they appear when the Script
+  Editor is reopened); and `maya.mel` has only `eval` to offer.
 - Found 16/11/2026: `namespaceInfo -lon` at the root lists only the scene's namespaces; the reference also lists UI and
   shared, which scripts skip by name. Not changed: `core_forms.rs` and `core_cmds.rs` hold the current answer.
 - Left from the issues closed 15/11 and 16/11/2026 (PARITY.md, Issues 37 to 83): Paint Skin Weights' ramp editing
