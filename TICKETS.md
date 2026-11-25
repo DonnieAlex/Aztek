@@ -16,6 +16,10 @@ Requests waiting or in progress, newest detail kept. Move to Done with the date 
 - C++ plug-in kit (agent).
 
 ## Waiting
+- Script Editor completion (25/11/2026): the feature is in (PARITY.md, docs/SCRIPT_EDITOR_COMPLETION.md). Left: object
+  path completion; a Quick Help side bar; completion across a multi-line expression; type inference for an arbitrary
+  expression before a dot; docstrings for the Python API's members, which the embedded modules do not carry; and
+  `maya.mel` has only `eval` to offer.
 - Found 16/11/2026: `namespaceInfo -lon` at the root lists only the scene's namespaces; the reference also lists UI and
   shared, which scripts skip by name. Not changed: `core_forms.rs` and `core_cmds.rs` hold the current answer.
 - Left from the issues closed 15/11 and 16/11/2026 (PARITY.md, Issues 37 to 83): Paint Skin Weights' ramp editing
@@ -133,6 +137,9 @@ Requests waiting or in progress, newest detail kept. Move to Done with the date 
   Why: found on the way, a script's idle job takes the keyboard from a field: ticketed.
 
 ## Done
+- 25/11/2026 Script Editor completion: commands with their long and short flags and types, MEL procedures and built-ins,
+  maya.cmds, maya.mel, maya.OpenMaya and maya.api.OpenMaya modules, classes and members; a popup at the caret with
+  filtering, keys, mouse and argument hints; Command > Command Completion persisted in QSettings.
 - 16/11/2026: joints under an IK solver keep keyable FK rotates on the solver; keys survive making a handle, play where IK is off, and save on the joint.
 - 16/11/2026 Issues 37 to 83 closed but #76 (PARITY.md, Issues 37 to 83): editors, views, UV, picking, rigging,
   skinning, `aztekpy`, themes. The UV and Vertex Face modes with Multi, and `.mb` reading, came off this list.
