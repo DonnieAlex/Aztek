@@ -44,7 +44,7 @@ Linux:
     ./build.sh                 # fetches Qt 6.8.3, Python 3.13 and PySide6 into build/ the first time, builds,
                                # and stages build/Aztek; --run starts it
 
-macOS: `./build-macos.sh --deps --run`. Windows, from PowerShell with Visual Studio 2022: `.\build.bat -Run`. The
+macOS: `./build-macos.sh --run`, which installs what is missing. Windows, from PowerShell with Visual Studio 2022: `.\build.bat -Run`. The
 README's [Build](README.md#build-linux) section has the details. The build never uses the system's Qt or Python.
 
 Run a local build through its bundle, `./build/Aztek/AppRun`, not `build/aztek`: the launcher points the library path

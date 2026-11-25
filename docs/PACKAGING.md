@@ -171,7 +171,7 @@ release yet: when it fails, the other packages still go out.
   tools.
 - `gpu.rs` loads MoltenVK from the bundle first, then a Vulkan loader on the library path, then Homebrew's folders.
   The viewport draws through `AZTEK_APPKIT`: the widget's `NSView`, with a Metal layer from `ash_window`.
-- `./build-macos.sh` builds it (`--deps` installs the dependencies with Homebrew); `--package` makes the same `Aztek.app` and zip as the release build, which runs that script.
+- `./build-macos.sh` builds it, installing what is missing first (Xcode's command line tools, Homebrew, CMake, Ninja, MoltenVK, Rust; `--deps` updates them); `--package` makes the same `Aztek.app` and zip as the release build, which runs that script.
 - Not checked yet: the viewport on a real Mac, and whether Ctrl and Alt in mouse and key handling should be Cmd and Option.
 
 ## Flatpak and snap

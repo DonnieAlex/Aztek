@@ -13,19 +13,24 @@
 
     git clone https://github.com/srlegrand/Aztek.git
     cd Aztek
-    ./build.sh --deps --run          # Linux
+    ./build.sh --deps --run
 
 ## Build Windows
 
     git clone https://github.com/srlegrand/Aztek.git
     cd Aztek
-    .\build.bat -Run                 # Windows, from PowerShell, with Visual Studio 2022
+    .\build.bat -Run
+
+From PowerShell, with Visual Studio 2022.
 
 ## Build Mac
 
     git clone https://github.com/srlegrand/Aztek.git
     cd Aztek
-    ./build-macos.sh --deps --run    # macOS, with Homebrew
+    ./build-macos.sh --run
+
+On a new Mac, `git clone` asks to install Xcode's command line tools first: install them, then run it again. The
+script installs whatever else is missing (Homebrew, which asks for your password, CMake, Ninja, MoltenVK and Rust).
 
 Prebuilt packages are under [Install](#install).
 
@@ -46,8 +51,8 @@ built for that Qt, into that Python, builds against all three and stages the res
 wheels need glibc 2.28, so the same versions build on Rocky 8. Nothing comes from the system's Qt or Python; later builds reuse the fetched ones, and
 `tools/bundle/versions.sh` holds the versions.
 
-**macOS**, with [Homebrew](https://brew.sh): `--deps` installs Xcode's command line tools, CMake, Ninja, MoltenVK and
-Rust. Every build fetches Qt 6.8.3, Python 3.13 and PySide6 6.8.3 and puts them, with MoltenVK, inside
+**macOS.** The script installs what is missing before it builds: Xcode's command line tools, [Homebrew](https://brew.sh)
+(added to `~/.zprofile` when it isn't on the path), CMake, Ninja, MoltenVK and Rust; `--deps` also updates them. Every build fetches Qt 6.8.3, Python 3.13 and PySide6 6.8.3 and puts them, with MoltenVK, inside
 `build/aztek.app`, signed ad hoc, or with your Developer ID when `AZTEK_SIGN_IDENTITY` names one (docs/PACKAGING.md). `--package` also makes `dist/aztek-macos-<arch>.zip`, and `--install` puts Aztek.app
 in `~/Applications`. macOS is new: the viewport, menus and shortcuts haven't been checked there yet.
 
@@ -114,20 +119,22 @@ and what happens after you send it.
 
    Linux:
 
-       sudo apt install git        # or: sudo dnf install git, sudo pacman -S git
+       sudo apt install git
        git clone https://github.com/srlegrand/Aztek.git
        cd Aztek
        ./build.sh --deps --run
 
-   For `gh`, follow [its Linux instructions](https://github.com/cli/cli/blob/trunk/docs/install_linux.md): the `gh`
+   On Fedora or Rocky it is `sudo dnf install git`, on Arch `sudo pacman -S git`. For `gh`, follow [its Linux instructions](https://github.com/cli/cli/blob/trunk/docs/install_linux.md): the `gh`
    that Debian and Ubuntu ship themselves is too old to work with GitHub (as of 11/2025, by its maintainers' note).
 
-   macOS, with [Homebrew](https://brew.sh):
+   macOS:
 
-       brew install git gh
        git clone https://github.com/srlegrand/Aztek.git
        cd Aztek
-       ./build-macos.sh --deps --run
+       ./build-macos.sh --run
+
+   `git clone` asks to install Xcode's command line tools the first time: install them and run it again. The build
+   script installs Homebrew and the rest. For `gh`, run `brew install gh` in a new terminal.
 
    Windows, from PowerShell, with Visual Studio 2022 and Qt installed as [Build](#build) says:
 

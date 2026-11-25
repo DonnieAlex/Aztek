@@ -20,6 +20,7 @@ for a in "$@"; do
     --debug) TYPE=Debug DIR=build-debug ;;
     --run) RUN=1 ;;
     --install) INSTALL=1 ;;
+    \#*) break ;; # the rest of a line pasted with its comment: zsh passes "# ..." on as arguments
     *) echo "unknown option $a"; exit 1 ;;
   esac
 done

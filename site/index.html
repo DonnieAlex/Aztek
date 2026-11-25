@@ -50,12 +50,16 @@
 <section class="build" id="build">
   <h2>Build from source</h2>
 <pre><code>git clone https://github.com/srlegrand/Aztek.git
-cd Aztek
-./build.sh --deps --run        # Linux
-./build-macos.sh --deps --run  # macOS, with Homebrew
-.\build.bat -Run               # Windows, from PowerShell</code></pre>
+cd Aztek</code></pre>
+  <p class="small">Then, on Linux:</p>
+<pre><code>./build.sh --deps --run</code></pre>
+  <p class="small">On macOS:</p>
+<pre><code>./build-macos.sh --run</code></pre>
+  <p class="small">On Windows, from PowerShell:</p>
+<pre><code>.\build.bat -Run</code></pre>
   <p class="small">Needs Rust, CMake, Ninja, Qt 6 (6.8 for Windows and macOS), Python 3.13 (fetched by the build where the system has none) and, on Windows, Visual Studio 2022 with the C++ workload.
-    <code>--deps</code> installs what the build needs (apt, dnf or pacman on Linux, Homebrew on macOS) and only needs running once.
+    On Linux <code>--deps</code> installs what the build needs (apt, dnf or pacman) and only needs running once. On macOS the
+    script installs whatever is missing, Homebrew included; <code>git clone</code> first asks to install Xcode's command line tools.
     On macOS <code>--package</code> makes a self-contained Aztek.app. Prebuilt packages are under <a href="#download">Download</a>;
     details in the <a href="https://github.com/srlegrand/Aztek#build">README</a>.</p>
 </section>
@@ -87,19 +91,21 @@ cd Aztek
       (GitHub's command line tool) if you will send a pull request.
       <div class="os-grid">
         <div><h4>Linux</h4>
-<pre><code>sudo apt install git   # or dnf, pacman
+<pre><code>sudo apt install git
 git clone https://github.com/srlegrand/Aztek.git
 cd Aztek
 ./build.sh --deps --run</code></pre>
           <p class="small">For <code>gh</code>, follow
             <a href="https://github.com/cli/cli/blob/trunk/docs/install_linux.md">its Linux instructions</a>: the one
-            Debian and Ubuntu ship is too old to work with GitHub.</p></div>
+            Debian and Ubuntu ship is too old to work with GitHub. Fedora and Rocky: <code>sudo dnf install git</code>; Arch:
+            <code>sudo pacman -S git</code>.</p></div>
         <div><h4>macOS</h4>
-<pre><code>brew install git gh
-git clone https://github.com/srlegrand/Aztek.git
+<pre><code>git clone https://github.com/srlegrand/Aztek.git
 cd Aztek
-./build-macos.sh --deps --run</code></pre>
-          <p class="small">With <a href="https://brew.sh">Homebrew</a>.</p></div>
+./build-macos.sh --run</code></pre>
+          <p class="small"><code>git clone</code> asks to install Xcode's command line tools the first time: install them
+            and run it again. The build script installs <a href="https://brew.sh">Homebrew</a> and the rest. For <code>gh</code>, run
+            <code>brew install gh</code> in a new terminal.</p></div>
         <div><h4>Windows</h4>
 <pre><code>winget install --id Git.Git
 winget install --id GitHub.cli
