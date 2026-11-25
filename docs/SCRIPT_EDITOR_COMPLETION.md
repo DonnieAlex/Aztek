@@ -54,10 +54,12 @@ segment for a Python keyword. Accepting closes the popup. Undo takes the inserti
 
 ### MEL tabs
 
-- At the start of a statement, or after `;`: command names, the bundled and live MEL procedures, and MEL's built-in
-  functions.
+- At the start of a statement, after `;`, or after `=`, `(`, `[`, `{`, `,` or a backtick: command names, the bundled
+  and live MEL procedures, and MEL's built-in functions. That covers a command inside a variable assignment and inside
+  a backtick expression.
 - After a command and a space, or after a `-`: that command's flags, both long and short forms, with the flag's type in
-  the category column and its help in the detail area. Filtering matches either form.
+  the category column and its help in the detail area. Filtering matches either form. The command may be anywhere in
+  the statement, so `$x = `polyCube -w` completes the flags too.
 - After `command (` or between its arguments: the argument hint; the current parameter is the one at the caret.
 
 ### Python tabs

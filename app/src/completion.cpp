@@ -465,82 +465,100 @@ ScriptCompletion::Analysis ScriptCompletion::analyse(QPlainTextEdit* editor) {
         return a;
     }
 
-    // MEL: the statement after the last semicolon.
-    int semi = -1;
-    QChar quote;
-    bool escape = false;
-    for (int i = 0; i < line.size(); ++i) {
-        const QChar c = line[i];
-        if (!quote.isNull()) {
-            if (escape) escape = false;
-            else if (c == '\\') escape = true;
-            else if (c == quote) quote = QChar();
-            continue;
-        }
-        if (c == '"' || c == '\'') {
-            quote = c;
-        } else if (c == ';') {
-            semi = i;
+    // MEL: the word ending at the caret decides. A command or procedure followed by an unclosed parenthesis
+    // shows its argument hint; a flag shows the flags; a command name at the start of a statement, or after an
+    // operator or a backtick, shows the commands and procedures.
+    const int open = last_unclosed_paren(line, line.size(), false);
+    if (open >= 0) {
+        static const QRegularExpression callee(R"(([A-Za-z_][A-Za-z0-9_]*)\s*$)");
+        const auto cm = callee.match(line.left(open));
+        if (cm.hasMatch()) {
+            const QString callee_name = cm.captured(1);
+            const auto ci = commands_.constFind(callee_name);
+            if (ci != commands_.constEnd() || procs_.contains(callee_name)) {
+                const Inside in = inside_call(line, open, line.size(), false);
+                a.mode = Analysis::Hint;
+                a.prefix = in.prefix;
+                a.replace_start = block.position() + in.start;
+                a.replace_end = cursor.position();
+                a.hint_name = callee_name;
+                if (ci != commands_.constEnd()) {
+                    a.command = &*ci;
+                    a.hint_params = split_parameters(ci->positional);
+                    if (a.hint_params.isEmpty() && !ci->flags.isEmpty()) a.hint_params << QStringLiteral("flags");
+                } else {
+                    const QString signature = procs_.value(callee_name).signature;
+                    const int p = signature.indexOf('(');
+                    if (p >= 0) a.hint_params = split_parameters(signature.mid(p + 1, signature.lastIndexOf(')') - p - 1));
+                }
+                a.hint_current = in.argument;
+                return a;
+            }
         }
     }
-    const int seg_abs = block.position() + semi + 1;
-    const QString seg = line.mid(semi + 1);
-    static const QRegularExpression first(R"(^(\s*)([A-Za-z_][A-Za-z0-9_]*))");
-    const auto fm = first.match(seg);
-    if (!fm.hasMatch()) return a;
-    const int word_abs = seg_abs + fm.capturedStart(2);
-    const QString word = fm.captured(2);
-    const int word_end = fm.capturedEnd(2);
-    const QString rest = seg.mid(word_end);
-    if (rest.isEmpty()) {
-        a.mode = Analysis::Words;
-        a.prefix = word;
-        a.replace_start = word_abs;
-        a.replace_end = cursor.position();
-        return a;
-    }
-    const auto ci = commands_.constFind(word);
-    const int open = last_unclosed_paren(rest, rest.size(), false);
-    if (open >= 0 && open < rest.size()) {
-        const Inside in = inside_call(rest, open, rest.size(), false);
-        a.mode = Analysis::Hint;
-        a.prefix = in.prefix;
-        a.replace_start = seg_abs + word_end + in.start;
-        a.replace_end = cursor.position();
-        a.hint_name = word;
+
+    static const QRegularExpression trailing(R"(([A-Za-z_][A-Za-z0-9_]*)$)");
+    const auto tm = trailing.match(line);
+    const int word_start = tm.hasMatch() ? tm.capturedStart(1) : line.size();
+    const QString word = tm.hasMatch() ? tm.captured(1) : QString();
+    int before = word_start - 1;
+    while (before >= 0 && line[before].isSpace()) --before;
+
+    // A flag: the dash right before the word, and the command before the dash.
+    if (before >= 0 && line[before] == '-') {
+        int command_end = before - 1;
+        while (command_end >= 0 && line[command_end].isSpace()) --command_end;
+        int command_start = command_end;
+        while (command_start >= 0 && (line[command_start].isLetterOrNumber() || line[command_start] == '_')) --command_start;
+        const QString command = line.mid(command_start + 1, command_end - command_start);
+        const auto ci = commands_.constFind(command);
         if (ci != commands_.constEnd()) {
+            a.mode = Analysis::Flags;
             a.command = &*ci;
-            a.hint_params = split_parameters(ci->positional);
-            if (a.hint_params.isEmpty() && !ci->flags.isEmpty()) a.hint_params << QStringLiteral("flags");
-        } else if (procs_.contains(word)) {
-            const QString signature = procs_.value(word).signature;
-            const int p = signature.indexOf('(');
-            if (p >= 0) a.hint_params = split_parameters(signature.mid(p + 1, signature.lastIndexOf(')') - p - 1));
+            a.prefix = word;
+            a.replace_start = block.position() + before;
+            a.replace_end = cursor.position();
+            a.hint_name = command;
+            return a;
         }
-        a.hint_current = in.argument;
-        return a;
     }
-    const int last_space = rest.lastIndexOf(QRegularExpression("\\s"));
-    const QString token = rest.mid(last_space + 1);
-    if (!token.isEmpty() && token.startsWith('-')) {
-        if (ci == commands_.constEnd()) return a;
-        a.mode = Analysis::Flags;
-        a.command = &*ci;
-        a.prefix = token.mid(1);
-        a.replace_start = seg_abs + word_end + last_space + 1;
-        a.replace_end = cursor.position();
-        a.hint_name = word;
-        return a;
+
+    // The caret after a command and a space: its flags.
+    if (word.isEmpty() && !line.isEmpty() && line.at(line.size() - 1).isSpace()) {
+        int command_end = line.size() - 1;
+        while (command_end >= 0 && line[command_end].isSpace()) --command_end;
+        int command_start = command_end;
+        while (command_start >= 0 && (line[command_start].isLetterOrNumber() || line[command_start] == '_')) --command_start;
+        const QString command = line.mid(command_start + 1, command_end - command_start);
+        const auto ci = commands_.constFind(command);
+        if (ci != commands_.constEnd()) {
+            int p = command_start;
+            while (p >= 0 && line[p].isSpace()) --p;
+            const bool statement_start = p < 0 || line.left(p + 1).section(';', -1).trimmed().isEmpty();
+            const QChar prev = p >= 0 ? line[p] : QChar();
+            if (statement_start || QStringLiteral("=([{,`").contains(prev)) {
+                a.mode = Analysis::Flags;
+                a.command = &*ci;
+                a.prefix.clear();
+                a.replace_start = cursor.position();
+                a.replace_end = cursor.position();
+                a.hint_name = command;
+                return a;
+            }
+        }
     }
-    if (token.isEmpty() && rest.size() > 0 && rest.at(rest.size() - 1).isSpace()) {
-        if (ci == commands_.constEnd()) return a;
-        a.mode = Analysis::Flags;
-        a.command = &*ci;
-        a.prefix.clear();
-        a.replace_start = cursor.position();
-        a.replace_end = cursor.position();
-        a.hint_name = word;
-        return a;
+
+    // A command name being typed: the start of a statement, or after an operator or a backtick.
+    if (!word.isEmpty()) {
+        const bool statement_start = line.left(word_start).section(';', -1).trimmed().isEmpty();
+        const QChar prev = before >= 0 ? line[before] : QChar();
+        if (statement_start || QStringLiteral("=([{,`").contains(prev)) {
+            a.mode = Analysis::Words;
+            a.prefix = word;
+            a.replace_start = block.position() + word_start;
+            a.replace_end = cursor.position();
+            return a;
+        }
     }
     return a;
 }
