@@ -151,13 +151,19 @@ struct SliderState {
 
 static SLIDER: Mutex<Option<SliderState>> = Mutex::new(None);
 
+// Display Key Ticks > Show Layer Weight is on in a new session of the reference (#293).
 fn slider() -> SliderState {
-    SLIDER.lock().unwrap().clone().unwrap_or(SliderState { range: None, show_keys: "active".into(), snap: true, tick_size: 1.0, keys_combined: false, layer_weight: false })
+    SLIDER.lock().unwrap().clone().unwrap_or(SliderState { range: None, show_keys: "active".into(), snap: true, tick_size: 1.0, keys_combined: false, layer_weight: true })
 }
 
 /// The range selected on the time slider, which the UI reports through timeControl -e -ra.
 pub fn slider_range() -> Option<(f64, f64)> {
     slider().range
+}
+
+/// Whether the time slider shows keys on selected animation layers' own weights.
+pub fn slider_shows_layer_weight() -> bool {
+    slider().layer_weight
 }
 
 /// play -playSound: whether the sound plays along (on until a script turns it off).

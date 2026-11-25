@@ -103,6 +103,7 @@ impl Core {
         crate::autosave::register(&mut c.s);
         crate::archive::register(&mut c.s);
         crate::scriptui::register(&mut c.s);
+        crate::script_tools::register(&mut c.s);
         crate::script_objects::register(&mut c.s);
         crate::script_jobs::register(&mut c.s);
         crate::ctx_cmds::register(&mut c.s);
@@ -367,6 +368,7 @@ impl Core {
         let due = crate::scriptui::shell_event(ev);
         crate::attr_ui::shell_changed(self, ev);
         crate::more_controls::shell_changed(self, ev);
+        crate::script_tools::shell_changed(self, ev);
         crate::ramp_controls::shell_changed(self, ev);
         for (cb, args) in due {
             self.run_callback(&cb, &args);
@@ -383,6 +385,7 @@ impl Core {
         self.note_settings();
         crate::attr_ui::idle(self);
         crate::more_controls::idle(self);
+        crate::script_tools::idle(self);
         crate::ramp_controls::idle(self);
         crate::host_general::watch(&mut self.s);
         aztek_scene::messages::flush(&mut self.s);

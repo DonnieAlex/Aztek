@@ -542,6 +542,8 @@ pub fn register(s: &mut Session) {
         .flag(f("default", "d", ArgType::Bool, "A default name command: not saved with the hotkey set.")),
     );
 
+    reg(s, assign_command());
+
     reg(
         s,
         Cmd::new("hotkeyCheck", "The annotation of the nameCommand a key is bound to, or an empty string: -k the key, -alt, -ctl, -cmd, -opt modifiers, -kup for release. Less than the reference: it sees keys bound with the hotkey command, not the built-in table the shell keeps.", |_s, a| {
@@ -1091,6 +1093,179 @@ pub(crate) fn run_time_entry(name: &str) -> Option<Value> {
 }
 
 /// runTimeCommand: named commands that run a script, the factory ones the shell has and those scripts make.
+/// The name commands in the order assignCommand numbers them, 1 up, and dividers between them.
+fn assign_entries(u: &Ui) -> Vec<Value> {
+    u.name_commands.values().cloned().collect()
+}
+
+/// The key a name command is bound to: (key, alt, ctrl, release, command), as -q -keyString gives it.
+fn bound_key(u: &Ui, name: &str) -> Option<(String, bool, bool, bool)> {
+    u.hotkeys.iter().find_map(|h| {
+        if h["name"].as_str() == Some(name) {
+            Some((h["key"].as_str().unwrap_or("").to_string(), h["alt"].as_bool().unwrap_or(false), h["ctrl"].as_bool().unwrap_or(false), false))
+        } else if h["releaseName"].as_str() == Some(name) {
+            Some((h["key"].as_str().unwrap_or("").to_string(), h["alt"].as_bool().unwrap_or(false), h["ctrl"].as_bool().unwrap_or(false), true))
+        } else {
+            None
+        }
+    })
+}
+
+/// assignCommand: the name commands by number, as the reference's hotkey editor works through them.
+fn assign_command() -> Cmd {
+    Cmd::new(
+        "assignCommand",
+        "The name commands by number, 1 up (in name order here): -q -numElements counts them; -q with -name, -command, \
+         -annotation, -keyString or -data1 to -data3 and an index reads one; -e with an index changes it; -keyString \
+         with -alt, -ctl and -kup binds a key to it; -delete removes it; -q -keyArray lists the keys bound; -q -index \
+         gives a name's number.",
+        |_s, a| {
+            let index = a.positional.first().and_then(|v| v.as_i64().or_else(|| v.as_str().and_then(|t| t.trim().parse().ok())));
+            let queried: Vec<String> = a.get("queried").and_then(Value::as_array).map(|q| q.iter().filter_map(|x| x.as_str().map(str::to_string)).collect()).unwrap_or_default();
+            let asked = |n: &str| a.bool(n) || queried.iter().any(|x| x == n);
+            if a.bool("query") {
+                return with_ui(|u| {
+                    let list = assign_entries(u);
+                    if asked("numElements") {
+                        return Ok(json!(list.len()));
+                    }
+                    if asked("keyArray") {
+                        let keys: Vec<String> = u.hotkeys.iter().filter_map(|h| h["key"].as_str().map(str::to_string)).collect();
+                        return Ok(json!(keys));
+                    }
+                    if asked("index") {
+                        let name = a.get("index").and_then(Value::as_str).map(str::to_string).or_else(|| a.pos_str(0).map(str::to_string)).unwrap_or_default();
+                        return Ok(json!(list.iter().position(|e| e["name"].as_str() == Some(name.as_str())).map_or(0, |i| i + 1)));
+                    }
+                    let Some(i) = index.filter(|&i| i >= 1 && (i as usize) <= list.len()) else { fail!("assignCommand: give an index from 1 to {}.", list.len()) };
+                    let e = &list[i as usize - 1];
+                    let name = e["name"].as_str().unwrap_or("").to_string();
+                    Ok(if asked("command") {
+                        e["command"].clone()
+                    } else if asked("annotation") {
+                        e["annotation"].clone()
+                    } else if asked("keyString") {
+                        match bound_key(u, &name) {
+                            Some((k, alt, ctl, up)) => json!([k, if alt { "1" } else { "0" }, if ctl { "1" } else { "0" }, if up { "1" } else { "0" }, "0"]),
+                            None => json!(["NONE", "0", "0", "0", "0"]),
+                        }
+                    } else if asked("data1") || asked("data2") || asked("data3") {
+                        let k = ["data1", "data2", "data3"].into_iter().find(|k| asked(k)).unwrap();
+                        e[k].clone()
+                    } else if asked("sourceUserCommands") {
+                        json!(!e["default"].as_bool().unwrap_or(false))
+                    } else {
+                        json!(name)
+                    })
+                });
+            }
+            if a.bool("factorySettings") {
+                with_ui(|u| u.name_commands.retain(|_, e| e["default"].as_bool().unwrap_or(false)));
+                return Ok(Value::Null);
+            }
+            if let Some(d) = a.get("delete").filter(|v| !v.is_null()) {
+                let i = d.as_i64().or_else(|| d.as_str().and_then(|t| t.trim().parse().ok())).unwrap_or(0);
+                return with_ui(|u| {
+                    let list = assign_entries(u);
+                    let Some(e) = (i >= 1).then(|| list.get(i as usize - 1)).flatten() else { fail!("assignCommand: no command at {i}.") };
+                    let n = e["name"].as_str().unwrap_or("").to_string();
+                    u.name_commands.remove(&n);
+                    Ok(Value::Null)
+                });
+            }
+            let Some(i) = index else {
+                // -addDivider and -sortByKey only change how the hotkey editor lists them here.
+                if a.has("addDivider") || a.bool("sortByKey") || a.bool("sourceUserCommands") {
+                    return Ok(Value::Null);
+                }
+                fail!("assignCommand: give the command's index.")
+            };
+            let found: Option<String> = with_ui(|u| assign_entries(u).get((i.max(1) - 1) as usize).and_then(|e| e["name"].as_str().map(str::to_string)));
+            let Some(name) = found.filter(|_| i >= 1) else { fail!("assignCommand: no command at {i}.") };
+            with_ui(|u| {
+                if let Some(e) = u.name_commands.get_mut(&name) {
+                    for (flag, key) in [("command", "command"), ("annotation", "annotation"), ("data1", "data1"), ("data2", "data2"), ("data3", "data3")] {
+                        if let Some(v) = a.get(flag).filter(|v| !v.is_null()) {
+                            e[key] = json!(v.as_str().map(str::to_string).unwrap_or_else(|| v.to_string()));
+                        }
+                    }
+                }
+            });
+            if let Some(newname) = a.get("name").and_then(Value::as_str).filter(|n| !n.is_empty() && *n != name.as_str()) {
+                with_ui(|u| {
+                    if let Some(mut e) = u.name_commands.remove(&name) {
+                        e["name"] = json!(newname);
+                        u.name_commands.insert(newname.to_string(), e);
+                    }
+                });
+            }
+            if let Some(k) = a.get("keyString").filter(|v| !v.is_null()) {
+                let key = k.as_str().map(str::to_string).unwrap_or_else(|| k.to_string());
+                let cur = a.get("name").and_then(Value::as_str).unwrap_or(&name).to_string();
+                let ctrl = a.bool("ctrlModifier") || a.bool("commandModifier");
+                let alt = a.bool("altModifier") || a.bool("optionModifier");
+                let release = a.bool("keyUp");
+                // NONE unbinds the command's key.
+                if key == "NONE" || key.is_empty() {
+                    with_ui(|u| {
+                        for h in u.hotkeys.iter_mut() {
+                            if h["name"].as_str() == Some(cur.as_str()) {
+                                h["name"] = json!("");
+                            }
+                            if h["releaseName"].as_str() == Some(cur.as_str()) {
+                                h["releaseName"] = json!("");
+                            }
+                        }
+                    });
+                    return Ok(Value::Null);
+                }
+                let mut hk = json!({"key": key, "ctrl": ctrl, "alt": alt, "shift": false, "name": "", "releaseName": ""});
+                with_ui(|u| {
+                    let id = hk.clone();
+                    let same = move |x: &Value| x["key"] == id["key"] && x["ctrl"] == id["ctrl"] && x["alt"] == id["alt"] && x["shift"] == id["shift"] && x.get("ctx").is_none();
+                    if let Some(old) = u.hotkeys.iter().find(|x| same(x)) {
+                        hk["name"] = old["name"].clone();
+                        hk["releaseName"] = old["releaseName"].clone();
+                    }
+                    hk[if release { "releaseName" } else { "name" }] = json!(cur);
+                    u.hotkeys.retain(|x| !same(x));
+                    u.hotkeys.push(hk.clone());
+                });
+                crate::core::push_ui_request(format!("hotkey|{hk}"));
+            }
+            Ok(Value::Null)
+        },
+    )
+    .positional("index")
+    .undoable(false)
+    .flag(f("query", "q", ArgType::Bool, "Read."))
+    .flag(f("edit", "e", ArgType::Bool, "Change."))
+    .flag(f("queried", "", ArgType::Any, "What a query asks for."))
+    .flag(f("addDivider", "ad", ArgType::String, "A divider before the command in the hotkey editor's list: accepted."))
+    .flag(f("altModifier", "alt", ArgType::Bool, "With -keyString: with Alt."))
+    .flag(f("annotation", "ann", ArgType::String, "What the command does."))
+    .flag(f("command", "c", ArgType::Any, "The command it runs."))
+    .flag(f("commandModifier", "cmd", ArgType::Bool, "With -keyString: with Command, as Ctrl here."))
+    .flag(f("ctrlModifier", "ctl", ArgType::Bool, "With -keyString: with Ctrl."))
+    .flag(f("data1", "da1", ArgType::String, "A string of the user's own kept with it."))
+    .flag(f("data2", "da2", ArgType::String, "A second one."))
+    .flag(f("data3", "da3", ArgType::String, "A third one."))
+    .flag(f("delete", "d", ArgType::Any, "Removes the command at the index given."))
+    .flag(f("dividerString", "ds", ArgType::String, "A divider's text: accepted."))
+    .flag(f("enableCommandRepeat", "ecr", ArgType::Bool, "Accepted: every command can be repeated."))
+    .flag(f("factorySettings", "fs", ArgType::Bool, "Only the default name commands stay."))
+    .flag(f("index", "i", ArgType::Any, "With -q and a name: its number."))
+    .flag(f("keyArray", "ka", ArgType::Bool, "With -q: the keys bound."))
+    .flag(f("keyString", "k", ArgType::Any, "The key to bind the command to (NONE unbinds it); with -q, its key and modifiers."))
+    .flag(f("keyUp", "kup", ArgType::Bool, "With -keyString: on release."))
+    .flag(f("name", "n", ArgType::Any, "The command's name; with -e, a new one."))
+    .flag(f("numDividersPreceding", "ndp", ArgType::Any, "Accepted: there are no dividers here."))
+    .flag(f("numElements", "num", ArgType::Bool, "With -q: how many name commands there are."))
+    .flag(f("optionModifier", "opt", ArgType::Bool, "With -keyString: with Option, as Alt here."))
+    .flag(f("sortByKey", "sbk", ArgType::Bool, "Accepted: the list is in name order."))
+    .flag(f("sourceUserCommands", "suc", ArgType::Bool, "Accepted: the user's commands are always loaded."))
+}
+
 fn run_time_command() -> Cmd {
     const FIELDS: &[(&str, &str)] = &[
         ("command", "c"), ("annotation", "ann"), ("category", "cat"), ("commandLanguage", "cl"), ("label", "l"), ("image", "i"), ("keywords", "k"),

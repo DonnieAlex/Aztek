@@ -600,6 +600,18 @@ GraphEditor::GraphEditor(QWidget* parent) : QWidget(parent) {
     tree_->setHeaderHidden(true);
     tree_->setSelectionMode(QAbstractItemView::ExtendedSelection);
     tree_->setMinimumWidth(150);
+    tree_->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(tree_, &QTreeWidget::customContextMenuRequested, this, [this](const QPoint& pos) {
+        QMenu menu;
+        auto* weight = menu.addMenu("Animation Layers Filter")->addAction("Show Layer Weight");
+        weight->setCheckable(true);
+        weight->setChecked(show_layer_weight_);
+        connect(weight, &QAction::toggled, this, [this](bool on) {
+            show_layer_weight_ = on;
+            refresh();
+        });
+        menu.exec(tree_->viewport()->mapToGlobal(pos));
+    });
     canvas_ = new CurveCanvas(split);
     split->addWidget(tree_);
     split->addWidget(canvas_);
@@ -767,7 +779,9 @@ void GraphEditor::set_tangents(const QString& in, const QString& out) {
 void GraphEditor::refresh() {
     // The visible frames (and a margin), sampled a few pixels apart.
     auto [lo, hi, step] = canvas_->sample_window();
-    QJsonObject r = query("animCurves", QString("%1:%2:%3").arg(lo).arg(hi).arg(step)).toObject();
+    QString range = QString("%1:%2:%3").arg(lo).arg(hi).arg(step);
+    if (!show_layer_weight_) range += ":hideLayerWeight";
+    QJsonObject r = query("animCurves", range).toObject();
     QVector<CurveView> curves;
     QStringList key_list;
     for (const QJsonValue& ov : r["objects"].toArray()) {

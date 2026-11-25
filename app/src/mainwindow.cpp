@@ -1601,7 +1601,10 @@ void MainWindow::build_bottom() {
     connect(current, &QSpinBox::valueChanged, time_slider_, [this](int t) { time_slider_->set_time(t); });
     connect(time_slider_, &TimeSlider::contextMenuAt, this, &MainWindow::time_slider_menu);
     connect(time_slider_, &TimeSlider::rangeMoved, this, [](double from, double to, double by) {
-        exec("keyframe", QJsonObject{{"edit", true}, {"time", QString("%1:%2").arg(from).arg(to)}, {"relative", true}, {"timeChange", by}});
+        QJsonObject call{{"edit", true}, {"time", QString("%1:%2").arg(from).arg(to)}, {"relative", true}, {"timeChange", by}};
+        const QJsonValue curves = query("timeSliderCurves");
+        if (curves.isArray()) call["args"] = curves;
+        exec("keyframe", call);
     });
     row1->addWidget(time_slider_, 1);
     row1->addWidget(current);
@@ -2360,6 +2363,12 @@ void MainWindow::time_slider_menu(QPoint global) {
     m.addAction("Convert to Breakdown", keyed("keyframe", QJsonObject{{"edit", true}, {"breakdown", true}}));
     m.addAction("Convert to Key", keyed("keyframe", QJsonObject{{"edit", true}, {"breakdown", false}}));
     m.addSeparator();
+    auto* weight = m.addMenu("Display Key Ticks")->addAction("Show Layer Weight");
+    weight->setCheckable(true);
+    weight->setChecked(ask("timeControl", QJsonObject{{"query", true}, {"animLayerShowWeight", true}}).toBool());
+    connect(weight, &QAction::toggled, this, [](bool on) {
+        exec("timeControl", QJsonObject{{"edit", true}, {"animLayerShowWeight", on}});
+    });
     QMenu* tan = m.addMenu("Tangents");
     for (const char* t : {"auto", "spline", "clamped", "linear", "flat", "step", "plateau"}) {
         QString label = QString(t);

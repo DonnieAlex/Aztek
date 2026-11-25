@@ -44,7 +44,7 @@ artSetPaintCtx	done	auto
 artUserPaintCtx	done	auto
 arubaNurbsToPoly	done	auto
 assembly	missing	
-assignCommand	missing	
+assignCommand	partial	ui_cmds.rs: name commands numbered in name order, not creation order; dividers accepted but not kept
 assignInputDevice	missing	
 assignViewportFactories	missing	
 attachCurve	done	auto
@@ -494,7 +494,7 @@ keyframeRegionSelectKeyCtx	done	auto
 keyframeRegionSetKeyCtx	done	auto
 keyframeRegionTrackCtx	done	auto
 keyframeStats	done	auto
-keyframeTangentControl	missing	
+keyframeTangentControl	done	auto
 keyingGroup	done	auto
 lassoContext	done	auto
 lattice	done	auto
@@ -505,7 +505,7 @@ layerButton	done	auto
 layeredShaderPort	missing	
 layeredTexturePort	missing	
 layout	done	auto
-layoutDialog	missing	
+layoutDialog	done	auto
 license	done	auto
 lightList	missing	
 lightlink	done	auto
@@ -560,7 +560,7 @@ menu	done	auto
 menuBarLayout	done	auto
 menuEditor	missing	
 menuItem	done	auto
-menuSet	missing	
+menuSet	partial	script_tools.rs: the five built-in sets list only menus scripts added; a set of a script's own is kept current but the main window still shows one of the five
 menuSetPref	missing	
 messageLine	missing	
 mimicManipulation	done	auto
@@ -585,7 +585,7 @@ nBase	missing
 nParticle	done	auto
 nSoft	missing	
 nameCommand	done	auto
-nameField	missing	
+nameField	done	auto
 namespace	done	auto
 namespaceInfo	done	auto
 newton	done	auto
@@ -914,14 +914,14 @@ rowLayout	done	auto
 runTimeCommand	done	auto
 runup	missing	
 sampleImage	missing	
-saveAllShelves	missing	
+saveAllShelves	done	auto
 saveFluid	missing	
 saveImage	missing	
 saveInitialState	missing	
 saveMenu	missing	
 savePrefObjects	done	auto
 savePrefs	done	auto
-saveShelf	missing	
+saveShelf	done	auto
 saveToolSettings	done	auto
 saveViewportSettings	done	auto
 scale	done	auto
@@ -949,7 +949,7 @@ sculptMeshCacheCtx	done	auto
 sculptTarget	done	auto
 selLoadSettings	done	auto
 select	done	auto
-selectContext	missing	
+selectContext	done	auto
 selectKey	done	auto
 selectKeyCtx	done	auto
 selectKeyframeRegionCtx	missing	
@@ -1113,8 +1113,8 @@ timeEditorClipOffset	missing
 timeEditorComposition	missing	
 timeEditorPanel	missing	
 timeEditorTracks	missing	
-timeField	missing	
-timeFieldGrp	missing	
+timeField	done	auto
+timeFieldGrp	done	auto
 timePort	done	auto
 timeWarp	done	auto
 timer	done	auto
@@ -1124,7 +1124,7 @@ toggleAxis	done	auto
 toggleDisplacement	missing	
 toggleWindowVisibility	missing	
 tolerance	done	auto
-toolBar	missing	
+toolBar	done	auto
 toolButton	done	auto
 toolCollection	done	auto
 toolDropped	done	auto

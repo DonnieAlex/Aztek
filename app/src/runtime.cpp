@@ -1162,6 +1162,14 @@ void MainWindow::handle_ui_request(const QString& r) {
     } else if (name == "workspaceReset") {
         if (workspace_names().contains(payload)) QSettings().remove("workspaces/" + payload);
         apply_workspace(payload.isEmpty() ? QString("General") : payload);
+    } else if (name == "saveShelf") {
+        // saveShelf on one of the window's shelves: written as the reference's shelf file to the path given.
+        const QJsonObject o = parse(payload).toObject();
+        if (shelf_bar_)
+            for (const QJsonValue& v : shelf_bar_->data())
+                if (v.toObject()["name"].toString() == o["shelf"].toString()) ShelfBar::write_mel(o["path"].toString(), v.toObject());
+    } else if (name == "saveAllShelves") {
+        if (shelf_bar_) shelf_bar_->save();
     } else if (name == "hotkeyFactory") {
         QSettings().remove("hotkeys/user");
         load_hotkeys();

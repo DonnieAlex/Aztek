@@ -606,6 +606,8 @@ pub struct Display {
     pub shadows: bool,
     /// The Realtime renderer's bounce light: screen-space global illumination off what the view shows.
     pub bounce_light: bool,
+    /// The camera's depth of field, as Harold renders it, when the camera has it on. Off by default.
+    pub depth_of_field: bool,
     /// Show > Lights: the icons.
     pub lights: bool,
 }
@@ -652,6 +654,7 @@ impl Default for Display {
             two_sided: true,
             shadows: false,
             bounce_light: true,
+            depth_of_field: false,
             lights: true,
         }
     }
@@ -1211,22 +1214,6 @@ impl Viewport {
             self.grid = Some((gpu.buffer_with(vk::BufferUsageFlags::VERTEX_BUFFER, &lines), lines.len() as u32));
             self.grid_bold = (!bold.is_empty()).then(|| (gpu.buffer_with(vk::BufferUsageFlags::VERTEX_BUFFER, &bold), bold.len() as u32));
         }
-        if self.show_grid {
-            r.bind(gpu, Kind::SmoothLines);
-            let mut p = push(vp, DMat4::IDENTITY, view, [1.0; 4], 0.0, 1.0);
-            p.n2 = [w as f32, h as f32, 0.5, 0.0];
-            r.push(gpu, &p);
-            let (gb, gn) = self.grid.as_ref().unwrap();
-            if *gn > 0 {
-                r.draw(gpu, gb, None, *gn);
-            }
-            if let Some((bb, bn)) = &self.grid_bold {
-                p.n2[2] = 1.0;
-                r.push(gpu, &p);
-                r.draw(gpu, bb, None, *bn);
-            }
-        }
-
         let g = &s.graph;
         let mode = components::mode(g);
         let sel = g.selection().to_vec();
@@ -1858,6 +1845,22 @@ impl Viewport {
                 r.bind(gpu, if self.disp.xray_active && hilited { Kind::PointsOnTop } else { Kind::Points });
                 r.push(gpu, &push(mvp, it.world, view, [1.0; 4], 2e-3, (5.0 * scale) as f32));
                 r.draw(gpu, pb, None, *pn);
+            }
+        }
+        // The grid reads the depth of solid geometry so it can cross through a surface.
+        if self.show_grid {
+            r.bind(gpu, Kind::SmoothLines);
+            let mut p = push(vp, DMat4::IDENTITY, view, [1.0; 4], 0.0, 1.0);
+            p.n2 = [w as f32, h as f32, 0.5, 0.0];
+            r.push(gpu, &p);
+            let (gb, gn) = self.grid.as_ref().unwrap();
+            if *gn > 0 {
+                r.draw(gpu, gb, None, *gn);
+            }
+            if let Some((bb, bn)) = &self.grid_bold {
+                p.n2[2] = 1.0;
+                r.push(gpu, &p);
+                r.draw(gpu, bb, None, *bn);
             }
         }
         // See-through materials last, the furthest first, reading the depth the solid ones wrote.

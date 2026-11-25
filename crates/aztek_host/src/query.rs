@@ -235,6 +235,13 @@ pub fn anim_curves(core: &Core, arg: &str) -> Value {
             nodes.push(id);
         }
     }
+    if !arg.ends_with(":hideLayerWeight") {
+        for (plug, _) in aztek_scene::anim_layers::selected_weight_curves(g) {
+            if !nodes.contains(&plug.node) {
+                nodes.insert(0, plug.node);
+            }
+        }
+    }
     for id in nodes {
         let mut curves = Vec::new();
         // A channel in layers shows a curve per layer, by the layer editor's Show filter.
@@ -303,7 +310,8 @@ pub fn anim_curves(core: &Core, arg: &str) -> Value {
                 [long, short, curve_name].iter().filter(|x| !x.is_empty()).find_map(|x| aztek_scene::draw_style::curve_color(x))
             };
             let mut entry = json!({"curve": g.path(c), "channel": channel, "plug": g.plug_name(&p), "component": p.component, "keys": keys, "samples": samples, "weighted": k.weighted, "buffer": buffer});
-            if let Some(rgb) = custom {
+            let weight = aztek_scene::anim_layers::is_layer(g, id) && p.attr == aztek_scene::anim_layer_nodes::L_WEIGHT as i32;
+            if let Some(rgb) = custom.or_else(|| weight.then_some([0.72, 0.49, 0.88])) {
                 entry["rgb"] = json!(rgb);
             }
             curves.push(entry);

@@ -47,6 +47,12 @@ Linux:
 macOS: `./build-macos.sh --deps --run`. Windows, from PowerShell with Visual Studio 2022: `.\build.bat -Run`. The
 README's [Build](README.md#build-linux) section has the details. The build never uses the system's Qt or Python.
 
+Run a local build through its bundle, `./build/Aztek/AppRun`, not `build/aztek`: the launcher points the library path
+at Aztek's own Qt and Python, where the bare program can pick up the distribution's Qt and crash. `rm -rf build` and
+`./build.sh` again builds from scratch, fetching Qt, Python and PySide6 anew. For a crash, `./build.sh --debug`
+builds with symbols into `build-debug/`, and `gdb -ex run -ex bt --args sh build-debug/Aztek/AppRun` prints the
+backtrace (gdb follows the launcher into the program).
+
 Tests:
 
     cargo test -p aztek_scene              # the crate you changed; each crate keeps its tests in tests/

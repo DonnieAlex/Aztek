@@ -988,6 +988,9 @@ Nothing here has been compared with a running copy of the reference. The layout 
 - Keys: Selected, Last Active and Hybrid (default) modes (`animLayerOptions -km`), preferred first. With no layer selected a key now goes to the last active layer holding the channel, not the base, as the guide says of Hybrid. `setKeyframe -identity` is the Zero Key. A layered rotate keyed as it stands is solved once for its three axes.
 - `animLayerMerge` (also `mergeAnimLayers`): `-mergeTo`, `-includeChildren`, `-resultLayerMode`, `-deleteBaked`, `-sampleBy`, `-smart`, `-fidelity`. `bakeResults -dl -bol -ral -rba -rwl`; by default baked layers are muted, as its page says.
 - `layerEditorExtractObjects`, `layerEditorExtractNonLayered`, `layerEditorSelectObjects`, `layerEditorCopyLayer`, `layerEditorEmpty`, `layerEditorDeleteEmpty`, `layerEditorMoveToNewLayer`: what the menus do by the guide. These names are ours.
+- On 25/11/2026 (#290), selected layers' keyed weights appear in the Graph Editor and Dope Sheet, and as ticks on the
+  Time Slider that can be moved there. Show Layer Weight is on by default, as in the reference: Display Key Ticks in
+  the Time Slider's menu, Animation Layers Filter in the Graph Editor outliner's right-click menu (#293).
 - Anim tab: the stack with active and affected dots, M S L G, weight slider with its key state, K, Zero Key, Weight Key, Layers, Options and Show menus, the same menu on right click, drag between rows to reorder and onto a row to parent. Channels in a layer with nothing to key on the active layer are tinted. Graph Editor and Dope Sheet list a curve per layer by the Show filter; the Time Slider shows the active and selected layers' keys.
 - `.ma`: a layered scene saved by the reference read and written again keeps all 5061 layer connections, 616 blends and 1540 layer curves, indices of `.bnds` aside.
 
@@ -1358,6 +1361,9 @@ others (docs/issues/126-screenshot-delay.png).
 The Renderer menu's Realtime is now Default and is what every view starts in; Viewport 2.0 is now Legacy. A device
 that can't draw Default falls back to Legacy with a warning, as before. `AZTEK_VIEW_RENDERER=legacy` starts test
 builds in Legacy.
+
+On 24/11/2026 (#285), Bounce Light keeps the brightness of emissive surfaces above display white when sampling
+the visible scene. Brighter emitters can light nearby surfaces more strongly. The effect uses screen-space samples.
 
 ### Mesh history in scene files (23/11/2026, #209)
 
@@ -4343,7 +4349,7 @@ Not done:
 
 ### Script Editor chrome (24/11/2026)
 
-The floating Script Editor window follows Autodesk Maya 2026.3's: the File, Edit, History, Command, Tabs and Help menus
+The floating Script Editor window follows the reference's (2026.3): the File, Edit, History, Command, Tabs and Help menus
 with the reference's items, order, separators, tick and radio states, shortcuts and tear-off strips; the toolbar's
 fourteen icon buttons in the reference's four groups, the search field with Search down and Search up, and the goto
 line field with Go, at the reference's 23 pixel buttons, drawn icons, enabled and ticked states (Show line numbers
@@ -4357,88 +4363,45 @@ the tab strip's context menu is the reference's.
 The scroll bars are the reference's 8 pixel groove, bordered handle and triangle arrows. The Source Type and Rename
 Tab prompts take the reference's buttons.
 Not done: the history output filter (Show Both, Show MEL Only, Show Python Only) is stored but the history is not
-filtered by language; Command Completion, Object Path Completion, Show Tooltip Help and Show quick help are greyed
-because the editor has no completion, so the Quick Help side bar they would show is not built; the MEL tab icon is
-drawn from the reference's file name, as the reference's `mel_tab.png` is not on disk.
+filtered by language; Command Completion is implemented (see Script Editor completion below); Object Path Completion,
+Show Tooltip Help and Show quick help are greyed because there is no object path index and no Quick Help side bar; the
+MEL tab icon is drawn from the reference's file name, as the reference's `mel_tab.png` is not on disk.
 
-### The Attribute Editor's live data (25/11/2026)
+### Script Editor completion (25/11/2026)
 
-![The Attribute Editor showing live values](docs/attribute-editor-live.png)
+Command > Command Completion is a checkable item, off by default, kept in QSettings as
+`scriptEditor/commandCompletion`. With it on, the input pane opens a completion popup at the caret, as specified in
+docs/SCRIPT_EDITOR_COMPLETION.md: rows of 18 pixels in the editor's monospace font, the editor's selection blue, an
+icon and a category per row, a signature and one-line description under the list, and an argument hint above it whose
+current parameter follows the commas typed. Up, Down, Page Up and Page Down move; Enter or Tab accepts; Escape
+dismisses; the wheel scrolls; hovering selects and a click accepts. Filtering is a case-insensitive prefix,
+camel-case initials (`pc` finds `polyCube`) and then a substring, ranked by best match and not rebuilt from the host.
+This is Aztek's own behaviour: the reference has no command completion to follow.
 
-Every tab is built from the node itself. `query::attribute_editor` reads each node's attributes with their live values,
-plugs, limits, enum names, connection sources and lock state, and the tab list, focus path and name from the scene.
-The panel rebuilds whenever `Host::sceneChanged` fires, which its 50 ms poll of the scene's version does after a script,
-a Channel Box edit, a manipulator release, a frame change during playback, undo or redo. A tab that was hidden refreshes
-when it is shown. So a translate written in the Channel Box appears in the transform tab, a keyed value appears at the
-played frame, and an undo puts the old value back; all of these were run against the built app.
+The index is built once from the host. It carries the 1706 commands Aztek registers, each with its positional help and
+its long and short flags, their types, help, arity and choices; 1270 MEL procedures (the bundled scripts' own and the session's, the latter re-read as the list is prepared so a new
+one appears without reopening the panel); and 184 MEL built-in functions. MEL flags appear after `command ` and after `-`, long form
+then short form in the registry's order, filtered by either name. A command or procedure completes at the start of a
+statement, after `;`, and after `=`, `(`, `[`, `{`, `,` or a backtick, so assignments and backtick calls complete as
+they do at the prompt. `maya.` offers the shipped modules, `maya.api.`
+offers its four API modules, `maya.cmds.` offers the command registry (the nine MEL-only commands greyed, as `maya.cmds` has no functions for them),
+`maya.mel.` offers `eval` because that is all the module has, and `maya.OpenMaya.` and `maya.api.OpenMaya.` offer the API's classes. A class's members, inherited
+ones included, are loaded from the embedded module on first use and kept; a class entry shows the constructor
+signature. A command after `(` offers its flags as Python keyword arguments with the argument hint. Import aliases
+(`import maya.cmds as mc`, `from maya.api import OpenMaya as om`) resolve. A module Aztek ships but that has no
+content is listed greyed with "Empty package in Aztek"; nothing absent from the registries is offered.
 
-Writes go back to the plug:
-- A numeric field commits on Enter or focus loss, clamps to the attribute's hard minimum and maximum when it has them,
-  and sets the plug through `setAttr`; one change is one undo step. Compound vectors write their child plugs, and
-  colours write their three components.
-- Sliders write while the handle moves and again on release. Press and release open and close one undo chunk, so a
-  whole drag is one undo step (checked: a blend shape weight drag undoes from 0.7 back to 0.35 in one undo).
-- Checkboxes, option menus, the limit enable boxes, the colour slider and the colour dialog write their plugs. The
-  light Type menu runs `aztekChangeLightType`, keeps the new shape selected and the tab follows it; Illuminates by
-  Default writes the light set. The poly primitives' Create UVs menu reads its real enum names and writes the chosen
-  index (checked: Cube "Normalize Collectively" at 1, then index 2 in the scene).
-- Limit rows read the compound `minRotLimit`/`maxRotLimit` and write the child plugs (`minRotXLimit` and its enable);
-  the current value follows the rotate component. Tested on a joint: the minimum reached 10 and the enable turned on.
-- The UUID frame reads the node's own UUID, and the Offset Parent Matrix control shows its sixteen live values and
-  writes them back as sixteen numbers (tested: its first value reached the scene and read back). A light's shadow
-  rows use the real `useMidDistDmap`, `useDmapAutoFocus`, `volumeShadowSamples`, `dmapSceneName`, `dmapLightName` and
-  `dmapFrameExt` attributes, so they read and write rather than sitting greyed.
-- Texture buttons still open Create Render Node; the map button on a connected attribute selects its source.
+Not done: object path completion (no index exists); completion inside a multi-line expression that continued on an
+earlier line; type inference for an arbitrary expression before a dot, so only modules, classes, import aliases and
+command names resolve; docstrings for most API members, which Aztek's modules do not carry, so their signatures show
+without a description; and commands or Python modules a plug-in registers after the panel's index was built, which
+appear when the Script Editor is reopened (the session's MEL procedures are re-read as the command list is prepared). `maya.mel` itself has only `eval`. The Python API's class list and signatures come from
+the embedded modules, not a hand-written list: 100 classes in `maya.api.OpenMaya`, 99 in `maya.OpenMaya`, and 385
+class records across the shipped API modules.
 
-Tabs switch to the node they name. A node without a template of its own uses the generic sections and Extra Attributes
-with its real values (a `reverse` utility showed its input X, Y and Z from the scene). Deleting a node removes its tab;
-renaming a node changes its tab. The name row shows the node type, the node's name as real text in its field with the
-full path in its tooltip, and connection arrows that carry the connected path and select it. Clicking the name field
-selects the whole name, Enter renames the node, and Escape puts the old name back; a rename the scene refuses (a
-default node such as `lambert1`) leaves the field and the scene on the real name.
+### What changed (25/11/2026, #297)
 
-Every field wears the Channel Box's field colours: the `@base` background, `@text` text and `@hi` selection, with no
-bevel. Read-only values (`:read-only`) take a darker field, disabled ones darker still; a connected value is yellow, a
-keyed one red and a locked one the button grey, as the Channel Box marks its channels. Checkboxes, menus, sliders and
-buttons keep their own look.
-
-Sections keep the user's own open state, and every tab its scroll position, per node and per section. Opening Pivots,
-Limit Information and Display held through a checkbox edit, a text edit, undo and redo, a rename, a script's
-`setAttr`, a tab switch, and a collapse stayed collapsed through the same changes. The state is keyed by the node's
-UUID (so a rename keeps it) and by the nested section path; the model carries the same state in its section headers, and
-the template only supplies how a section starts. The scroll bar's saved value is put back after the page rebuilds,
-after the focused field has tried to scroll it, without overwriting the position the user left. The built app's check is
-`tools/ui_checks/attribute_editor_sections.py`: it expands three sections, scrolls the page, edits a checkbox and a
-text value, undoes and redoes, renames the node, switches tabs and collapses a section, and exits 0 only when every
-section and the scroll position came back.
-
-Evidence is in `crates/aztek_host/tests/attribute_editor_live.rs`: the values are live and undo returns the old one,
-the UUID and offset parent matrix come from the node, a rename moves the tab, a primitive's Create UVs carries its
-names and value, and a light type change keeps the new shape selected. The sections, scroll, name field and field
-colours are checked in the built app by `tools/ui_checks/attribute_editor_sections.py`. The manual runs behind the screenshots covered a translate field, rotate child, joint radius, scale
-and blend weight sliders, Visibility, Template, Use Outliner Color and Draw Label checkboxes, Inherits Transform,
-rotate order, Create UVs, light intensity, colour and type, camera focal length, limit fields and enables, undo and
-redo, a time change, and a generic `reverse` tab.
-
-Still not binding, honestly:
-- Controls with no Aztek attribute stay disabled. Numeric fields are empty; menus and checkboxes hold the template's
-  placeholder rather than a scene value, so they are not live data and cannot be written. This covers the world
-  pivots, Show Manip Default, Manip History Node, most of the mesh component display, tessellation, smooth mesh
-  subdiv controls, DQS and relative-space skin values, disk-based depth maps, the camera's Angle of View and film
-  rolls, NURBS advanced tessellation, component tags and the sculpt's advanced maps.
-- A material's Type list is disabled: Aztek has no command to change a material's type. A light's Type is live.
-- `Load Selected Attributes`, the Show filters, Show View Labels and Show Color Managed Pots are greyed with no
-  feature behind them; Help has no local pages.
-- skinCluster's related history and bind pose tabs are not tabified with it, and Manage Deformed Geometry's add and
-  remove entries are greyed. blendShape in-betweens have no sliders or markers, target management is absent, and
-  Support Negative Weights is greyed.
-- The mesh Deformation frame does not list a deformer chain; a NURBS curve has no Components table.
-- A tab's right-click menu is not built. Reorder and tear-off are wired in the tab bar but were not exercised against
-  the reference; their order is not saved and a torn-off window keeps none.
-- Attribute Names' Short mode shows long names, as no short names are kept; Long changes template layouts only, not
-  the generic material rows'.
-- The sample sphere and light sample are drawn, not rendered with the material or light.
-- While a field is being typed in or a slider is held, the panel waits for the edit to finish before rebuilding, so a
-  scene change made in that moment shows afterwards, not during it. A panel behind another dock refreshes when shown.
-- The name field is intentionally empty (the node name is its placeholder), long names elide at the left, and the
-  dock's own title bar remains as Aztek's panel chrome.
+The viewport grid is drawn after the solid geometry and tested against its depth, as the reference draws it: where an
+object passes through the grid, the lines in front of the surface show and the ones behind it are hidden, so it is
+easy to see where the object crosses the ground plane. Before, the grid was drawn first and every solid surface covered
+it. See-through materials still draw after the grid. `tools/ui_checks/grid_depth.py` checks it in the built app.

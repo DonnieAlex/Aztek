@@ -146,3 +146,38 @@ fn layers_paths_and_weights_survive_a_save() {
     mel(&mut c, "currentTime 11;");
     assert_eq!(number(&mel(&mut c, "getAttr pTorus1.tx;")), 10.0);
 }
+
+#[test]
+fn selected_layer_weight_keys_reach_the_animation_editors() {
+    // #290: picking a layer in the Anim tab leaves the cube selected in the scene.
+    let mut c = Core::new();
+    mel(&mut c, "polyCube;");
+    mel(&mut c, "animLayer -aso L1;");
+    mel(&mut c, "animLayer -e -sel 1 -prf 1 L1;");
+    mel(&mut c, "setKeyframe -t 12 -v 0.2 L1.weight;");
+    assert_eq!(mel(&mut c, "timeControl -q -sk;"), json!("active"));
+    assert_eq!(mel(&mut c, "timeControl -q -asw;"), json!(true));
+    let g = &c.s.graph;
+    assert!(aztek_scene::anim::key_times(g, g.selection()).is_empty());
+    let ticks = mel(&mut c, "keyTimes;");
+    let graph = aztek_host::query::anim_curves(&c, "1:0:1");
+    let weight = graph["objects"].as_array().unwrap().iter()
+        .find(|object| object["node"] == "L1")
+        .map(|object| &object["curves"][0]);
+    assert_eq!(ticks, json!([12.0]));
+    let weight = weight.expect("selected layer weight curve");
+    assert_eq!(weight["channel"], "weight");
+    assert_eq!(weight["keys"][0][0], 12.0);
+    assert_eq!(weight["keys"][0][1], 0.2);
+    assert_eq!(aztek_host::query::anim_curves(&c, "1:0:1:hideLayerWeight")["objects"], json!([]));
+
+    let g = &c.s.graph;
+    let curves: Vec<_> = aztek_scene::anim::slider_curves(g, g.selection()).into_iter().map(|id| g.path(id)).collect();
+    c.exec("keyframe", json!({"args": curves, "edit": true, "time": "12:12", "relative": true, "timeChange": 3})).unwrap();
+    assert_eq!(mel(&mut c, "keyTimes;"), json!([15.0]));
+
+    mel(&mut c, "timeControl -e -asw 0;");
+    assert_eq!(mel(&mut c, "keyTimes;"), json!([]));
+    mel(&mut c, "animLayer -e -sel 0 -prf 0 L1;");
+    assert_eq!(aztek_host::query::anim_curves(&c, "1:0:1")["objects"], json!([]));
+}
