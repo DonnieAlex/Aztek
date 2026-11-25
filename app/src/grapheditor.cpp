@@ -603,7 +603,7 @@ GraphEditor::GraphEditor(QWidget* parent) : QWidget(parent) {
     tree_->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(tree_, &QTreeWidget::customContextMenuRequested, this, [this](const QPoint& pos) {
         QMenu menu;
-        auto* weight = menu.addMenu("Display")->addMenu("Animation Layers Filter")->addAction("Show Layer Weight");
+        auto* weight = menu.addMenu("Animation Layers Filter")->addAction("Show Layer Weight");
         weight->setCheckable(true);
         weight->setChecked(show_layer_weight_);
         connect(weight, &QAction::toggled, this, [this](bool on) {

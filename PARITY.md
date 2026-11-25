@@ -988,8 +988,9 @@ Nothing here has been compared with a running copy of the reference. The layout 
 - Keys: Selected, Last Active and Hybrid (default) modes (`animLayerOptions -km`), preferred first. With no layer selected a key now goes to the last active layer holding the channel, not the base, as the guide says of Hybrid. `setKeyframe -identity` is the Zero Key. A layered rotate keyed as it stands is solved once for its three axes.
 - `animLayerMerge` (also `mergeAnimLayers`): `-mergeTo`, `-includeChildren`, `-resultLayerMode`, `-deleteBaked`, `-sampleBy`, `-smart`, `-fidelity`. `bakeResults -dl -bol -ral -rba -rwl`; by default baked layers are muted, as its page says.
 - `layerEditorExtractObjects`, `layerEditorExtractNonLayered`, `layerEditorSelectObjects`, `layerEditorCopyLayer`, `layerEditorEmpty`, `layerEditorDeleteEmpty`, `layerEditorMoveToNewLayer`: what the menus do by the guide. These names are ours.
-- On 25/11/2026 (#290), selected layers' keyed weights appear in the Graph Editor and Dope Sheet. Use Show Layer
-  Weight under the Time Slider's Display Key Ticks menu to see and move their ticks.
+- On 25/11/2026 (#290), selected layers' keyed weights appear in the Graph Editor and Dope Sheet, and as ticks on the
+  Time Slider that can be moved there. Show Layer Weight is on by default, as in the reference: Display Key Ticks in
+  the Time Slider's menu, Animation Layers Filter in the Graph Editor outliner's right-click menu (#293).
 - Anim tab: the stack with active and affected dots, M S L G, weight slider with its key state, K, Zero Key, Weight Key, Layers, Options and Show menus, the same menu on right click, drag between rows to reorder and onto a row to parent. Channels in a layer with nothing to key on the active layer are tinted. Graph Editor and Dope Sheet list a curve per layer by the Show filter; the Time Slider shows the active and selected layers' keys.
 - `.ma`: a layered scene saved by the reference read and written again keeps all 5061 layer connections, 616 blends and 1540 layer curves, indices of `.bnds` aside.
 
