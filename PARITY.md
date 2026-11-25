@@ -4475,7 +4475,7 @@ guides stay over the finished picture.
 ### Reflection filtering and the two tiers (25/11/2026, #302)
 
 The reflection image is low-passed over three pixels and then copied down a six-level mip chain. The composite picks a
-level from the surface's roughness and gathers a fixed 8-tap disc inside the ray's footprint, with a three pixel
+level from the surface's roughness and gathers a fixed 8-tap disc inside the ray's footprint, with an eight pixel
 minimum, clamping each tap at 8 and hashing the pixel for its offset rather than the frame. The metal roughness
 sweep's floor went from a grid of bright texels that shimmered while orbiting to soft blobs that are steady idle or
 moving.
@@ -4488,6 +4488,7 @@ back. The reflections example's key is a directional light: a point light close 
 seam across it, which read as a second reflection.
 
 What still differs from the Render View: the viewport's planar reflection of the standing spheres is smaller and
-sharper than the render's soft full reflection; the HDRI scene's sky is still not drawn as the viewport's background;
+sharper than the render's soft full reflection, and away from the shot camera it can sit offset from the sphere
+rather than under it; the HDRI scene's sky is still not drawn as the viewport's background;
 and a point light near a large floor can still show a cube shadow seam. The new captures are in
 `examples/rendering/reference` and `examples/rendering/viewport`.

@@ -512,8 +512,8 @@ vec3 reflection_at(ivec2 at, float d) {
     if (d <= 0.0) return textureLod(sampler2D(t_refl_soft, s_refl), uv, 0.0).rgb;
     // The mip chain is the filtered copy: one bright texel of a mirrored highlight is spread over the level the
     // roughness asks for, so a rough gather is smooth and a mirror stays a mirror.
-    float radius = clamp(rough * rough * 120.0, 3.0, 32.0);
-    float lod = clamp(log2(radius), 1.0, 5.0);
+    float radius = clamp(rough * rough * 120.0, 8.0, 32.0);
+    float lod = clamp(log2(radius), 3.0, 5.0);
     float z = -point_at(vec2(at) + 0.5, d).z;
     vec3 base = clamp(textureLod(sampler2D(t_refl_soft, s_refl), uv, lod).rgb, vec3(0.0), vec3(8.0));
     vec3 sum = base;
@@ -1113,7 +1113,7 @@ fn refracted(i: [f32; 3], n: [f32; 3], eta: f32) -> Option<[f32; 3]> {
 /// The radius in pixels a roughness blurs a reflection over, as `reflection_at` gathers it.
 #[cfg(test)]
 fn roughness_pixels(rough: f32) -> f32 {
-    (rough * rough * 120.0).clamp(3.0, 32.0)
+    (rough * rough * 120.0).clamp(8.0, 32.0)
 }
 
 /// How much a surface is the ground plane's reflection, as `planar_at`: 1 flat on the ground, 0 upright or off it.
@@ -1213,16 +1213,16 @@ mod tests {
 
     #[test]
     fn a_rougher_metal_blurs_its_reflection_more() {
-        assert_eq!(roughness_pixels(0.02), 3.0);
+        assert_eq!(roughness_pixels(0.02), 8.0);
         assert!(roughness_pixels(0.1) < roughness_pixels(0.2));
         assert!(roughness_pixels(0.2) < roughness_pixels(0.5));
         assert_eq!(roughness_pixels(1.0), 32.0);
         // The composite's gather is the same radius, with at least a pixel and a half at any roughness.
-        assert!(COMPOSITE_MAIN.contains("float radius = clamp(rough * rough * 120.0, 3.0, 32.0);"));
+        assert!(COMPOSITE_MAIN.contains("float radius = clamp(rough * rough * 120.0, 8.0, 32.0);"));
         // The gather reads the filtered copy at a level that follows the roughness, and clamps bright taps.
         assert!(COMPOSITE_MAIN.contains("textureLod(sampler2D(t_refl_soft, s_refl)"));
         assert!(COMPOSITE_MAIN.contains("vec3(0.0), vec3(8.0)"));
-        assert!((reflection_lod(0.02) - 1.585).abs() < 1e-2);
+        assert!((reflection_lod(0.02) - 3.0).abs() < 1e-2);
         assert!(reflection_lod(0.2) < reflection_lod(0.5));
         assert_eq!(reflection_lod(1.0), 5.0);
     }
