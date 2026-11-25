@@ -217,6 +217,20 @@ pub struct Gpu {
     pub scene_view: vk::ImageView,
     pub scene_alloc: Option<Allocation>,
     pub scene_framebuffer: vk::Framebuffer,
+    /// The pass the view's guides are drawn in after the scene (#300): the gates, the heads up display, the ViewCube,
+    /// the marquee. It has the scene pass's attachments, so the scene's pipelines draw in it, but its colour starts clear
+    /// and resolves into `overlay_image`, which the post pass lays over the finished picture. Depth of field, ambient
+    /// occlusion and bounce light never see it; anti-aliasing still does.
+    pub overlay_pass: vk::RenderPass,
+    pub overlay_image: vk::Image,
+    pub overlay_view: vk::ImageView,
+    pub overlay_alloc: Option<Allocation>,
+    /// Where the overlay pass resolves the surface colour it doesn't draw, with several samples: the scene's own
+    /// surface colour is left as the scene pass resolved it.
+    pub overlay_spare_image: vk::Image,
+    pub overlay_spare_view: vk::ImageView,
+    pub overlay_spare_alloc: Option<Allocation>,
+    pub overlay_framebuffer: vk::Framebuffer,
     /// The surface's own colour, before any light, at one sample a pixel: what bounce light picks up as it leaves.
     /// Drawn through `albedo_msaa_image` when multisampled. Only the Realtime renderer writes it; elsewhere it stays 0.
     pub albedo_image: vk::Image,
@@ -267,7 +281,8 @@ impl Gpu {
             .unwrap_or(&formats[0])
             .format;
         let samples = sample_count(&shared, wanted_samples());
-        let render_pass = scene_pass(&device, samples)?;
+        let render_pass = scene_pass(&device, samples, false)?;
+        let overlay_pass = scene_pass(&device, samples, true)?;
         // The post pass: one colour attachment, the window's image, written whole.
         let post_att = [vk::AttachmentDescription::default()
             .format(format)
@@ -329,6 +344,14 @@ impl Gpu {
             scene_view: vk::ImageView::null(),
             scene_alloc: None,
             scene_framebuffer: vk::Framebuffer::null(),
+            overlay_pass,
+            overlay_image: vk::Image::null(),
+            overlay_view: vk::ImageView::null(),
+            overlay_alloc: None,
+            overlay_spare_image: vk::Image::null(),
+            overlay_spare_view: vk::ImageView::null(),
+            overlay_spare_alloc: None,
+            overlay_framebuffer: vk::Framebuffer::null(),
             albedo_image: vk::Image::null(),
             albedo_view: vk::ImageView::null(),
             albedo_alloc: None,
@@ -368,6 +391,23 @@ impl Gpu {
             if self.scene_framebuffer != vk::Framebuffer::null() {
                 self.device.destroy_framebuffer(self.scene_framebuffer, None);
                 self.scene_framebuffer = vk::Framebuffer::null();
+            }
+            if self.overlay_framebuffer != vk::Framebuffer::null() {
+                self.device.destroy_framebuffer(self.overlay_framebuffer, None);
+                self.overlay_framebuffer = vk::Framebuffer::null();
+            }
+            for (view, image, alloc) in [
+                (&mut self.overlay_view, self.overlay_image, &mut self.overlay_alloc),
+                (&mut self.overlay_spare_view, self.overlay_spare_image, &mut self.overlay_spare_alloc),
+            ] {
+                if *view != vk::ImageView::null() {
+                    self.device.destroy_image_view(*view, None);
+                    self.device.destroy_image(image, None);
+                    if let Some(a) = alloc.take() {
+                        let _ = self.shared.allocator.lock().unwrap().free(a);
+                    }
+                    *view = vk::ImageView::null();
+                }
             }
             if self.bounce_framebuffer != vk::Framebuffer::null() {
                 self.device.destroy_framebuffer(self.bounce_framebuffer, None);
@@ -597,6 +637,21 @@ impl Gpu {
                 &vk::FramebufferCreateInfo::default().render_pass(self.render_pass).attachments(&att).width(extent.width).height(extent.height).layers(1),
                 None,
             )?;
+            // The guides' own colour, laid over the picture by the post pass (#300).
+            let (image, view, alloc) = self.color_image("overlay", SCENE_FORMAT, vk::SampleCountFlags::TYPE_1, vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED, extent)?;
+            (self.overlay_image, self.overlay_view, self.overlay_alloc) = (image, view, Some(alloc));
+            let att: Vec<vk::ImageView> = if multi {
+                let (image, view, alloc) = self.color_image("overlay spare", ALBEDO_FORMAT, vk::SampleCountFlags::TYPE_1, vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED, extent)?;
+                (self.overlay_spare_image, self.overlay_spare_view, self.overlay_spare_alloc) = (image, view, Some(alloc));
+                // The scene's multisampled colour is done with once it is resolved: the guides draw into it afresh.
+                vec![self.msaa_view, self.depth_view, self.overlay_view, self.albedo_msaa_view, self.overlay_spare_view]
+            } else {
+                vec![self.overlay_view, self.depth_view, self.albedo_view]
+            };
+            self.overlay_framebuffer = self.device.create_framebuffer(
+                &vk::FramebufferCreateInfo::default().render_pass(self.overlay_pass).attachments(&att).width(extent.width).height(extent.height).layers(1),
+                None,
+            )?;
             self.ao_image = self.device.create_image(
                 &vk::ImageCreateInfo::default()
                     .image_type(vk::ImageType::TYPE_2D)
@@ -771,7 +826,30 @@ impl Gpu {
         Some(index)
     }
 
-    /// Ends the scene pass and begins the one that works out the occlusion from its depth.
+    /// Ends the scene pass and begins the overlay pass: the view's guides are drawn from here until `begin_occlusion`,
+    /// onto a clear layer with the scene's depth, so the post effects leave them as they are (#300).
+    pub fn begin_overlay(&mut self) {
+        unsafe {
+            self.device.cmd_end_render_pass(self.cmd);
+            let none = vk::ClearValue { color: vk::ClearColorValue { float32: [0.0; 4] } };
+            let depth = vk::ClearValue { depth_stencil: vk::ClearDepthStencilValue { depth: 0.0, stencil: 0 } };
+            let clears = [none, depth, none, none, none];
+            let clears = if self.samples == vk::SampleCountFlags::TYPE_1 { &clears[..3] } else { &clears[..] };
+            self.device.cmd_begin_render_pass(
+                self.cmd,
+                &vk::RenderPassBeginInfo::default()
+                    .render_pass(self.overlay_pass)
+                    .framebuffer(self.overlay_framebuffer)
+                    .render_area(vk::Rect2D { offset: vk::Offset2D::default(), extent: self.extent })
+                    .clear_values(clears),
+                vk::SubpassContents::INLINE,
+            );
+            self.device.cmd_set_viewport(self.cmd, 0, &[vk::Viewport { x: 0.0, y: 0.0, width: self.extent.width as f32, height: self.extent.height as f32, min_depth: 0.0, max_depth: 1.0 }]);
+            self.device.cmd_set_scissor(self.cmd, 0, &[vk::Rect2D { offset: vk::Offset2D::default(), extent: self.extent }]);
+        }
+    }
+
+    /// Ends the scene pass (or the overlay pass after it) and begins the one that works out the occlusion from its depth.
     pub fn begin_occlusion(&mut self) {
         unsafe {
             self.device.cmd_end_render_pass(self.cmd);
@@ -835,8 +913,10 @@ impl Gpu {
         unsafe {
             self.device.wait_for_fences(&[self.fence], true, u64::MAX)?;
             self.device.queue_wait_idle(self.queue)?;
-            let pass = scene_pass(&self.device, samples)?;
+            let pass = scene_pass(&self.device, samples, false)?;
             self.retired_passes.push(std::mem::replace(&mut self.render_pass, pass));
+            let pass = scene_pass(&self.device, samples, true)?;
+            self.retired_passes.push(std::mem::replace(&mut self.overlay_pass, pass));
         }
         self.samples = samples;
         let e = self.extent;
@@ -949,6 +1029,7 @@ impl Drop for Gpu {
             self.device.destroy_fence(self.fence, None);
             self.device.destroy_command_pool(self.pool, None);
             self.device.destroy_render_pass(self.render_pass, None);
+            self.device.destroy_render_pass(self.overlay_pass, None);
             for p in self.retired_passes.drain(..) {
                 self.device.destroy_render_pass(p, None);
             }
@@ -971,8 +1052,10 @@ pub fn color_range() -> vk::ImageSubresourceRange {
 }
 
 /// The pass the scene is drawn in, for a sample count: colour and depth at that count, resolved into the scene's image
-/// when it is more than one.
-unsafe fn scene_pass(device: &ash::Device, samples: vk::SampleCountFlags) -> Res<vk::RenderPass> {
+/// when it is more than one. With `overlay`, the pass the view's guides are drawn in after it (#300): the same
+/// attachments, so any pipeline made for the one draws in the other, but its colour starts clear, the scene's depth is
+/// kept, and the single-sample surface colour is loaded and left as it was.
+unsafe fn scene_pass(device: &ash::Device, samples: vk::SampleCountFlags, overlay: bool) -> Res<vk::RenderPass> {
         let multi = samples != vk::SampleCountFlags::TYPE_1;
         // With several samples: draw into a multisampled image (0) with depth (1), resolved into the scene image (2).
         let mut attachments = vec![
@@ -986,10 +1069,10 @@ unsafe fn scene_pass(device: &ash::Device, samples: vk::SampleCountFlags) -> Res
             vk::AttachmentDescription::default()
                 .format(DEPTH_FORMAT)
                 .samples(samples)
-                .load_op(vk::AttachmentLoadOp::CLEAR)
+                .load_op(if overlay { vk::AttachmentLoadOp::LOAD } else { vk::AttachmentLoadOp::CLEAR })
                 // Kept: the post pass reads the depth for ambient occlusion.
                 .store_op(vk::AttachmentStoreOp::STORE)
-                .initial_layout(vk::ImageLayout::UNDEFINED)
+                .initial_layout(if overlay { vk::ImageLayout::DEPTH_STENCIL_READ_ONLY_OPTIMAL } else { vk::ImageLayout::UNDEFINED })
                 .final_layout(vk::ImageLayout::DEPTH_STENCIL_READ_ONLY_OPTIMAL),
         ];
         let resolved = |format| {
@@ -1004,14 +1087,16 @@ unsafe fn scene_pass(device: &ash::Device, samples: vk::SampleCountFlags) -> Res
         if multi {
             attachments.push(resolved(SCENE_FORMAT));
         }
-        // The surface colour beside the picture: 3 (resolved into 4) with several samples, 2 with one.
+        // The surface colour beside the picture: 3 (resolved into 4) with several samples, 2 with one. The overlay pass
+        // keeps the single-sample one as the scene left it; with several, it resolves into a spare image of its own.
+        let keep = overlay && !multi;
         attachments.push(
             vk::AttachmentDescription::default()
                 .format(ALBEDO_FORMAT)
                 .samples(samples)
-                .load_op(vk::AttachmentLoadOp::CLEAR)
+                .load_op(if keep { vk::AttachmentLoadOp::LOAD } else { vk::AttachmentLoadOp::CLEAR })
                 .store_op(if multi { vk::AttachmentStoreOp::DONT_CARE } else { vk::AttachmentStoreOp::STORE })
-                .initial_layout(vk::ImageLayout::UNDEFINED)
+                .initial_layout(if keep { vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL } else { vk::ImageLayout::UNDEFINED })
                 .final_layout(if multi { vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL } else { vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL }),
         );
         if multi {
@@ -1035,12 +1120,17 @@ unsafe fn scene_pass(device: &ash::Device, samples: vk::SampleCountFlags) -> Res
             sp = sp.resolve_attachments(&resolve_ref);
         }
         let subpass = [sp];
+        // The same for both passes, so they stay compatible: what came before (the shadow map, or the scene pass before
+        // the overlay's) has finished writing colour and depth.
         let dep = [vk::SubpassDependency::default()
             .src_subpass(vk::SUBPASS_EXTERNAL)
             .dst_subpass(0)
-            .src_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS)
-            .dst_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS)
-            .dst_access_mask(vk::AccessFlags::COLOR_ATTACHMENT_WRITE | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE)];
+            .src_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS | vk::PipelineStageFlags::LATE_FRAGMENT_TESTS)
+            .dst_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT | vk::PipelineStageFlags::EARLY_FRAGMENT_TESTS | vk::PipelineStageFlags::LATE_FRAGMENT_TESTS)
+            .src_access_mask(vk::AccessFlags::COLOR_ATTACHMENT_WRITE | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE)
+            .dst_access_mask(
+                vk::AccessFlags::COLOR_ATTACHMENT_READ | vk::AccessFlags::COLOR_ATTACHMENT_WRITE | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_READ | vk::AccessFlags::DEPTH_STENCIL_ATTACHMENT_WRITE,
+            )];
         Ok(device.create_render_pass(&vk::RenderPassCreateInfo::default().attachments(&attachments).subpasses(&subpass).dependencies(&dep), None)?)
 }
 

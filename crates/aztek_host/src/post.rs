@@ -1,6 +1,7 @@
 //! What happens to a view's picture between the scene being drawn and the window showing it: ambient occlusion and
 //! bounce light from the depth and colour the scene left. One full-screen pass works those out; another reads them with
-//! the scene's colour and writes the window's image, with the camera's depth of field when the view asks for it.
+//! the scene's colour and writes the window's image, with the camera's depth of field when the view asks for it. The
+//! view's guides (gates, heads up display, ViewCube) are drawn on a layer of their own and laid over that last (#300).
 
 use ash::vk;
 use glam::Mat4;
@@ -28,6 +29,8 @@ layout(set = 0, binding = 1) uniform DEPTH_TEXTURE t_depth;
 layout(set = 0, binding = 2) uniform sampler s_point;
 layout(set = 0, binding = 3) uniform texture2D t_open;
 layout(set = 0, binding = 5) uniform texture2D t_albedo;
+// The view's guides, drawn after the scene onto a clear layer, premultiplied by their alpha (#300).
+layout(set = 0, binding = 6) uniform texture2D t_overlay;
 layout(push_constant) uniform P {
     // Clip space back to the camera's.
     mat4 inv_proj;
@@ -337,6 +340,13 @@ float blur_at(float z) {
     return min(pp.dof.x * abs(1.0 / z - pp.dof.y), pp.dof.z);
 }
 
+// The finished picture with the guides laid over it: the gates, the heads up display, the ViewCube and the rest
+// stay as sharp and as bright as they were drawn, whatever the depth of field and the lighting did underneath (#300).
+vec4 with_guides(vec3 picture, ivec2 at) {
+    vec4 g = texelFetch(sampler2D(t_overlay, s_point), at, 0);
+    return vec4(clamp(g.rgb + picture * (1.0 - clamp(g.a, 0.0, 1.0)), 0.0, 1.0), 1.0);
+}
+
 void main() {
     vec2 c = floor(gl_FragCoord.xy) + 0.5;
     vec3 here = picture(c);
@@ -344,7 +354,7 @@ void main() {
     vec3 color = display_color(at);
     float d = depth_at(c);
     if (pp.dof.z < 1.0 || !blurs(at, color, d)) {
-        o = vec4(here, 1.0);
+        o = with_guides(here, at);
         return;
     }
     // Gathered along a spiral out to the widest blur. A pixel counts where its own blur reaches this one; one behind
@@ -377,7 +387,7 @@ void main() {
         angle += 2.39996323;
         r += spacing / r;
     }
-    o = vec4(sum / total, 1.0);
+    o = with_guides(sum / total, at);
 }
 "#;
 
@@ -479,10 +489,11 @@ impl Post {
                 vk::DescriptorSetLayoutBinding::default().binding(3).descriptor_type(vk::DescriptorType::SAMPLED_IMAGE).descriptor_count(1).stage_flags(vk::ShaderStageFlags::FRAGMENT),
                 vk::DescriptorSetLayoutBinding::default().binding(4).descriptor_type(vk::DescriptorType::UNIFORM_BUFFER).descriptor_count(1).stage_flags(vk::ShaderStageFlags::FRAGMENT),
                 vk::DescriptorSetLayoutBinding::default().binding(5).descriptor_type(vk::DescriptorType::SAMPLED_IMAGE).descriptor_count(1).stage_flags(vk::ShaderStageFlags::FRAGMENT),
+                vk::DescriptorSetLayoutBinding::default().binding(6).descriptor_type(vk::DescriptorType::SAMPLED_IMAGE).descriptor_count(1).stage_flags(vk::ShaderStageFlags::FRAGMENT),
             ];
             let set_layout = d.create_descriptor_set_layout(&vk::DescriptorSetLayoutCreateInfo::default().bindings(&bindings), None).unwrap();
             let sizes = [
-                vk::DescriptorPoolSize::default().ty(vk::DescriptorType::SAMPLED_IMAGE).descriptor_count(16),
+                vk::DescriptorPoolSize::default().ty(vk::DescriptorType::SAMPLED_IMAGE).descriptor_count(24),
                 vk::DescriptorPoolSize::default().ty(vk::DescriptorType::SAMPLER).descriptor_count(4),
                 vk::DescriptorPoolSize::default().ty(vk::DescriptorType::UNIFORM_BUFFER).descriptor_count(4),
             ];
@@ -549,7 +560,7 @@ impl Post {
 
     /// Points the sets at the scene's images. Call with no frame in flight (before the frame draws).
     pub fn bind_images(&self, gpu: &Gpu) {
-        if gpu.scene_view == vk::ImageView::null() {
+        if gpu.scene_view == vk::ImageView::null() || gpu.overlay_view == vk::ImageView::null() {
             return;
         }
         // Written each frame: a view remade at another size can come back under the handle the old one had.
@@ -559,6 +570,7 @@ impl Post {
         let open = [vk::DescriptorImageInfo::default().image_view(gpu.ao_view).image_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)];
         let bounced = [vk::DescriptorImageInfo::default().image_view(gpu.bounce_view).image_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)];
         let albedo = [vk::DescriptorImageInfo::default().image_view(gpu.albedo_view).image_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)];
+        let overlay = [vk::DescriptorImageInfo::default().image_view(gpu.overlay_view).image_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)];
         let params = [vk::DescriptorBufferInfo::default().buffer(self.params.buffer).offset(0).range(std::mem::size_of::<PostParams>() as u64)];
         let mut writes = Vec::new();
         for (set, last) in [(self.set, &open), (self.ao_set, &color), (self.bounce_set, &open), (self.bounced_set, &bounced)] {
@@ -568,6 +580,7 @@ impl Post {
             writes.push(vk::WriteDescriptorSet::default().dst_set(set).dst_binding(3).descriptor_type(vk::DescriptorType::SAMPLED_IMAGE).image_info(last));
             writes.push(vk::WriteDescriptorSet::default().dst_set(set).dst_binding(4).descriptor_type(vk::DescriptorType::UNIFORM_BUFFER).buffer_info(&params));
             writes.push(vk::WriteDescriptorSet::default().dst_set(set).dst_binding(5).descriptor_type(vk::DescriptorType::SAMPLED_IMAGE).image_info(&albedo));
+            writes.push(vk::WriteDescriptorSet::default().dst_set(set).dst_binding(6).descriptor_type(vk::DescriptorType::SAMPLED_IMAGE).image_info(&overlay));
         }
         unsafe { gpu.device.update_descriptor_sets(&writes, &[]) };
     }
@@ -672,6 +685,18 @@ mod tests {
         assert!((p[0] * (1.0 / 5.0 - p[1]) - 0.875 * 0.1 * 500.0).abs() < 1e-3, "{p:?}");
         assert!(p[2] > 0.0);
         assert_eq!(dof_params(proj, &PostSettings::default(), 1000.0, 1000.0), [0.0; 4]);
+    }
+
+    #[test]
+    fn the_guides_go_over_the_finished_picture() {
+        // #300: whatever the picture's last step (sharp, or gathered by the depth of field), the guides' layer goes on
+        // after it, so neither the blur nor the occlusion and bounce light ever reach them.
+        let main = &COMPOSITE_MAIN[COMPOSITE_MAIN.find("void main()").unwrap()..];
+        let outputs: Vec<&str> = main.lines().map(str::trim).filter(|l| l.starts_with("o = ")).collect();
+        assert_eq!(outputs.len(), 2, "{outputs:?}");
+        assert!(outputs.iter().all(|l| l.starts_with("o = with_guides(")), "{outputs:?}");
+        // Nothing before the composite reads the guides' layer.
+        assert!(!AO_MAIN.contains("t_overlay"));
     }
 
     #[test]

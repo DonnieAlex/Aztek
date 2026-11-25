@@ -4405,3 +4405,15 @@ The viewport grid is drawn after the solid geometry and tested against its depth
 object passes through the grid, the lines in front of the surface show and the ones behind it are hidden, so it is
 easy to see where the object crosses the ground plane. Before, the grid was drawn first and every solid surface covered
 it. See-through materials still draw after the grid. `tools/ui_checks/grid_depth.py` checks it in the built app.
+
+### What changed (25/11/2026, #300)
+
+![Before and after](docs/issues/300-guides-over-depth-of-field.png)
+
+The view's guides are drawn on a layer of their own after the scene, and the post pass lays it over the finished
+picture: the film and resolution gates, safe action, the heads up display (camera name, view axis, poly counts and the
+other sections), the ViewCube, the marquee, lasso and brush outlines, the drag readout and the skin weight numbers. Depth
+of field, ambient occlusion, contact shadows and bounce light no longer blur, darken or light them, as the reference
+keeps its HUD and gates on top of its screen effects. They are still anti-aliased: the overlay pass draws at the
+view's sample count and resolves like the scene. Manipulators, handles and the grid are part of the scene and are
+treated as before.
