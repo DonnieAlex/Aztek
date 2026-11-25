@@ -98,57 +98,65 @@ QToolButton#statusHandle:hover { background: @hi; }
 QToolButton#statusHandle:checked { background: @chrome; }
 
 /* The Attribute Editor's chrome, to the reference's own measurements. */
+QMenu#aeMenu { background: @menu; border: 1px solid @border; padding: 2px 0; }
+QMenu#aeMenu::item { padding: 1px 20px 1px 22px; font-size: 11px; color: @text; }
+QMenu#aeMenu::item:selected { background: @hi; color: @hitext; }
+QMenu#aeMenu::item:disabled { color: @disabled; }
+QMenu#aeMenu::separator { height: 1px; background: @chrome; margin: 3px 4px; }
 QWidget#aeMenuBar { background: @window; border: none; }
 QWidget#aeMenuBar QToolButton#aeMenuItem { background: transparent; border: none; padding: 4px 8px; font-size: 11px; color: @text; }
-QWidget#aeMenuBar QToolButton#aeMenuItem:hover { background: @hi; color: #ffffff; }
+QWidget#aeMenuBar QToolButton#aeMenuItem:hover { background: @hi; color: @hitext; }
 QWidget#aeMenuBar QToolButton#aeMenuItem::menu-indicator { image: none; width: 0; }
 QToolButton#aePin { background: transparent; border: none; color: @text; font-size: 13px; padding: 0 4px; }
 QToolButton#aePin:hover { background: @hover; }
-QToolButton#aePin:checked { color: #ffffff; }
+QToolButton#aePin:checked { color: @bright; }
 QTabWidget#aeTabs::pane { border: none; background: @window; top: 0px; }
 QTabWidget#aeTabs QTabBar { background: @window; }
-QTabWidget#aeTabs QTabBar::tab { background: #4a4a4a; color: #c4c4c4; border: 1px solid #2a2a2a; border-bottom: none; padding: 3px 6px; margin-right: 1px; font-size: 11px; min-height: 16px; }
-QTabWidget#aeTabs QTabBar::tab:selected { background: #5d5d5d; color: #f0f0f0; }
-QTabWidget#aeTabs QTabBar::tab:hover { background: #555555; }
+QTabWidget#aeTabs QTabBar::tab { background: @alt; color: @text; border: 1px solid @border; border-bottom: none; padding: 3px 6px; margin-right: 1px; font-size: 11px; min-height: 16px; }
+QTabWidget#aeTabs QTabBar::tab:selected { background: @button; color: @bright; }
+QTabWidget#aeTabs QTabBar::tab:hover { background: @hover; }
 QWidget#aePage { background: @window; }
 QLabel#aeTypeLabel { font-size: 11px; color: @text; }
 QLabel#aeRowLabel { font-size: 11px; color: @text; }
 QLabel#aeDimLabel { font-size: 11px; color: @disabled; }
-QPushButton#aeSmallButton, QToolButton#aeSmallButton { background: #5d5d5d; border: 1px solid #2a2a2a; color: #e6e6e6; font-size: 11px; padding: 0 4px; }
-QPushButton#aeSmallButton:hover, QToolButton#aeSmallButton:hover { background: #6a6a6a; }
-QPushButton#aeSmallButton:pressed, QToolButton#aeSmallButton:pressed { background: #4f4f4f; }
+QPushButton#aeSmallButton, QToolButton#aeSmallButton { background: @button; border: 1px solid @border; color: @text; font-size: 11px; padding: 0 4px; }
+QPushButton#aeSmallButton:hover, QToolButton#aeSmallButton:hover { background: @hover; }
+QPushButton#aeSmallButton:pressed, QToolButton#aeSmallButton:pressed { background: @chrome; }
 QToolButton#aeSmallButton::menu-indicator { image: none; width: 0; }
 QToolButton#aeLinkButton { border: none; background: transparent; }
-QPushButton#aeBottomButton { background: #5d5d5d; border: 1px solid #2a2a2a; color: #e8e8e8; font-size: 11px; padding: 2px 4px; }
-QPushButton#aeBottomButton:hover { background: #6a6a6a; }
-QToolButton#aeArrowButton { background: #5d5d5d; border: 1px solid #2a2a2a; color: #e0e0e0; font-size: 10px; padding: 0; }
+QPushButton#aeBottomButton { background: @button; border: 1px solid @border; color: @text; font-size: 11px; padding: 2px 4px; }
+QPushButton#aeBottomButton:hover { background: @hover; }
+QToolButton#aeArrowButton { background: @button; border: 1px solid @border; color: @text; font-size: 10px; padding: 0; }
 QWidget#aeNotesArea { background: @window; }
-QFrame#aeDottedLine { border: none; border-top: 1px dotted #8a8a8a; max-height: 1px; }
-QLabel#aeNotesLabel { font-size: 11px; font-weight: bold; color: #e4e4e4; }
-QPlainTextEdit#aeNotes { background: #2b2b2b; border: 1px solid #202020; color: #dddddd; font-size: 11px; }
-QWidget#aePage QComboBox { background: #5d5d5d; border: 1px solid #2a2a2a; color: #e6e6e6; font-size: 11px; padding: 1px 4px; }
+QFrame#aeDottedLine { border: none; border-top: 1px dotted @dim; max-height: 1px; }
+QLabel#aeNotesLabel { font-size: 11px; font-weight: bold; color: @bright; }
+QPlainTextEdit#aeNotes { background: @base; border: 1px solid @border; color: @text; font-size: 11px; }
+QWidget#aePage QComboBox { background: @button; border: 1px solid @border; color: @text; font-size: 11px; padding: 1px 4px; }
 QWidget#aePage QCheckBox { font-size: 11px; }
 QWidget#aePage QLabel { font-size: 11px; }
-QPushButton#aeTinyButton { background: #5d5d5d; border: 1px solid #2a2a2a; color: #e6e6e6; font-size: 10px; padding: 0; }
-QPushButton#aeTinyButton:hover { background: #6a6a6a; }
-QWidget#aePage QComboBox:disabled { background: #4a4a4a; color: #7a7a7a; border: 1px solid #1c1c1c; }
-QWidget#aePage QCheckBox:disabled { color: #7a7a7a; }
+QPushButton#aeTinyButton { background: @button; border: 1px solid @border; color: @text; font-size: 10px; padding: 0; }
+QPushButton#aeTinyButton:hover { background: @hover; }
+QWidget#aePage QComboBox:disabled { background: @alt; color: @disabled; border: 1px solid @border; }
+QWidget#aePage QCheckBox:disabled { color: @disabled; }
 QTabWidget#aeTabs QTabBar::tab:first { margin-left: 10px; }
-QWidget#aePage QSlider::groove:horizontal { background: #5a5a5a; height: 4px; border: none; }
-QWidget#aePage QSlider::sub-page:horizontal { background: #5a5a5a; height: 4px; }
-QWidget#aePage QSlider::handle:horizontal { background: #c4c4c4; width: 7px; margin: -4px 0; border: 1px solid #1a1a1a; }
-QLabel#aeEmpty { color: #e0e0e0; font-size: 11px; background: @window; }
-QTableWidget#aeInputTable { background: #232323; gridline-color: #3a3a3a; color: #d8d8d8; font-size: 11px; border: 1px solid #1a1a1a; }
-QTableWidget#aeInputTable QHeaderView::section { background: #4a4a4a; color: #e2e2e2; border: 1px solid #2a2a2a; padding: 1px 4px; font-size: 11px; }
-QToolButton#aeManageGeometry { background: transparent; border: none; color: #d8d8d8; font-size: 11px; }
-QToolButton#aeManageGeometry:hover { color: #ffffff; }
+QWidget#aePage QSlider::groove:horizontal { background: @handle; height: 4px; border: none; }
+QWidget#aePage QSlider::sub-page:horizontal { background: @handle; height: 4px; }
+QWidget#aePage QSlider::handle:horizontal { background: @text; width: 7px; margin: -4px 0; border: 1px solid @border; }
+QLabel#aeEmpty { color: @text; font-size: 11px; background: @window; }
+QTableWidget#aeInputTable { background: @base; gridline-color: @chrome; color: @text; font-size: 11px; border: 1px solid @border; }
+QTableWidget#aeInputTable QHeaderView::section { background: @alt; color: @bright; border: 1px solid @border; padding: 1px 4px; font-size: 11px; }
+QToolButton#aeManageGeometry { background: transparent; border: none; color: @text; font-size: 11px; }
+QToolButton#aeManageGeometry:hover { color: @bright; }
 QToolButton#aeManageGeometry::menu-indicator { image: none; width: 0; }
 
 /* The Attribute Editor's fields wear the Channel Box's field colours and selection. */
-QLineEdit#aeField { background: @base; border: none; color: @text; font-size: 11px; padding: 0 3px; selection-background-color: @hi; selection-color: #ffffff; }
-QLineEdit#aeField:read-only { background: #242424; color: @dim; }
-QLineEdit#aeField:disabled { background: #1c1c1c; color: #7a7a7a; }
+QLineEdit#aeField { background: @base; border: none; color: @text; font-size: 11px; padding: 0 3px; selection-background-color: @hi; selection-color: @hitext; }
+QLineEdit#aeField:read-only { background: @alt; color: @dim; }
+QLineEdit#aeField:disabled { background: @chrome; color: @disabled; }
 QLineEdit#aeField[connected="true"] { background: #f1f1a5; color: #101010; }
 QLineEdit#aeField[keyed="true"] { background: #dd727a; color: #1e1e1e; }
 QLineEdit#aeField[locked="true"] { background: @button; color: @dim; }
-QWidget#aeSectionBody { background: #494949; }
+QWidget#aeSectionBody { background: @alt; }
+QWidget#aeSectionHead { background: @section; color: @sectiontext; border-top: 1px solid @light; border-bottom: 1px solid @shadow; }
+QWidget#aeSectionHead:hover { border-top-color: @hi; }
+QFrame#aeRowLine { background: @chrome; border: none; }

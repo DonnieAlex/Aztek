@@ -35,6 +35,7 @@
 #include <QPainter>
 #include <QSlider>
 #include <QStyle>
+#include <QStyleOption>
 #include <QWheelEvent>
 #include <QTabBar>
 #include <QTabWidget>
@@ -552,7 +553,7 @@ QWidget* color_field(const QJsonObject& a, QWidget* parent) {
     bool stored = a["displayColor"].toBool();
     QJsonArray value = a["value"].toArray();
     QColor shown = stored ? QColor::fromRgbF(value.at(0).toDouble(), value.at(1).toDouble(), value.at(2).toDouble()) : swatch_color(value);
-    swatch->setStyleSheet(QString("background-color: %1; border: 1px solid #222;").arg(shown.name()));
+    swatch->setStyleSheet(QString("background-color: %1; border: 1px solid palette(shadow);").arg(shown.name()));
     swatch->setEnabled(!ro);
     swatch->setObjectName("colorSwatch");
     QObject::connect(swatch, &QPushButton::clicked, swatch, [swatch, plug, shown, stored] {
@@ -578,7 +579,7 @@ QWidget* color_field(const QJsonObject& a, QWidget* parent) {
     QObject::connect(s, &QSlider::sliderPressed, swatch, [plug] { exec("undoInfo", QJsonObject{{"openChunk", true}}); });
     QObject::connect(s, &QSlider::sliderMoved, swatch, [swatch, colour_at, plug, shown](int p) {
         QJsonArray c = colour_at(p);
-        swatch->setStyleSheet(QString("background-color: %1; border: 1px solid #222;").arg(QColor::fromHsvF(qMax(0.0f, shown.hsvHueF()), shown.hsvSaturationF(), p / 1000.0).name()));
+        swatch->setStyleSheet(QString("background-color: %1; border: 1px solid palette(shadow);").arg(QColor::fromHsvF(qMax(0.0f, shown.hsvHueF()), shown.hsvSaturationF(), p / 1000.0).name()));
         exec_quiet("setAttr", QJsonObject{{"args", QJsonArray{plug, c.at(0), c.at(1), c.at(2)}}, {"type", "double3"}});
         Host::get()->poke();
     });
@@ -642,7 +643,7 @@ QWidget* color_index_field(const QJsonObject& a, QWidget* parent) {
     auto* swatch = new QPushButton(w);
     swatch->setObjectName("colorSwatch");
     swatch->setFixedSize(36, 18);
-    swatch->setStyleSheet(QString("background-color: %1; border: 1px solid #222;").arg(palette_color(index).name()));
+    swatch->setStyleSheet(QString("background-color: %1; border: 1px solid palette(shadow);").arg(palette_color(index).name()));
     swatch->setEnabled(!ro);
     QObject::connect(swatch, &QPushButton::clicked, swatch, [swatch, plug, index] {
         ColorChoice c = choose_display_color(swatch, "Color", index, false, Qt::red);
@@ -663,7 +664,7 @@ QWidget* color_index_field(const QJsonObject& a, QWidget* parent) {
     number->setFixedWidth(20);
     QObject::connect(s, &QSlider::sliderMoved, number, [number, swatch](int v) {
         number->setText(QString::number(v));
-        swatch->setStyleSheet(QString("background-color: %1; border: 1px solid #222;").arg(palette_color(v).name()));
+        swatch->setStyleSheet(QString("background-color: %1; border: 1px solid palette(shadow);").arg(palette_color(v).name()));
     });
     QObject::connect(s, &QSlider::sliderReleased, s, [s, plug] { set_plug(plug, s->value(), "int"); });
     h->addWidget(swatch);
@@ -1492,20 +1493,13 @@ public:
 protected:
     void paintEvent(QPaintEvent*) override {
         QPainter p(this);
-        QLinearGradient g(0, 0, 0, height());
-        if (underMouse()) {
-            g.setColorAt(0, QColor(112, 112, 112));
-            g.setColorAt(1, QColor(100, 100, 100));
-        } else {
-            g.setColorAt(0, QColor(101, 101, 101));
-            g.setColorAt(1, QColor(91, 91, 91));
-        }
-        p.fillRect(rect(), g);
-        p.fillRect(0, 0, width(), 1, QColor(118, 118, 118));
-        p.fillRect(0, height() - 1, width(), 1, QColor(54, 54, 54));
+        QStyleOption option;
+        option.initFrom(this);
+        style()->drawPrimitive(QStyle::PE_Widget, &option, &p, this);
+        const QColor ink = option.palette.color(QPalette::WindowText);
         const int left = 8 + depth_ * 12;
         p.setPen(Qt::NoPen);
-        p.setBrush(QColor(226, 226, 226));
+        p.setBrush(ink);
         QPolygon tri;
         if (open_)
             tri << QPoint(left, height() / 2 - 2) << QPoint(left + 8, height() / 2 - 2) << QPoint(left + 4, height() / 2 + 3);
@@ -1516,7 +1510,7 @@ protected:
         f.setPixelSize(11);
         f.setWeight(QFont::DemiBold);
         p.setFont(f);
-        p.setPen(QColor(232, 232, 232));
+        p.setPen(ink);
         p.drawText(QRect(left + 16, 0, width() - left - 18, height()), Qt::AlignLeft | Qt::AlignVCenter, title_);
     }
     void mousePressEvent(QMouseEvent* e) override {
@@ -1552,12 +1546,29 @@ QString ae_type_label(const QString& type) {
     return type;
 }
 
+// Keep the small drawn icons legible when the theme changes while the editor is open.
+class AeIconButton : public QToolButton {
+public:
+    AeIconButton(std::function<QIcon()> draw, QWidget* parent) : QToolButton(parent), draw_(std::move(draw)) {
+        setIcon(draw_());
+    }
+
+protected:
+    void changeEvent(QEvent* event) override {
+        QToolButton::changeEvent(event);
+        if (event->type() == QEvent::PaletteChange) setIcon(draw_());
+    }
+
+private:
+    std::function<QIcon()> draw_;
+};
+
 // The two small buttons beside the name field: where the node's input and output connections are.
 QIcon connect_icon(bool in) {
     QPixmap px(14, 14);
     px.fill(Qt::transparent);
     QPainter p(&px);
-    p.setPen(QPen(QColor(220, 220, 220), 1));
+    p.setPen(QPen(qApp->palette().color(QPalette::ButtonText), 1));
     p.drawRect(in ? 7 : 2, 3, 6, 8);
     if (in) {
         p.drawLine(1, 7, 7, 7);
@@ -1578,7 +1589,7 @@ QIcon triangle_icon(bool left) {
     QPainter p(&px);
     p.setRenderHint(QPainter::Antialiasing, false);
     p.setPen(Qt::NoPen);
-    p.setBrush(QColor(220, 220, 220));
+    p.setBrush(qApp->palette().color(QPalette::ButtonText));
     QPolygon tri;
     if (left) tri << QPoint(6, 1) << QPoint(6, 8) << QPoint(1, 4);
     else tri << QPoint(2, 1) << QPoint(2, 8) << QPoint(7, 4);
@@ -1599,13 +1610,9 @@ QIcon pin_icon() {
     return QIcon(px);
 }
 
-// The reference's menus: 11 pixel text on 16 pixel rows, over a dark grey panel.
+// The Attribute Editor's compact menus use the current theme.
 void style_ae_menu(QMenu* m) {
-    m->setStyleSheet("QMenu { background: #525252; border: 1px solid #2a2a2a; padding: 2px 0; }"
-                     "QMenu::item { padding: 1px 20px 1px 22px; font-size: 11px; color: #e4e4e4; }"
-                     "QMenu::item:selected { background: #587f9d; color: #ffffff; }"
-                     "QMenu::item:disabled { color: #9a9a9a; }"
-                     "QMenu::separator { height: 1px; background: #3d3d3d; margin: 3px 4px; }");
+    m->setObjectName("aeMenu");
 }
 
 // The reference's gear on the Manage Deformed Geometry button.
@@ -1614,7 +1621,7 @@ QIcon gear_icon() {
     px.fill(Qt::transparent);
     QPainter p(&px);
     p.setRenderHint(QPainter::Antialiasing, true);
-    p.setPen(QPen(QColor(210, 210, 210), 1.2));
+    p.setPen(QPen(qApp->palette().color(QPalette::ButtonText), 1.2));
     p.setBrush(Qt::NoBrush);
     p.drawEllipse(QRectF(4.5, 4.5, 5, 5));
     for (int i = 0; i < 8; ++i) {
@@ -1628,10 +1635,9 @@ QIcon gear_icon() {
 }
 
 QWidget* manage_geometry_button(QWidget* parent) {
-    auto* b = new QToolButton(parent);
+    auto* b = new AeIconButton(gear_icon, parent);
     b->setObjectName("aeManageGeometry");
     b->setText("Manage Deformed Geometry");
-    b->setIcon(gear_icon());
     b->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
     b->setPopupMode(QToolButton::InstantPopup);
     b->setFixedHeight(22);
@@ -1669,7 +1675,6 @@ QWidget* input_table(const QString& geometry, QWidget* parent) {
         QFont italic = falloff->font();
         italic.setItalic(true);
         falloff->setFont(italic);
-        falloff->setForeground(QColor(150, 150, 150));
         table->setItem(0, 2, falloff);
         table->setItem(0, 3, new QTableWidgetItem(geometry.section('|', -1)));
     }
@@ -2286,14 +2291,12 @@ QWidget* ae_limit_row(const AeBox& group, const QString& axis, const QHash<QStri
     QCheckBox* minOn = enable_box("min" + prefix + axis + "LimitEnable");
     QCheckBox* maxOn = enable_box("max" + prefix + axis + "LimitEnable");
     QLineEdit* curField = value_field(curName, 42);
-    auto* lo = new QToolButton(w);
+    auto* lo = new AeIconButton([] { return triangle_icon(true); }, w);
     lo->setObjectName("aeArrowButton");
-    lo->setIcon(triangle_icon(true));
     lo->setIconSize(QSize(9, 9));
     lo->setFixedSize(16, 20);
-    auto* hi = new QToolButton(w);
+    auto* hi = new AeIconButton([] { return triangle_icon(false); }, w);
     hi->setObjectName("aeArrowButton");
-    hi->setIcon(triangle_icon(false));
     hi->setIconSize(QSize(9, 9));
     hi->setFixedSize(16, 20);
     QJsonObject cur = by.value(curName);
@@ -2345,7 +2348,7 @@ class AeRowLine : public QFrame {
 public:
     AeRowLine(QWidget* parent) : QFrame(parent) {
         setFixedHeight(1);
-        setStyleSheet("background: #3d3d3d; border: none;");
+        setObjectName("aeRowLine");
     }
 };
 
@@ -2774,8 +2777,7 @@ void ae_render_tree(QVBoxLayout* v, QWidget* parent, const QList<AeBox>& boxes, 
 } // namespace
 
 AttributeEditor::AttributeEditor(QWidget* parent, const QString& pinned) : Panel(parent), pinned_(pinned) {
-    QFont editorFont = font();
-    editorFont.setFamily("Noto Sans");
+    QFont editorFont;
     editorFont.setPixelSize(11);
     setFont(editorFont);
     auto* lay = new QVBoxLayout(this);
@@ -3197,9 +3199,8 @@ void AttributeEditor::refresh() {
         auto* lv = new QVBoxLayout(links);
         lv->setContentsMargins(0, 0, 0, 0);
         lv->setSpacing(1);
-        auto* in = new QToolButton(links);
+        auto* in = new AeIconButton([] { return connect_icon(true); }, links);
         in->setObjectName("aeLinkButton");
-        in->setIcon(connect_icon(true));
         in->setIconSize(QSize(14, 14));
         in->setFixedSize(18, 9);
         const QString inputNode = t["inputNode"].toString();
@@ -3207,9 +3208,8 @@ void AttributeEditor::refresh() {
         in->setEnabled(!inputNode.isEmpty());
         if (!inputNode.isEmpty())
             connect(in, &QToolButton::clicked, in, [inputNode] { exec("select", args(QJsonArray{inputNode})); });
-        auto* out = new QToolButton(links);
+        auto* out = new AeIconButton([] { return connect_icon(false); }, links);
         out->setObjectName("aeLinkButton");
-        out->setIcon(connect_icon(false));
         out->setIconSize(QSize(14, 14));
         out->setFixedSize(18, 9);
         const QString outputNode = t["outputNode"].toString();

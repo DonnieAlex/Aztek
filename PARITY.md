@@ -4516,3 +4516,8 @@ the issue.
 
 A saved maximized window from before the Time and Range Sliders became docks can reopen with its floating panels.
 Aztek places the sliders under the views before restoring the window size and maximized state.
+
+### What changed (25/11/2026, #306)
+
+The Attribute Editor follows the active theme. Sections, tabs, menus, controls and link icons update when the theme
+changes while the editor is open. Keyed and connected fields keep the same state colours as the Channel Box.
