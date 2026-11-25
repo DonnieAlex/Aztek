@@ -1,6 +1,7 @@
 // The Script Editor: the history pane over tabs of MEL and Python, with syntax colours, line numbers, Execute and the
 // usual file and options menus.
 #include "panels.h"
+#include "completion.h"
 #include "host.h"
 #include "icons.h"
 #include "markingmenu.h"
@@ -49,6 +50,7 @@
 #include <QTextOption>
 #include <QToolButton>
 #include <QUrl>
+#include <QWheelEvent>
 #include <QVBoxLayout>
 #include <functional>
 
@@ -170,9 +172,14 @@ public:
         return qMax(26, 12 + fontMetrics().horizontalAdvance('9') * digits);
     }
     void paint_gutter(QPaintEvent* e);
+    // The completion popup, shared by every tab of the panel.
+    ScriptCompletion* completion = nullptr;
 protected:
     void resizeEvent(QResizeEvent* e) override;
+    void keyPressEvent(QKeyEvent* e) override;
     void mousePressEvent(QMouseEvent* e) override;
+    void wheelEvent(QWheelEvent* e) override;
+    void focusOutEvent(QFocusEvent* e) override;
     void changeEvent(QEvent* e) override {
         QPlainTextEdit::changeEvent(e);
         // A theme changed: the highlighting follows it.
@@ -244,6 +251,7 @@ void ScriptEdit::paint_gutter(QPaintEvent* e) {
 }
 
 void ScriptEdit::mousePressEvent(QMouseEvent* e) {
+    if (completion) completion->dismiss();
     if (e->button() == Qt::MiddleButton && textCursor().hasSelection()) {
         auto* drag = new QDrag(this);
         auto* m = new QMimeData;
@@ -254,6 +262,24 @@ void ScriptEdit::mousePressEvent(QMouseEvent* e) {
         return;
     }
     QPlainTextEdit::mousePressEvent(e);
+}
+
+// The completion popup sees the key first, through the panel's event filter; what reaches here is an edit or a caret
+// move, after which the popup follows the caret.
+void ScriptEdit::keyPressEvent(QKeyEvent* e) {
+    QPlainTextEdit::keyPressEvent(e);
+    if (completion) completion->refresh(this);
+}
+
+void ScriptEdit::focusOutEvent(QFocusEvent* e) {
+    QPlainTextEdit::focusOutEvent(e);
+    if (completion) completion->dismiss();
+}
+
+// Scrolling moves the text under the caret; the popup would be left where it was.
+void ScriptEdit::wheelEvent(QWheelEvent* e) {
+    if (completion) completion->dismiss();
+    QPlainTextEdit::wheelEvent(e);
 }
 
 ScriptEdit* page_at(const QList<QWidget*>& pages, int i) {
@@ -584,6 +610,8 @@ QFont script_font() {
 ScriptEditor::ScriptEditor(QWidget* parent) : QWidget(parent) {
     setObjectName("scriptEditor");
     setStyleSheet(script_style());
+    completion_ = new ScriptCompletion(this);
+    completion_->set_enabled(option("commandCompletion", false));
     auto* lay = new QVBoxLayout(this);
     lay->setContentsMargins(0, 0, 0, 0);
     lay->setSpacing(0);
@@ -721,7 +749,7 @@ ScriptEditor::ScriptEditor(QWidget* parent) : QWidget(parent) {
     toggle(cmd, "Use tabs for indent", "tabsForIndent", false);
     toggle(cmd, "Show tabs and spaces", "showTabsAndSpaces", false, [this](bool) { apply_editor_options(); });
     toggle(cmd, "Auto-close braces", "autoCloseBraces", true);
-    toggle(cmd, "Command Completion", "commandCompletion", false)->setEnabled(false);
+    toggle(cmd, "Command Completion", "commandCompletion", false, [this](bool on) { completion_->set_enabled(on); });
     toggle(cmd, "Object Path Completion", "objectPathCompletion", false)->setEnabled(false);
     toggle(cmd, "Show Tooltip Help", "tooltipHelp", false)->setEnabled(false);
     toggle(cmd, "Show quick help", "quickHelp", false)->setEnabled(false);
@@ -875,6 +903,7 @@ ScriptEditor::ScriptEditor(QWidget* parent) : QWidget(parent) {
     stack_->setMinimumWidth(1);
     input_layout->addWidget(stack_, 1);
     connect(tb, &QTabBar::currentChanged, this, [this](int i) {
+        if (completion_) completion_->dismiss();
         if (i >= 0 && i < pages_.size()) stack_->setCurrentWidget(pages_[i]);
     });
     connect(tb, &QTabBar::tabMoved, this, [this](int from, int to) {
@@ -956,6 +985,7 @@ void ScriptEditor::showEvent(QShowEvent* e) {
 }
 
 void ScriptEditor::set_pane_mode(int mode) {
+    if (completion_) completion_->dismiss();
     if (pane_mode_ == 2 && mode != 2) both_sizes_ = split_->sizes();
     pane_mode_ = mode;
     const bool both = mode == 2;
@@ -1021,6 +1051,7 @@ void ScriptEditor::store_tabs() {
 void ScriptEditor::add_tab(const QString& language, const QString& name, const QString& text, const QString& path) {
     const QString lang = language == "python" ? "python" : "mel";
     auto* e = new ScriptEdit(lang, stack_);
+    e->completion = completion_;
     e->setFont(script_font());
     e->setTabStopDistance(4 * e->fontMetrics().horizontalAdvance(' '));
     e->installEventFilter(this);
@@ -1291,6 +1322,8 @@ bool ScriptEditor::eventFilter(QObject* o, QEvent* ev) {
     if (ev->type() == QEvent::KeyPress && dynamic_cast<ScriptEdit*>(o)) {
         auto* e = static_cast<ScriptEdit*>(o);
         auto* k = static_cast<QKeyEvent*>(ev);
+        // The completion popup takes Enter, Tab, Escape and the arrows while it is up.
+        if (completion_ && completion_->key_press(k, e)) return true;
         // Tab indents with a tab or four spaces, as Command > Use tabs for indent says.
         if (k->key() == Qt::Key_Tab && k->modifiers() == Qt::NoModifier && !e->textCursor().hasSelection()) {
             e->insertPlainText(option("tabsForIndent", false) ? "\t" : "    ");
@@ -1303,6 +1336,7 @@ bool ScriptEditor::eventFilter(QObject* o, QEvent* ev) {
             c.insertText(k->text() + pairs[k->text()]);
             c.movePosition(QTextCursor::Left);
             e->setTextCursor(c);
+            if (completion_) completion_->refresh(e);
             return true;
         }
     }
@@ -1329,6 +1363,7 @@ bool ScriptEditor::eventFilter(QObject* o, QEvent* ev) {
             return true;
         }
         if (k->key() == Qt::Key_Enter && (k->modifiers() & Qt::KeypadModifier)) {
+            if (completion_) completion_->dismiss();
             run(true);
             return true;
         }

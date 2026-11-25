@@ -298,6 +298,8 @@ const TYPES: &[(&str, &str)] = &[
     ("twoPointArcCtx", "degree:d:a spans:s:a"),
     ("threePointArcCtx", "degree:d:a spans:s:a"),
     ("polySelectCtx", "mode:m:a"),
+    // A plain selection context of its own, made to be set as the tool.
+    ("selectContext", ""),
     ("polySuperCtx", "attach:a:a enable:en:b"),
     ("polyCreaseCtx", "extendSelection:es:b relative:r:b"),
     ("polyMergeEdgeCtx", "activeNodes:anq:b firstEdge:fe:a secondEdge:se:a immediate:im:b mergeMode:mm:a mergeTexture:mt:b nodeType:nt:a previous:pvs:b reset:rs:b toolNode:tnq:b caching:cch:b"),

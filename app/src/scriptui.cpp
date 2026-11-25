@@ -11,6 +11,7 @@
 #include "shapeeditor.h"
 #include "editors.h"
 #include "uveditor.h"
+#include "shelves.h"
 
 #include <functional>
 #include <QAction>
@@ -79,6 +80,7 @@
 #include <QTabWidget>
 #include <QTemporaryDir>
 #include <QTimer>
+#include <QEventLoop>
 #include <QTransform>
 #include <QToolButton>
 #include <QValidator>
@@ -2897,6 +2899,28 @@ void ScriptUi::build_control(Item* it, const QJsonObject& props) {
             fire(path, QJsonObject{{"selectedAttr", sel}}, QJsonArray(), QJsonArray());
         });
         it->w = t;
+    } else if (k == "keyframeTangentControl") {
+        // The Graph Editor's tangent buttons: each sets the selected keys' in and out tangents.
+        auto* box = new QWidget();
+        auto* h = new QHBoxLayout(box);
+        h->setContentsMargins(0, 0, 0, 0);
+        h->setSpacing(2);
+        const QList<QPair<QString, QString>> kinds = {{"Auto", "auto"}, {"Spline", "spline"}, {"Clamped", "clamped"}, {"Linear", "linear"}, {"Flat", "flat"}, {"Stepped", "step"}, {"Plateau", "plateau"}};
+        for (const auto& [label, type] : kinds) {
+            auto* b = new QToolButton(box);
+            b->setText(label);
+            b->setToolTip(label + " tangents on the selected keys");
+            b->setAutoRaise(true);
+            const QString t = type;
+            connect(b, &QToolButton::clicked, this, [t] {
+                // Stepped is an out tangent; the in tangent stays.
+                if (t == "step") exec("keyTangent", QJsonObject{{"outTangentType", t}});
+                else exec("keyTangent", QJsonObject{{"inTangentType", t}, {"outTangentType", t}});
+            });
+            h->addWidget(b);
+        }
+        h->addStretch(1);
+        it->w = box;
     } else if (k == "modelPanel") {
         QString cam = props["camera"].toString("persp");
         auto* v = new ViewportWidget(cam);
@@ -4537,12 +4561,54 @@ void ScriptUi::hook(const QString& kind, const QJsonObject& payload) {
     else if (kind == "fontDialog") font_dialog(payload);
     else if (kind == "grabColor") grab_color(payload);
     else if (kind == "colorEditor") color_editor(payload);
+    else if (kind == "layoutDialog") layout_dialog(payload);
+    else if (kind == "layoutDialogDismiss") {
+        if (layout_loop_) layout_loop_->quit();
+        answer(true);
+    } else if (kind == "shelfExists") {
+        // saveShelf on one of the main window's shelves: whether there is one of the name.
+        bool there = false;
+        if (auto* bar = main_ ? main_->findChild<ShelfBar*>() : nullptr)
+            for (const QJsonValue& v : bar->data()) there = there || v.toObject()["name"].toString() == payload["shelf"].toString();
+        answer(there);
+    }
     else if (kind == "playblast") {
         // What the script set on the views just before this has to show in the frames.
         if (take_requests_) take_requests_();
         playblast(payload);
     }
     else if (kind == "pump") pump();
+}
+
+// layoutDialog: the window the script built, shown modal until -dismiss or closed. The core keeps the answer.
+void ScriptUi::layout_dialog(const QJsonObject& p) {
+    const QString path = p["window"].toString();
+    Item* it = items_.value(path);
+    if (!it || !it->w) {
+        answer(false);
+        return;
+    }
+    QWidget* w = it->w;
+    if (Item* owner = items_.value(p["parent"].toString()); owner && owner->w) w->setParent(owner->w->window(), w->windowFlags());
+    w->setWindowModality(Qt::ApplicationModal);
+    w->adjustSize();
+    w->show();
+    w->raise();
+    w->activateWindow();
+    QEventLoop loop;
+    QEventLoop* outer = layout_loop_;
+    layout_loop_ = &loop;
+    // Closed by its frame, or gone: the dialog is over.
+    QTimer watch;
+    QObject::connect(&watch, &QTimer::timeout, &loop, [this, path, &loop] {
+        Item* i = items_.value(path);
+        if (!i || !i->w || !i->w->isVisible()) loop.quit();
+    });
+    watch.start(50);
+    loop.exec();
+    layout_loop_ = outer;
+    if (Item* i = items_.value(path); i && i->w) i->w->hide();
+    answer(true);
 }
 
 void ScriptUi::pump() {

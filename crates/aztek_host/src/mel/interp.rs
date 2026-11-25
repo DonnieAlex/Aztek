@@ -137,6 +137,24 @@ pub fn global_proc_names(core: &Core) -> Vec<String> {
     v
 }
 
+/// Every global procedure defined in the session, with a declaration built from its return type and parameters:
+/// `string[] myProc(int $count, string $name)`. For the Script Editor's completion; the body is not included.
+pub fn global_proc_signatures(core: &Core) -> Vec<(String, String)> {
+    let mut v: Vec<(String, String)> = core
+        .mel_state
+        .global_procs
+        .iter()
+        .map(|(name, e)| {
+            let p = &e.proc;
+            let params: Vec<String> = p.params.iter().map(|(ty, n)| format!("{} ${}", ty.name(), n)).collect();
+            let ret = p.ret.map(|t| format!("{} ", t.name())).unwrap_or_default();
+            (name.clone(), format!("{ret}{name}({})", params.join(", ")))
+        })
+        .collect();
+    v.sort_by(|a, b| a.0.cmp(&b.0));
+    v
+}
+
 /// As `run_callback`, with the script's value: nothing echoed, and what it prints is printed.
 pub fn call_for_value(core: &mut Core, src: &str) -> Result<J, String> {
     core.mel_state.running += 1;

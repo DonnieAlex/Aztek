@@ -376,6 +376,13 @@ impl View {
         let rgb = |n: &str| aztek_scene::system_cmds::view_rgb(n).map(|c| [c[0] as f32, c[1] as f32, c[2] as f32]).unwrap_or([0.0; 3]);
         let gradient = aztek_scene::system_cmds::display_gradient(&core.s).then(|| (rgb("backgroundTop"), rgb("backgroundBottom")));
         let contact = if realtime && d.shadows && !d.xray { self.vp.contact } else { None };
+        let (proj, ortho) = (self.vp.cam.proj(self.vp.aspect()).as_mat4(), self.vp.cam.ortho());
+        // Depth of field follows the camera looked through, as Harold does: on only where its depthOfField is.
+        let dof = if d.depth_of_field && !d.xray && !ortho && self.vp.look_camera != aztek_scene::plug::NO_NODE {
+            aztek_scene::harold::camera_lens(&mut core.s.graph, self.vp.look_camera)
+        } else {
+            None
+        };
         let settings = crate::post::PostSettings {
             ambient_occlusion: d.ambient_occlusion && !d.xray,
             ao_radius: d.ao_radius as f32,
@@ -385,8 +392,8 @@ impl View {
             contact,
             high_quality: realtime,
             bounce: if realtime && d.bounce_light && !d.xray { 1.0 } else { 0.0 },
+            dof,
         };
-        let (proj, ortho) = (self.vp.cam.proj(self.vp.aspect()).as_mat4(), self.vp.cam.ortho());
         self.gpu.begin_occlusion();
         self.post.draw_occlusion(&self.gpu, proj, ortho, &settings);
         if settings.bounce > 0.0 {
@@ -2435,6 +2442,7 @@ impl View {
                             "twoSided" => d.two_sided = b,
                             "shadows" => d.shadows = b,
                             "bounceLight" => d.bounce_light = b,
+                            "depthOfField" => d.depth_of_field = b,
                             "ambientOcclusion" => d.ambient_occlusion = b,
                             "aoRadius" => d.ao_radius = x.as_f64().unwrap_or(2.0).clamp(0.01, 1000.0),
                             "aoIntensity" => d.ao_intensity = x.as_f64().unwrap_or(1.5).clamp(0.0, 8.0),
@@ -2645,7 +2653,7 @@ impl View {
             "isolated" => json!(self.vp.iso.active()),
             "disp" => {
                 let d = &self.vp.disp;
-                json!({"polygons": d.polygons, "surfaces": d.surfaces, "curves": d.curves, "joints": d.joints, "ikHandles": d.ik_handles, "deformers": d.deformers, "locators": d.locators, "cameras": d.cameras, "lights": d.lights, "displayLights": d.light_mode.name(), "twoSided": d.two_sided, "shadows": d.shadows, "bounceLight": d.bounce_light, "ambientOcclusion": d.ambient_occlusion, "aoRadius": d.ao_radius, "aoIntensity": d.ao_intensity, "samples": self.gpu.sample_number(), "manipulators": d.manipulators, "flat": d.flat, "textured": d.textured, "defaultMaterial": d.default_material, "boundingBox": d.bounding_box, "xray": d.xray, "xrayJoints": d.xray_joints, "xrayActive": d.xray_active, "backface": d.backface, "filmGate": d.film_gate, "resGate": d.res_gate, "safeAction": d.safe_action, "highlight": d.highlight, "grid": self.show_grid, "wireframe": self.vp.wireframe, "wireOnShaded": self.vp.wire_on_shaded})
+                json!({"polygons": d.polygons, "surfaces": d.surfaces, "curves": d.curves, "joints": d.joints, "ikHandles": d.ik_handles, "deformers": d.deformers, "locators": d.locators, "cameras": d.cameras, "lights": d.lights, "displayLights": d.light_mode.name(), "twoSided": d.two_sided, "shadows": d.shadows, "bounceLight": d.bounce_light, "depthOfField": d.depth_of_field, "ambientOcclusion": d.ambient_occlusion, "aoRadius": d.ao_radius, "aoIntensity": d.ao_intensity, "samples": self.gpu.sample_number(), "manipulators": d.manipulators, "flat": d.flat, "textured": d.textured, "defaultMaterial": d.default_material, "boundingBox": d.bounding_box, "xray": d.xray, "xrayJoints": d.xray_joints, "xrayActive": d.xray_active, "backface": d.backface, "filmGate": d.film_gate, "resGate": d.res_gate, "safeAction": d.safe_action, "highlight": d.highlight, "grid": self.show_grid, "wireframe": self.vp.wireframe, "wireOnShaded": self.vp.wire_on_shaded})
             }
             _ => Value::Null,
         }

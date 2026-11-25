@@ -25,6 +25,12 @@ QJsonValue query(const char* what, const QString& arg) {
     return parse(take(aztek_query(what, arg.toUtf8().constData())));
 }
 
+QJsonObject completion_index() { return parse(take(aztek_completion_index())).toObject(); }
+
+QJsonObject completion_class(const QString& module, const QString& name) {
+    return parse(take(aztek_completion_class(module.toUtf8().constData(), name.toUtf8().constData()))).toObject();
+}
+
 QJsonObject state() { return query("state").toObject(); }
 
 QJsonValue exec(const QString& name, const QJsonObject& call) {

@@ -16,6 +16,11 @@ Requests waiting or in progress, newest detail kept. Move to Done with the date 
 - C++ plug-in kit (agent).
 
 ## Waiting
+- Script Editor completion (25/11/2026): the feature is in (PARITY.md, docs/SCRIPT_EDITOR_COMPLETION.md). Left: object
+  path completion; a Quick Help side bar; completion across a multi-line expression; type inference for an arbitrary
+  expression before a dot; docstrings for the Python API's members, which the embedded modules do not carry;
+  commands or Python modules a plug-in registers after the panel's index was built (they appear when the Script
+  Editor is reopened); and `maya.mel` has only `eval` to offer.
 - Found 16/11/2026: `namespaceInfo -lon` at the root lists only the scene's namespaces; the reference also lists UI and
   shared, which scripts skip by name. Not changed: `core_forms.rs` and `core_cmds.rs` hold the current answer.
 - Left from the issues closed 15/11 and 16/11/2026 (PARITY.md, Issues 37 to 83): Paint Skin Weights' ramp editing
@@ -33,7 +38,8 @@ Requests waiting or in progress, newest detail kept. Move to Done with the date 
 - Real plug cycles: `a.tx -> b.tx -> a.tx` is refused. The reference connects it and warns at evaluation; the evaluator needs a guard first.
 - One shape node under several parents, in fact: each instance's parent holds its own node, kept the same by `setAttr` and `rename` (PLAN 1.14). A script sees one shape; the Python API's `instanceCount`, a direct graph write and non-mesh instances don't yet. A real multi-parent graph means every DAG walk and per-instance world matrices, picking and selection paths: a project of its own, srlegrand's call.
 - A script's `scriptJob -idleEvent` moves the core's version on each idle, so the panels rebuild and a Channel Box field being typed in loses the keyboard. Found writing the multi-edit check; callbacks that changed nothing shouldn't move it.
-- Missing commands found running the capture kit in Aztek (09/11/2026), still missing 16/11/2026: `assignCommand`, `hotkeySet`, `imagePlane`, `runTimeCommand -dca` and `-uca` (`allNodeTypes` is in).
+- Missing commands found running the capture kit in Aztek (09/11/2026), still missing 16/11/2026: `hotkeySet`, `imagePlane`, `runTimeCommand -dca` and `-uca` (`allNodeTypes` is in). `assignCommand` in 25/11/2026, numbering name commands in name order.
+- Script UI commands tools call, still missing 25/11/2026: `loadUI`, `treeView`, `draggerContext`. In 25/11/2026: `nameField`, `timeField`, `timeFieldGrp`, `toolBar`, `keyframeTangentControl`, `layoutDialog`, `menuSet` (partial: a set of a script's own doesn't change the main window's menus), `saveShelf`, `saveAllShelves`, `selectContext`.
 - PLAN.md (08/11/2026): parity review's work queue. Phase 0 and 1 before anything else that isn't a ticket.
 - Cloth feels wrong at scale: a cloth bigger than the grid acts stiff, small or heavy even as silk. Units, gravity, bending and presets must scale (agent, top priority). Real-world units by default from `currentUnit`: 1 cm of geometry is 1 cm of cloth, so nobody works in 10 cm = 1 m.
 - Shift+click on an expand arrow fully expands (and collapses) everything below it, in every hierarchy: Outliner, Hypershade, Reference Editor, Node Editor lists, Graph Editor and Dope Sheet outlines, layer editors, Attribute Editor sections.
@@ -133,6 +139,9 @@ Requests waiting or in progress, newest detail kept. Move to Done with the date 
   Why: found on the way, a script's idle job takes the keyboard from a field: ticketed.
 
 ## Done
+- 25/11/2026 Script Editor completion: commands with their long and short flags and types, MEL procedures and built-ins,
+  maya.cmds, maya.mel, maya.OpenMaya and maya.api.OpenMaya modules, classes and members; a popup at the caret with
+  filtering, keys, mouse and argument hints; Command > Command Completion persisted in QSettings.
 - 16/11/2026: joints under an IK solver keep keyable FK rotates on the solver; keys survive making a handle, play where IK is off, and save on the joint.
 - 16/11/2026 Issues 37 to 83 closed but #76 (PARITY.md, Issues 37 to 83): editors, views, UV, picking, rigging,
   skinning, `aztekpy`, themes. The UV and Vertex Face modes with Multi, and `.mb` reading, came off this list.

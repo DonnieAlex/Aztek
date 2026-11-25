@@ -1112,3 +1112,24 @@ pub fn run(src: &str) {
         core.version += 1
     });
 }
+
+/// The completion index's Python half: every shipped module, its module-level names and its submodules, as the JSON
+/// bootstrap's `_aztek_completion_modules` returns. Starts Python if it is not up yet; the caller must not hold the
+/// host, since importing the modules may run commands.
+pub fn completion_modules() -> Result<String, String> {
+    ensure().and_then(|()| {
+        Python::attach(|py| -> PyResult<String> { py.import("__main__")?.getattr("_aztek_completion_modules")?.call0()?.extract() })
+            .map_err(|e| e.to_string())
+    })
+}
+
+/// One Python class's constructor, docstring and members, as JSON, for the completion popup. Loaded when the class is
+/// first completed; the bootstrap keeps the answer.
+pub fn completion_class(module: &str, class: &str) -> Result<String, String> {
+    ensure().and_then(|()| {
+        Python::attach(|py| -> PyResult<String> {
+            py.import("__main__")?.getattr("_aztek_completion_class")?.call1((module, class))?.extract()
+        })
+        .map_err(|e| e.to_string())
+    })
+}

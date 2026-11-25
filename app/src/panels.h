@@ -187,6 +187,8 @@ private:
     QByteArray last_;
 };
 
+class ScriptCompletion;
+
 class ScriptEditor : public QWidget {
     Q_OBJECT
 public:
@@ -242,6 +244,7 @@ private:
     bool split_sized_ = false;
     void set_pane_mode(int mode);
     QPlainTextEdit* search_pane() const;
+    ScriptCompletion* completion_ = nullptr;
     void run_all();
     // The reference's menus and marking menus (#133).
     void new_tab_prompt();

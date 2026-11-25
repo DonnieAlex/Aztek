@@ -14,6 +14,9 @@ namespace az {
 QString take(char* p);
 QJsonValue parse(const QString& s);
 QJsonValue query(const char* what, const QString& arg = QString());
+// The Script Editor's completion index, and one Python class's members, loaded on first use.
+QJsonObject completion_index();
+QJsonObject completion_class(const QString& module, const QString& name);
 QJsonObject state();
 // Runs a command, echoed in the history. Returns the result, or an undefined value on error.
 QJsonValue exec(const QString& name, const QJsonObject& call = QJsonObject());

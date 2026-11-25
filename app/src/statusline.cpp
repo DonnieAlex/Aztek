@@ -886,6 +886,8 @@ void MainWindow::set_menu_set(const QString& set) {
     if (name == menu_set_) return;
     menu_set_ = name;
     build_menu_set(name);
+    // menuSet -q -currentMenuSet follows what the window shows.
+    exec_quiet("aztekMenuSetShown", args(QJsonArray{name}));
 }
 
 } // namespace az
