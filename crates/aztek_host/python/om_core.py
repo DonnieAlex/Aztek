@@ -1797,9 +1797,10 @@ def _fn_chain(info):
 class MObject:
     """A handle on a node, an attribute, a component or a data value."""
 
-    __slots__ = ("_kind", "_id", "_attr", "_comp", "_data", "_fn")
+    __slots__ = ("_kind", "_id", "_attr", "_comp", "_data", "_fn", "_source")
 
     def __init__(self, src=None):
+        self._source = getattr(src, "_source", None) if isinstance(src, MObject) else None
         self._kind = None
         self._id = 0
         self._attr = None
