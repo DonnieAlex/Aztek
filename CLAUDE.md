@@ -127,8 +127,8 @@ skill applies when working on an issue by hand.
 ## Working loop
 
 Pick the next gap from PARITY.md ("Not yet") or below, implement it to the reference's behaviour, add tests in the crate's
-`tests/`, build, check it in the UI with screenshots, update PARITY.md's status with the date. Commit locally in small
-steps with plain messages (no attribution); srlegrand pushes.
+`tests/`, build, check it in the UI with screenshots, update PARITY.md's status with the date. Commit in small steps
+with plain messages (no attribution) and push to main once the tests pass, as in the Rules.
 
 ## Next
 
