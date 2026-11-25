@@ -4260,6 +4260,10 @@ filtered by language; Command Completion is implemented (see Script Editor compl
 Show Tooltip Help and Show quick help are greyed because there is no object path index and no Quick Help side bar; the
 MEL tab icon is drawn from the reference's file name, as the reference's `mel_tab.png` is not on disk.
 
+### Viewport grid depth (25/11/2026, #297)
+
+The perspective grid stays visible in front of opaque surfaces and is hidden where it runs behind them.
+
 ### Script Editor completion (25/11/2026)
 
 Command > Command Completion is a checkable item, off by default, kept in QSettings as
