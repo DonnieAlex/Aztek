@@ -227,3 +227,42 @@ pub fn at_startup(name: &str) -> bool {
     let file = format!("startup/{name}.mel");
     SCRIPTS.iter().any(|(p, _)| *p == file) || startup_procs().contains_key(name)
 }
+
+/// Every global procedure the bundled scripts define, with the declaration as written: `string[] addStandardButtons(string $a, ...)`.
+/// The Script Editor's completion lists them; nothing here runs a script. Sorted by name, the first declaration of a
+/// name winning, as sourcing does.
+pub fn procedure_signatures() -> &'static [(String, String)] {
+    static LIST: std::sync::OnceLock<Vec<(String, String)>> = std::sync::OnceLock::new();
+    LIST.get_or_init(|| {
+        let mut seen = std::collections::HashSet::new();
+        let mut out = Vec::new();
+        for (_, text) in SCRIPTS {
+            let mut lines = text.lines();
+            while let Some(line) = lines.next() {
+                let Some(rest) = line.trim_start().strip_prefix("global proc ") else { continue };
+                // A declaration may wrap after a comma: gather until its parentheses balance.
+                let mut decl = rest.trim().to_string();
+                let mut depth = decl.chars().filter(|&c| c == '(').count() as i32 - decl.chars().filter(|&c| c == ')').count() as i32;
+                while depth > 0 {
+                    let Some(next) = lines.next() else { break };
+                    decl.push(' ');
+                    decl.push_str(next.trim());
+                    depth += next.chars().filter(|&c| c == '(').count() as i32 - next.chars().filter(|&c| c == ')').count() as i32;
+                }
+                let Some(open) = decl.find('(') else { continue };
+                let head = decl[..open].trim();
+                let Some(name) = head.split_whitespace().last() else { continue };
+                if !seen.insert(name.to_string()) {
+                    continue;
+                }
+                let close = decl[open..].find(')').map(|i| open + i).unwrap_or(decl.len());
+                let params = decl[open + 1..close].trim();
+                let ret = head[..head.len() - name.len()].trim();
+                let signature = if ret.is_empty() { format!("{name}({params})") } else { format!("{ret} {name}({params})") };
+                out.push((name.to_string(), signature));
+            }
+        }
+        out.sort_by(|a, b| a.0.cmp(&b.0));
+        out
+    })
+}

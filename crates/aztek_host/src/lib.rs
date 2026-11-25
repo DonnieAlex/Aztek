@@ -36,6 +36,7 @@ pub mod host_general;
 pub mod ee_listen;
 pub mod command_port;
 pub mod command_line;
+pub mod completion;
 pub mod scriptui;
 pub mod tools;
 pub mod tools_quad;
@@ -561,6 +562,8 @@ pub extern "C" fn aztek_query(what: *const c_char, arg: *const c_char) -> *mut c
             "references" => aztek_scene::references::ui_list(&mut c.s),
             "state" => query::state(c),
             "commands" => query::commands(c),
+            "completionCore" => completion::core_index(c),
+            "liveProcedures" => completion::live_procedures(c),
             "flagDefaults" => c
                 .s
                 .commands
@@ -570,6 +573,44 @@ pub extern "C" fn aztek_query(what: *const c_char, arg: *const c_char) -> *mut c
             _ => Value::Null,
         })
     })
+}
+
+/// The Script Editor's completion index: commands with their flags and help, MEL procedures and built-ins, and the
+/// Python modules with their module-level names. The Python half is absent when this build has no Python. Building it
+/// starts Python the first time; call it with the host free, as a query handler does.
+#[no_mangle]
+pub extern "C" fn aztek_completion_index() -> *mut c_char {
+    let mut v = with(|h| completion::core_index(&h.core));
+    #[cfg(feature = "python")]
+    match python::completion_modules() {
+        Ok(text) => match serde_json::from_str::<Value>(&text) {
+            Ok(p) => v["python"] = p,
+            Err(e) => v["pythonError"] = json!(e.to_string()),
+        },
+        Err(e) => v["pythonError"] = json!(e),
+    }
+    out_json(v)
+}
+
+/// One Python class for the Script Editor's completion: constructor, docstring and members, as JSON. Null when the
+/// class is not in the module or this build has no Python.
+#[no_mangle]
+pub extern "C" fn aztek_completion_class(module: *const c_char, class: *const c_char) -> *mut c_char {
+    #[cfg(feature = "python")]
+    match python::completion_class(&cstr(module), &cstr(class)) {
+        Ok(text) => out(text),
+        Err(_) => std::ptr::null_mut(),
+    }
+    #[cfg(not(feature = "python"))]
+    {
+        let _ = (module, class);
+        std::ptr::null_mut()
+    }
+}
+
+/// The completion index without Python, for tests and for a build with no interpreter.
+pub fn completion_index(core: &Core) -> Value {
+    completion::core_index(core)
 }
 
 /// Script UI: the operations waiting for the shell, as a JSON array, or null when there are none.
