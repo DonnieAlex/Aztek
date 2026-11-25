@@ -970,6 +970,17 @@ QMenuBar* ScriptUi::menu_bar_of(Item* it) {
     return nullptr;
 }
 
+// A menu or item's action carries its name, as the reference's do, and its full path, so MQtUtil.findMenuItem finds it.
+void ScriptUi::name_action(Item* it) {
+    if (!it->action) return;
+    it->action->setObjectName(it->name);
+    it->action->setProperty("azPath", it->path);
+    if (it->menu) {
+        it->menu->setObjectName(it->name);
+        it->menu->setProperty("azPath", it->path);
+    }
+}
+
 void ScriptUi::build_menu(Item* it, Item* parent, const QJsonObject& props) {
     QString label = props.contains("label") ? props["label"].toString() : it->name;
     if (it->kind == "popupMenu") {
@@ -985,6 +996,7 @@ void ScriptUi::build_menu(Item* it, Item* parent, const QJsonObject& props) {
         if (!bar) return;
         it->menu = bar->addMenu(amp(label));
         it->action = it->menu->menuAction();
+        name_action(it);
         if (main_ && bar == main_->menuBar()) main_menus_.append(it->menu);
     }
     QString path = it->path;
@@ -1012,6 +1024,7 @@ void ScriptUi::build_menu_item(Item* it, Item* parent, const QJsonObject& props)
     if (as_bool(props["subMenu"])) {
         it->menu = m->addMenu(amp(label));
         it->action = it->menu->menuAction();
+        name_action(it);
         return;
     }
     if (as_bool(props["optionBox"])) {
@@ -1036,6 +1049,7 @@ void ScriptUi::build_menu_item(Item* it, Item* parent, const QJsonObject& props)
     }
     it->action = m->addAction(amp(label));
     QString path = it->path;
+    name_action(it);
     connect(it->action, &QAction::triggered, this, [this, path](bool checked) {
         auto* i = items_.value(path);
         QJsonObject set;

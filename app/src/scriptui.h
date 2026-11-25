@@ -61,6 +61,7 @@ private:
     void place_dock(Item* it, const QJsonObject& props, bool made);
     QDockWidget* dock_named(const QString& name) const;
     void build_group(Item* it, const QJsonObject& props);
+    void name_action(Item* it);
     void build_menu(Item* it, Item* parent, const QJsonObject& props);
     void build_menu_item(Item* it, Item* parent, const QJsonObject& props);
     void place(Item* parent, Item* child);
