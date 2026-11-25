@@ -255,7 +255,8 @@ void main() {
 const COMPOSITE_MAIN: &str = r#"
 void main() {
     vec2 c = floor(gl_FragCoord.xy) + 0.5;
-    vec3 color = texelFetch(sampler2D(t_scene, s_point), ivec2(c), 0).rgb;
+    // Keep the displayed scene in range while the bounce pass reads its full brightness.
+    vec3 color = clamp(texelFetch(sampler2D(t_scene, s_point), ivec2(c), 0).rgb, 0.0, 1.0);
     float d = depth_at(c);
     // Nothing drawn here (no depth, and still the colour it was cleared to): the gradient, top of the view to
     // bottom. What was drawn without depth keeps its colour.

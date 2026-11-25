@@ -205,7 +205,7 @@ pub struct Gpu {
     pub depth_image: vk::Image,
     pub depth_view: vk::ImageView,
     pub depth_alloc: Option<Allocation>,
-    /// Samples per pixel the view draws with; above one, it draws into `msaa_image` and resolves into the swapchain image.
+    /// Samples per pixel the view draws with; above one, it draws into `msaa_image` and resolves into the scene image.
     pub samples: vk::SampleCountFlags,
     pub msaa_image: vk::Image,
     pub msaa_view: vk::ImageView,
@@ -267,7 +267,7 @@ impl Gpu {
             .unwrap_or(&formats[0])
             .format;
         let samples = sample_count(&shared, wanted_samples());
-        let render_pass = scene_pass(&device, format, samples)?;
+        let render_pass = scene_pass(&device, samples)?;
         // The post pass: one colour attachment, the window's image, written whole.
         let post_att = [vk::AttachmentDescription::default()
             .format(format)
@@ -533,7 +533,7 @@ impl Gpu {
                 self.msaa_image = self.device.create_image(
                     &vk::ImageCreateInfo::default()
                         .image_type(vk::ImageType::TYPE_2D)
-                        .format(self.format)
+                        .format(SCENE_FORMAT)
                         .extent(vk::Extent3D { width: extent.width, height: extent.height, depth: 1 })
                         .mip_levels(1)
                         .array_layers(1)
@@ -552,7 +552,7 @@ impl Gpu {
                 self.device.bind_image_memory(self.msaa_image, alloc.memory(), alloc.offset())?;
                 self.msaa_alloc = Some(alloc);
                 self.msaa_view = self.device.create_image_view(
-                    &vk::ImageViewCreateInfo::default().image(self.msaa_image).view_type(vk::ImageViewType::TYPE_2D).format(self.format).subresource_range(color_range()),
+                    &vk::ImageViewCreateInfo::default().image(self.msaa_image).view_type(vk::ImageViewType::TYPE_2D).format(SCENE_FORMAT).subresource_range(color_range()),
                     None,
                 )?;
             }
@@ -560,7 +560,7 @@ impl Gpu {
             self.scene_image = self.device.create_image(
                 &vk::ImageCreateInfo::default()
                     .image_type(vk::ImageType::TYPE_2D)
-                    .format(self.format)
+                    .format(SCENE_FORMAT)
                     .extent(vk::Extent3D { width: extent.width, height: extent.height, depth: 1 })
                     .mip_levels(1)
                     .array_layers(1)
@@ -579,7 +579,7 @@ impl Gpu {
             self.device.bind_image_memory(self.scene_image, alloc.memory(), alloc.offset())?;
             self.scene_alloc = Some(alloc);
             self.scene_view = self.device.create_image_view(
-                &vk::ImageViewCreateInfo::default().image(self.scene_image).view_type(vk::ImageViewType::TYPE_2D).format(self.format).subresource_range(color_range()),
+                &vk::ImageViewCreateInfo::default().image(self.scene_image).view_type(vk::ImageViewType::TYPE_2D).format(SCENE_FORMAT).subresource_range(color_range()),
                 None,
             )?;
             let (image, view, alloc) = self.color_image("albedo", ALBEDO_FORMAT, vk::SampleCountFlags::TYPE_1, vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED, extent)?;
@@ -835,7 +835,7 @@ impl Gpu {
         unsafe {
             self.device.wait_for_fences(&[self.fence], true, u64::MAX)?;
             self.device.queue_wait_idle(self.queue)?;
-            let pass = scene_pass(&self.device, self.format, samples)?;
+            let pass = scene_pass(&self.device, samples)?;
             self.retired_passes.push(std::mem::replace(&mut self.render_pass, pass));
         }
         self.samples = samples;
@@ -959,7 +959,8 @@ impl Drop for Gpu {
     }
 }
 
-/// One number a pixel: how open it is.
+/// Keep bright light for the bounce pass. Only the final picture goes to the display's format.
+const SCENE_FORMAT: vk::Format = vk::Format::R16G16B16A16_SFLOAT;
 /// The occlusion pass's image: bounce light in rgb, how open the pixel is in a.
 pub const AO_FORMAT: vk::Format = vk::Format::R16G16B16A16_SFLOAT;
 /// The surface colour the scene pass writes beside its picture.
@@ -971,12 +972,12 @@ pub fn color_range() -> vk::ImageSubresourceRange {
 
 /// The pass the scene is drawn in, for a sample count: colour and depth at that count, resolved into the scene's image
 /// when it is more than one.
-unsafe fn scene_pass(device: &ash::Device, format: vk::Format, samples: vk::SampleCountFlags) -> Res<vk::RenderPass> {
+unsafe fn scene_pass(device: &ash::Device, samples: vk::SampleCountFlags) -> Res<vk::RenderPass> {
         let multi = samples != vk::SampleCountFlags::TYPE_1;
-        // With several samples: draw into a multisampled image (0) with depth (1), resolved into the swapchain image (2).
+        // With several samples: draw into a multisampled image (0) with depth (1), resolved into the scene image (2).
         let mut attachments = vec![
             vk::AttachmentDescription::default()
-                .format(format)
+                .format(SCENE_FORMAT)
                 .samples(samples)
                 .load_op(vk::AttachmentLoadOp::CLEAR)
                 .store_op(if multi { vk::AttachmentStoreOp::DONT_CARE } else { vk::AttachmentStoreOp::STORE })
@@ -1001,7 +1002,7 @@ unsafe fn scene_pass(device: &ash::Device, format: vk::Format, samples: vk::Samp
                 .final_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)
         };
         if multi {
-            attachments.push(resolved(format));
+            attachments.push(resolved(SCENE_FORMAT));
         }
         // The surface colour beside the picture: 3 (resolved into 4) with several samples, 2 with one.
         attachments.push(
@@ -1053,7 +1054,17 @@ fn sample_count(shared: &Shared, want: u32) -> vk::SampleCountFlags {
     let limits = unsafe { shared.instance.get_physical_device_properties(shared.phys) }.limits;
     // displayPref -q -mhr answers with the card's own largest texture.
     aztek_scene::system_cmds::MAX_HW_TEXTURE.store(limits.max_image_dimension2_d as i64, std::sync::atomic::Ordering::Relaxed);
-    let allowed = limits.framebuffer_color_sample_counts & limits.framebuffer_depth_sample_counts;
+    let scene_samples = unsafe {
+        shared.instance.get_physical_device_image_format_properties(
+            shared.phys,
+            SCENE_FORMAT,
+            vk::ImageType::TYPE_2D,
+            vk::ImageTiling::OPTIMAL,
+            vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::TRANSIENT_ATTACHMENT,
+            vk::ImageCreateFlags::empty(),
+        )
+    }.map_or(vk::SampleCountFlags::TYPE_1, |p| p.sample_counts);
+    let allowed = limits.framebuffer_color_sample_counts & limits.framebuffer_depth_sample_counts & scene_samples;
     for (n, flag) in [(8, vk::SampleCountFlags::TYPE_8), (4, vk::SampleCountFlags::TYPE_4), (2, vk::SampleCountFlags::TYPE_2)] {
         if want >= n && allowed.contains(flag) {
             return flag;
