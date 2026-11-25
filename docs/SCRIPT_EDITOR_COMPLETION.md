@@ -110,3 +110,25 @@ without docstrings show their signature only.
 - No type inference for an arbitrary Python expression before a dot; only module and class names, import aliases and
   the command names resolve.
 - No docstrings for most API members; they are not in the modules Aztek ships.
+
+## Checked 25/11/2026
+
+In the built application, with `XDG_CONFIG_HOME` and `XDG_DATA_HOME` pointed at an empty folder:
+
+- `Command > Command Completion` starts clear and can be ticked; the tick stays after quitting and reopening the
+  Script Editor, and the popup no longer appears when it is cleared.
+- In a MEL tab, typing `pol` opens the list at the caret; typing `yC` narrows it to `polyC*`; Down and Page Down move,
+  Tab and Enter accept, Escape leaves the text and closes the popup, hover selects and a click accepts.
+- After `polyCube ` the flags are listed long form then short form, their types in the category column and their help
+  under the list; `-w` narrows to width and its short form; Tab inserts `-width `.
+- `polyCube(` shows the argument hint; `$x = polyC` and `` `polyC `` still list commands, and `$x = polyCube ` lists
+  flags.
+- In a Python tab, `maya.` lists the modules, `maya.api.` lists the four API modules, `maya.cmds.` lists the commands
+  (`isParentOf` greyed as MEL only), `maya.mel.` lists `eval`, `maya.api.OpenMaya.` lists the API's classes, and
+  `maya.api.OpenMaya.MFnMesh.` lists its methods with signatures.
+- `maya.cmds.polyCube(` shows `polyCube(name=, position=, ...)` with the current parameter in white; after a comma the
+  next one is white. `maya.api.OpenMaya.MFnMesh(` shows `MFnMesh(obj=None)`.
+- `import maya.cmds as mc` then `mc.polyC` lists the commands, and a class constructor's signature shows beside the
+  list.
+- The wheel moves the selection and scrolls the list to keep it in view; Page Up and Page Down move a page.
+- The history pane, syntax colours, line numbers, tabs, find and replace and the Execute buttons behave as before.
