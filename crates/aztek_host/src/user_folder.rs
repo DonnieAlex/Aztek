@@ -4,7 +4,7 @@
 //!
 //! Three choices, kept in `userFolder.json` beside Aztek's other preferences:
 //! - `aztek`: Aztek's own folder (`~/aztek`), the default. An existing folder can be copied into it.
-//! - `link`: an existing folder of the reference's, used in place and written to only by Help > Install mGear,
+//! - `link`: an existing folder of the reference's, used in place and written to only by Help > Install > mGear,
 //!   which puts its module in its `modules` folder.
 //! - `custom`: any other folder with the same layout.
 //!
@@ -1153,7 +1153,7 @@ pub fn register_commands(s: &mut Session) {
     s.register(
         CommandDef::<Session>::new(
             "aztekUserFolder",
-            "Where scripts, plug-ins, modules and preferences kept between versions are looked for: -mode aztek (Aztek's own folder), link (an existing folder of the reference's, used in place, written to only by Help > Install mGear) or custom, with -folder and -version; -copyFrom folder copies one into Aztek's own. -q describes what is in force.",
+            "Where scripts, plug-ins, modules and preferences kept between versions are looked for: -mode aztek (Aztek's own folder), link (an existing folder of the reference's, used in place, written to only by Help > Install > mGear) or custom, with -folder and -version; -copyFrom folder copies one into Aztek's own. -q describes what is in force.",
             user_folder_cmd,
         )
         .flag(b("query", "q", "Describe the choice, the folders on each path and the modules found."))

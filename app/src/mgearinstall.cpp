@@ -1,4 +1,4 @@
-// Help > Install mGear: the release of mGear built for this Aztek (github.com/srlegrand/mgear) downloaded and unpacked
+// Help > Install > mGear: the release of mGear built for this Aztek (github.com/srlegrand/mgear) downloaded and unpacked
 // as a module into the user folder's modules folder, then its menu added, as its userSetup adds it at start-up.
 #include "updates.h"
 #include "aztek.h"

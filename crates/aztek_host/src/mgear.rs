@@ -1,4 +1,4 @@
-//! Help > Install mGear: mGear built for Aztek, from the releases of https://github.com/srlegrand/mgear (one zip a
+//! Help > Install > mGear: mGear built for Aztek, from the releases of https://github.com/srlegrand/mgear (one zip a
 //! platform and plug-in ABI, made by its `aztek/package.py`), unpacked as a module into the user folder's `modules`
 //! folder: `aztek-mGear.mod` and `mGear-aztek/` (scripts, icons, and the plug-ins built with Aztek's kit).
 //!

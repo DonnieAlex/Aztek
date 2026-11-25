@@ -1272,7 +1272,9 @@ void MainWindow::build_menu_set(const QString& set) {
     help->addAction("Welcome Screen", [this] { show_welcome(); });
     help->addAction("This doesn't feel right!", [this] { open_feedback(this); });
     help->addAction("Check for Updates...", [this] { check_for_updates(this, [this] { return close(); }); });
-    help->addAction("Install mGear...", [this] { install_mgear(this); });
+    // Tools animators and riggers add to the reference, each built and checked for Aztek.
+    QMenu* install = help->addMenu("Install");
+    install->addAction("mGear...", [this] { install_mgear(this); });
     help->addAction("Thanks", [this] { show_thanks(this); });
     help->addAction("About Aztek", [this] { show_about(this); });
     mb->addMenu(help);

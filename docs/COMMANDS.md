@@ -3674,7 +3674,7 @@ What file runs for a USD type or extension.
 
 ## aztekUserFolder
 
-Where scripts, plug-ins, modules and preferences kept between versions are looked for: -mode aztek (Aztek's own folder), link (an existing folder of the reference's, used in place, written to only by Help > Install mGear) or custom, with -folder and -version; -copyFrom folder copies one into Aztek's own. -q describes what is in force.
+Where scripts, plug-ins, modules and preferences kept between versions are looked for: -mode aztek (Aztek's own folder), link (an existing folder of the reference's, used in place, written to only by Help > Install > mGear) or custom, with -folder and -version; -copyFrom folder copies one into Aztek's own. -q describes what is in force.
 
 | Flag | Short | Description |
 | --- | --- | --- |
