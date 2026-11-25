@@ -369,6 +369,8 @@ impl View {
         for w in crate::textures::with_cache(&self.gpu, |c| c.take_warnings()) {
             core.push(format!("// Warning: {w} //"), crate::core::LineKind::Warning);
         }
+        // The guides go on a layer of their own, which the post pass lays over the finished picture (#300).
+        self.gpu.begin_overlay();
         self.overlay(core, &items);
         prof.mark("  overlay");
         // The scene is drawn: it goes to the window through the post effects.
