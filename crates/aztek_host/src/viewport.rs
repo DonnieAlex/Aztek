@@ -1586,6 +1586,17 @@ impl Viewport {
             } else if self.tool == Tool::PaintSkin && s.paint_ctx.color_feedback && s.paint_ctx.skin_paint_mode != 0 {
                 // Select mode picks components on the plain shaded mesh, as the reference's (#104).
                 aztek_scene::skin::skin_of(g, it.shape).and_then(|sk| {
+                    // With Skin Tools layers: the current layer's paint target.
+                    if let Some(l) = aztek_scene::skin_layers::layers_of(g, sk) {
+                        if let Some(id) = l.current {
+                            if let Some(t) = aztek_scene::skin_layers::paint_target(g, sk, &l, id) {
+                                let v = aztek_scene::skin_layers::target_values(&l, id, t);
+                                let mut k = DefaultHasher::new();
+                                (id, format!("{t:?}"), v.iter().map(|x| x.to_bits()).fold(0u64, |a, b| a.rotate_left(5) ^ b)).hash(&mut k);
+                                return Some((v, k.finish(), false));
+                            }
+                        }
+                    }
                     let (bind, inf) = (aztek_scene::skin::bind_of(g, sk)?, aztek_scene::skin::paint_influence(s, sk)?);
                     Some((aztek_scene::skin::point_weights(&bind, inf), inf as u64, bind.locks.get(inf as usize).copied().unwrap_or(false)))
                 })
