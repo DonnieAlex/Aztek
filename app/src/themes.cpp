@@ -872,8 +872,8 @@ QString skin(const Theme& t, const QString& a) {
     }
     s += "QLineEdit:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled { color: @disabled; }\n";
     // Fields that carry a state colour (the Channel Box's keyed, locked, driven) keep it.
-    s += "QLineEdit#channelValue, QLineEdit#channelConnected, QLineEdit#channelKeyed, QLineEdit#channelKeyOnFrame, QLineEdit#channelChanged, QLineEdit#channelLayered, QLineEdit#channelMuted, QLineEdit#channelLocked, QLineEdit#channelHeader, QLineEdit#connectedField, QLineEdit#keyedField, QLineEdit#lockedField, QLineEdit#cmdResult[error=\"true\"] { border-image: none; border-radius: 0; padding: 0 3px; }\n";
-    if (bevel) s += "QLineEdit#channelValue { background: @field; color: @fieldtext; border: none; }\n";
+    s += "QLineEdit#channelValue, QLineEdit#channelConnected, QLineEdit#channelKeyed, QLineEdit#channelKeyOnFrame, QLineEdit#channelChanged, QLineEdit#channelLayered, QLineEdit#channelMuted, QLineEdit#channelLocked, QLineEdit#channelHeader, QLineEdit#connectedField, QLineEdit#keyedField, QLineEdit#lockedField, QLineEdit#aeField, QLineEdit#cmdResult[error=\"true\"] { border-image: none; border-radius: 0; padding: 0 3px; }\n";
+    if (bevel) s += "QLineEdit#channelValue, QLineEdit#aeField { background: @field; color: @fieldtext; border: none; }\n";
 
     // Spin box arrows.
     for (const char* k : {"Spin", "DoubleSpin"}) {

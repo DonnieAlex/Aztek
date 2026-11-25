@@ -1246,7 +1246,17 @@ pub fn register_types() {
         let mut own = p.attrs;
         own.push(up_axis_attr());
         own.push(vec3_attr("axis", "ax", DVec3::Y, flags::INPUT | flags::STORABLE | flags::KEYABLE, "The direction the primitive's up points, as a vector."));
-        own.push(int_attr("createUVs", 1, "0 leaves the mesh without UVs.", 0.0, 4.0));
+        let mut cuv = int_attr("createUVs", 1, "0 leaves the mesh without UVs.", 0.0, 4.0);
+        cuv.enum_names = match p.ty {
+            "polyCube" => vec!["None", "Normalize Collectively", "Normalize Each Face Separately", "Normalization Off",
+                               "Normalize Collectively and Preserve Aspect Ratio"],
+            "polyPlane" => vec!["None", "Normalization Off", "Preserve Aspect Ratio"],
+            _ => vec!["None", "Normalize", "Normalization Off", "Normalize and Preserve Aspect Ratio"],
+        }
+        .into_iter()
+        .map(str::to_string)
+        .collect();
+        own.push(cuv);
         own.push(int_attr("texture", 1, "How UVs are laid out; accepted.", 0.0, 2.0));
         own.push(mesh_attr("outMesh", "o", flags::OUTPUT | flags::HIDDEN, "Generated mesh."));
         let out = own.len() - 1;

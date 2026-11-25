@@ -244,6 +244,8 @@ void MainWindow::build_runtime() {
     window("ModelingToolkitWindow", "modelingToolkit", "Modeling Toolkit");
     window("GridOptions", "gridOptions", "Grid Options");
     window("AddAttribute", "addAttribute", "Add Attribute");
+    window("EditAttribute", "editAttribute", "Edit Attribute");
+    window("DeleteAttribute", "deleteAttribute", "Delete Attribute");
     r("ShelfEditor", "Windows", "Shelf Editor", [this] { shelf_bar_->open_editor(); });
     r("OutlinerWindow", "Windows", "Outliner", [this] { outliner_dock_->show(); outliner_dock_->raise(); });
     r("ToggleChannelsLayers", "Windows", "Channel Box / Layer Editor", [this] { channel_dock_->setVisible(!channel_dock_->isVisible()); });

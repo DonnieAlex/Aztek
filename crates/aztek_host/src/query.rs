@@ -503,8 +503,9 @@ fn node_attrs(g: &Graph, id: NodeId) -> Value {
             // Locked: shown but not typed into, as in the Channel Box (#212). A vector's parts lock one by one.
             "locked": g.is_locked(&aztek_scene::plug::PlugRef::new(id, i as i32)),
             "childLocked": (0..3).map(|k| g.is_locked(&aztek_scene::plug::PlugRef::component(id, i as i32, k as i32))).collect::<Vec<bool>>(),
-            // A vector's parts keyed one by one, as Set Key on its row keys them.
+            // A vector's parts keyed or driven one by one, as Set Key and Connect on its row do.
             "childKeyed": (0..3).map(|k| g.source(&aztek_scene::plug::PlugRef::component(id, i as i32, k)).is_some_and(|s| g.node(s.node).is_some_and(|n| n.ty().name.starts_with("animCurve")))).collect::<Vec<bool>>(),
+            "childConnected": (0..3).map(|k| g.source(&aztek_scene::plug::PlugRef::component(id, i as i32, k)).is_some()).collect::<Vec<bool>>(),
             // Wire and interface colours are shown as they are stored; materials' are linear.
             "displayColor": matches!(a.name.as_str(), "overrideColorRGB" | "objectColorRGB" | "wireColorRGB" | "outlinerColor"),
             "color": a.flags & flags::COLOR != 0,
@@ -520,7 +521,56 @@ fn node_attrs(g: &Graph, id: NodeId) -> Value {
             "hardMax": a.max_value,
         }));
     }
-    json!({"name": n.name(), "path": path, "type": n.ty().name, "doc": n.ty().doc, "attrs": attrs})
+    // A blend shape's targets, as the reference lists them in its Weight frame: the alias is the target's name.
+    let mut weights = Vec::new();
+    if n.ty().name == "blendShape" {
+        let blend = aztek_scene::deform_blend::blend_of(g, id);
+        for t in &blend.targets {
+            let plug = format!("{path}.weight[{}]", t.index);
+            let value = g.plug(&plug).ok().and_then(|p| g.peek(&p)).map(|v| match v {
+                PlugValue::Float(x) => x,
+                PlugValue::Int(x) => x as f64,
+                PlugValue::Bool(x) => if x { 1.0 } else { 0.0 },
+                _ => 0.0,
+            }).unwrap_or(0.0);
+            weights.push(json!({"name": t.name, "index": t.index, "plug": plug, "value": value}));
+        }
+    }
+    // A deformer's input geometry, for its Deformer Attributes table.
+    let mut geometry = String::new();
+    if matches!(n.ty().name.as_str(), "skinCluster" | "blendShape" | "cluster" | "sculpt" | "wrap" | "shrinkWrap" | "softMod" | "nonLinear" | "lattice") {
+        for (src, dst) in g.connections() {
+            if dst.node != id || src.node == id {
+                continue;
+            }
+            if let Some(sn) = g.node(src.node) {
+                if sn.ty().is_a("shape") || sn.ty().name == "mesh" {
+                    geometry = g.path(src.node);
+                    break;
+                }
+            }
+        }
+    }
+    // The first node this one reads from and the first it feeds, for the two buttons beside its name.
+    let mut input_node = String::new();
+    let mut output_node = String::new();
+    for i in 0..n.ty().attrs.len() {
+        let plug = aztek_scene::plug::PlugRef::new(id, i as i32);
+        if let Some(src) = g.source(&plug) {
+            if src.node != id {
+                input_node = g.path(src.node);
+                break;
+            }
+        }
+    }
+    for (src, dst) in g.connections() {
+        if src.node == id && dst.node != id {
+            output_node = g.path(dst.node);
+            break;
+        }
+    }
+    json!({"name": n.name(), "path": path, "type": n.ty().name, "doc": n.ty().doc, "attrs": attrs, "weights": weights,
+           "inputNode": input_node, "outputNode": output_node, "geometry": geometry, "uuid": n.uuid()})
 }
 
 /// The attribute editor's tabs for a node: the transform, its shape, and the shape's history, as the reference shows them.
@@ -566,6 +616,15 @@ pub fn attribute_editor(core: &Core, path: &str) -> Value {
         let xf = aztek_scene::dag::transform_of(g, id);
         if xf != id && xf != NO_NODE {
             tabs.insert(0, xf);
+        }
+    }
+    // A light's default light set comes last, as the reference tabifies it.
+    let light = tabs.iter().any(|&t| g.node(t).is_some_and(|n| n.ty().is_a("light") || matches!(n.ty().name.as_str(), "ambientLight" | "directionalLight" | "pointLight" | "spotLight" | "areaLight" | "volumeLight")));
+    if light {
+        if let Ok(Some(set)) = g.find("defaultLightSet") {
+            if !tabs.contains(&set) {
+                tabs.push(set);
+            }
         }
     }
     json!({"focus": g.path(id), "tabs": tabs.iter().map(|&t| node_attrs(g, t)).collect::<Vec<_>>()})

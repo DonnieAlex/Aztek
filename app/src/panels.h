@@ -181,8 +181,13 @@ protected:
     bool eventFilter(QObject* o, QEvent* e) override;
 private:
     QTabWidget* tabs_;
+    QLabel* empty_ = nullptr;
     QString current_tab_;
+    QString last_focus_;
     QString pinned_;
+    // List > Display > Attribute Names: Nice, Long or Short.
+    QString name_style_ = "Nice";
+    bool show_notes_ = true;
     // What the tabs were last built from: the same again (a change somewhere else) leaves them be.
     QByteArray last_;
 };
