@@ -45,7 +45,7 @@ rank keeps an exact-case prefix above the rest.
 - Escape dismisses the popup and nothing else.
 - Moving the caret with the keyboard re-evaluates the context; clicking in the text dismisses the popup.
 - Hovering a row selects it; a click accepts it.
-- The wheel scrolls the list without changing the selection.
+- The wheel moves the selection three rows at a time and scrolls the list to keep it in view.
 
 Accepting replaces the typed prefix only: the word for a name, the `-word` for a MEL flag, or the current argument
 segment for a Python keyword. Accepting closes the popup. Undo takes the insertion back in one step.

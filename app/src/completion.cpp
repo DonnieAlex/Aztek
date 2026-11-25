@@ -1118,9 +1118,7 @@ void ScriptCompletion::mousePressEvent(QMouseEvent* e) {
 
 void ScriptCompletion::wheelEvent(QWheelEvent* e) {
     if (entries_.isEmpty()) return;
-    const int step = e->angleDelta().y() < 0 ? 3 : -3;
-    scroll_ = qBound(0, scroll_ + step, qMax(0, static_cast<int>(entries_.size()) - visible_rows_));
-    update();
+    move_selection(e->angleDelta().y() < 0 ? 3 : -3);
     e->accept();
 }
 
