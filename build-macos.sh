@@ -105,7 +105,9 @@ echo "Built $APP"
 # Everything the app needs inside it: MoltenVK, the icon, Qt, Python with its standard library and PySide6, the plug-ins
 # that ship with Aztek, Harold's renderer and the examples. The signature comes last: everything before it changes the bundle.
 mkdir -p "$APP/Contents/Frameworks" "$APP/Contents/Resources"
-cp "$MVK" "$APP/Contents/Frameworks/"
+# Homebrew's MoltenVK is read-only: -f replaces the copy a previous build left, and the copy is made writable.
+cp -f "$MVK" "$APP/Contents/Frameworks/"
+chmod u+w "$APP/Contents/Frameworks/libMoltenVK.dylib"
 ICONS="$DIR/aztek.iconset"
 rm -rf "$ICONS" && mkdir -p "$ICONS"
 for s in 16 32 128 256 512; do
@@ -123,7 +125,8 @@ rm -rf "$PRES/lib/python3.13"
 cp -R "$PYBUNDLE/lib/python3.13" "$PRES/lib/python3.13"
 rm -rf "$PRES/lib/python3.13/test" "$PRES/lib/python3.13/tests" "$PRES/lib/python3.13/idlelib" \
   "$PRES/lib/python3.13/tkinter" "$PRES/lib/python3.13/turtledemo"
-cp "$PYLIB" "$APP/Contents/Frameworks/"
+cp -f "$PYLIB" "$APP/Contents/Frameworks/"
+chmod u+w "$APP/Contents/Frameworks/libpython3.13.dylib"
 OLDID=$(otool -D "$PYLIB" | tail -1)
 install_name_tool -id "@rpath/libpython3.13.dylib" "$APP/Contents/Frameworks/libpython3.13.dylib"
 case "$OLDID" in
@@ -143,7 +146,7 @@ install_name_tool -add_rpath "@executable_path/../Resources/python/lib/python3.1
   "$APP/Contents/MacOS/aztek" 2>/dev/null || true
 
 # Harold's command-line renderer, beside the program, and the example scenes, where File > Examples looks.
-cp "$DIR/harold" "$APP/Contents/MacOS/"
+cp -f "$DIR/harold" "$APP/Contents/MacOS/"
 rm -rf "$APP/Contents/Resources/examples"
 cp -R examples "$APP/Contents/Resources/examples"
 # Ad hoc, or with a Developer ID when AZTEK_SIGN_IDENTITY names one (packaging/macos/sign.sh).
