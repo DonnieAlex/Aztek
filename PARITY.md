@@ -4511,3 +4511,12 @@ anti-aliased edge also takes that surface's colour from the pixel round about th
 mixed into an edge pixel is not bounced back either. The background is a working aid only, as in the reference, and
 Harold renders with its own background (black, alpha 0). Not yet checked in the built app against the screenshots in
 the issue.
+
+### Welcome screen: a release's notes under its own release (25/11/2026)
+
+What's new takes each release's own notes from GitHub instead of grouping a date-ordered commit list. GitHub orders
+commits by commit date, so a branch merged after a release can carry commits dated before it: the Attribute Editor's
+tab fix, merged after 2.647, was listed under 2.647 although that release did not have it, while changes belonging to
+2.647 were pushed down into 2.643. The commits after the newest release the running build includes come from the
+compare API and are listed under "Not in a release yet". A build whose commit isn't on GitHub, one from a fork say,
+still shows the upstream's releases.

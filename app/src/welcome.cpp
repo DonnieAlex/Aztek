@@ -32,6 +32,7 @@
 #include <QProgressBar>
 #include <QPushButton>
 #include <QRegularExpression>
+#include <QSet>
 #include <QSettings>
 #include <QTextBrowser>
 #include <QThread>
@@ -56,6 +57,8 @@ const char* kAnnouncementsPage = "https://github.com/srlegrand/Aztek/discussions
 const char* kReleases = "https://github.com/srlegrand/Aztek/releases";
 const char* kRepo = "https://github.com/srlegrand/Aztek";
 const char* kCommitsApi = "https://api.github.com/repos/srlegrand/Aztek/commits?sha=main&per_page=100";
+const char* kCommitHistoryApi = "https://api.github.com/repos/srlegrand/Aztek/commits?sha=%1&per_page=100";
+const char* kCompareApi = "https://api.github.com/repos/srlegrand/Aztek/compare/%1...%2";
 const char* kReleasesApi = "https://api.github.com/repos/srlegrand/Aztek/releases?per_page=100";
 const char* kIssuesApi = "https://api.github.com/repos/srlegrand/Aztek/issues?state=all&per_page=100&page=";
 const char* kOwner = "srlegrand";
@@ -480,69 +483,122 @@ void MainWindow::show_welcome(bool at_startup) {
     auto load_news = [d, notes, ann] {
         notes->setPlainText("Asking GitHub...");
         ann->clear();
-        // The changes themselves, in the words they were made with, newest first, under the release each went out in
-        // (its version and date), with the issues they fix linked (#135). Releases go out several times a day, so the
-        // last hundred changes reach back days. AZTEK_COMMITS_URL and AZTEK_RELEASES_URL stand in for GitHub's lists,
-        // as AZTEK_UPDATE_URL does for the update check.
-        fetch(d, qEnvironmentVariable("AZTEK_COMMITS_URL", kCommitsApi), [d, notes](const QJsonDocument& commits) {
+        // The changes themselves, newest first, under the release each went out in (#135). A release's own notes are
+        // what it shipped, so a commit merged after it (which GitHub's date-ordered commit list puts before it) never
+        // lands in the older release. The commits after the newest release this build includes are asked of the
+        // compare API. AZTEK_COMMITS_URL and AZTEK_RELEASES_URL stand in for GitHub's lists, as AZTEK_UPDATE_URL does
+        // for the update check.
+        const QRegularExpressionMatch own = QRegularExpression("\\(([0-9a-f]{7,40})\\)").match(QString(AZTEK_VERSION));
+        const QString mine = own.hasMatch() ? own.captured(1) : QString();
+        const QString commits_url = mine.isEmpty() ? QString(kCommitsApi) : QString(kCommitHistoryApi).arg(mine);
+        auto with_commits = [d, notes, mine](const QJsonDocument& commits) {
             if (!commits.isArray()) {
                 notes->setPlainText("The changes couldn't be fetched: " + commits.object()["error"].toString("no answer"));
                 return;
             }
-            fetch(d, qEnvironmentVariable("AZTEK_RELEASES_URL", kReleasesApi), [notes, commits](const QJsonDocument& releases) {
-                // Each release by the commit it was built from.
-                QHash<QString, QJsonObject> by_commit;
-                for (const QJsonValue& v : releases.array()) {
+            fetch(d, qEnvironmentVariable("AZTEK_RELEASES_URL", kReleasesApi), [d, notes, commits, mine](const QJsonDocument& releases) {
+                if (!releases.isArray()) {
+                    notes->setPlainText("The releases couldn't be fetched: " + releases.object()["error"].toString("no answer"));
+                    return;
+                }
+                // The commits this build has: a release whose commit is among them is one it includes.
+                QSet<QString> listed;
+                for (const QJsonValue& v : commits.array()) listed.insert(v.toObject()["sha"].toString());
+                const QJsonArray rels = releases.array();
+                // The newest release this build includes: the commits after it are the unreleased ones.
+                QString base;
+                for (const QJsonValue& v : rels) {
                     const QJsonObject r = v.toObject();
-                    if (!r["draft"].toBool()) by_commit.insert(r["target_commitish"].toString(), r);
+                    if (r["draft"].toBool()) continue;
+                    const QString target = r["target_commitish"].toString();
+                    if (listed.contains(target) || (!mine.isEmpty() && target.startsWith(mine))) {
+                        base = target;
+                        break;
+                    }
                 }
-                const QRegularExpressionMatch own = QRegularExpression("\\(([0-9a-f]{7,40})\\)").match(QString(AZTEK_VERSION));
-                const QString mine = own.hasMatch() ? own.captured(1) : QString();
                 auto when = [](const QString& iso) { return QDateTime::fromString(iso, Qt::ISODate).toLocalTime(); };
-                static const QRegularExpression issue("#(\\d+)");
-                QString md;
-                bool opened = false;
-                // The notes end at the version running: what came out after it is the update's to tell (#157). A build
-                // whose commit isn't in the list, one from a fork say, shows them all.
-                bool reached = mine.isEmpty();
-                if (!reached) {
-                    reached = true;
-                    for (const QJsonValue& v : commits.array())
-                        if (v.toObject()["sha"].toString().startsWith(mine)) reached = false;
-                }
-                for (const QJsonValue& v : commits.array()) {
-                    const QJsonObject c = v.toObject();
-                    const QString sha = c["sha"].toString();
-                    const QJsonObject commit = c["commit"].toObject();
-                    if (!reached) {
-                        if (!sha.startsWith(mine)) continue;
-                        reached = true;
-                        // Its own release heading, or the version's when it went out with a later one.
-                        if (!by_commit.contains(sha)) {
-                            md += QString("\n### %1  (this version)\n\n").arg(QString(AZTEK_VERSION).toHtmlEscaped());
-                            opened = true;
+                auto render = [notes, mine, rels, listed, when](const QJsonArray& unreleased) {
+                    auto linked = [](QString text) {
+                        static const QRegularExpression issue("#(\\d+)");
+                        text.replace(issue, QString("[#\\1](%1/issues/\\1)").arg(kRepo));
+                        return text;
+                    };
+                    QString md;
+                    int shown = 0;
+                    if (!unreleased.isEmpty()) {
+                        md += "\n### Not in a release yet\n\n";
+                        for (const QJsonValue& v : unreleased) {
+                            if (shown >= 100) break;
+                            const QJsonObject c = v.toObject();
+                            const QString sha = c["sha"].toString();
+                            QString message = c["commit"].toObject()["message"].toString().trimmed().split("\n\n").first();
+                            message.replace('\n', ' ');
+                            md += "- " + linked(message.toHtmlEscaped())
+                                  + (!mine.isEmpty() && sha.startsWith(mine) ? "  *(this version)*" : "") + "\n";
+                            ++shown;
                         }
                     }
-                    // A release built from this commit starts its group; the commits before the newest release have none.
-                    if (by_commit.contains(sha)) {
-                        const QJsonObject r = by_commit[sha];
+                    // The releases this build includes, newest first, in their own notes.
+                    for (const QJsonValue& v : rels) {
+                        const QJsonObject r = v.toObject();
+                        if (r["draft"].toBool()) continue;
+                        const QString target = r["target_commitish"].toString();
+                        const bool this_version = !mine.isEmpty() && target.startsWith(mine);
+                        if (!listed.contains(target) && !this_version) continue;
                         const QString name = r["name"].toString(r["tag_name"].toString());
                         md += QString("\n### %1, %2%3\n\n").arg(name, when(r["published_at"].toString()).toString("dd/MM/yyyy HH:mm"),
-                                                                !mine.isEmpty() && sha.startsWith(mine) ? "  (this version)" : "");
-                        opened = true;
-                    } else if (!opened) {
-                        md += "\n### Not in a release yet\n\n";
-                        opened = true;
+                                                                    this_version ? "  (this version)" : "");
+                        const QString body = linked(r["body"].toString().trimmed());
+                        QStringList kept;
+                        bool full = false;
+                        for (const QString& line : body.split('\n')) {
+                            if (line.startsWith("- ")) {
+                                if (shown >= 100) {
+                                    full = true;
+                                    break;
+                                }
+                                ++shown;
+                            }
+                            kept << line;
+                        }
+                        if (!kept.isEmpty()) md += kept.join('\n') + "\n";
+                        if (full) break;
                     }
-                    // The first paragraph, issue numbers linked.
-                    QString message = commit["message"].toString().trimmed().split("\n\n").first();
-                    message.replace('\n', ' ');
-                    message = message.toHtmlEscaped();
-                    message.replace(issue, QString("[#\\1](%1/issues/\\1)").arg(kRepo));
-                    md += "- " + message + (!mine.isEmpty() && sha.startsWith(mine) ? "  *(this version)*" : "") + "\n";
+                    notes->setMarkdown(md.isEmpty() ? QString("No changes yet.") : md);
+                };
+                if (base.isEmpty()) {
+                    // No release among the commits this build has (a very old or a fork build): the commits stand alone.
+                    QJsonArray recent;
+                    for (const QJsonValue& v : commits.array()) {
+                        const QJsonObject c = v.toObject();
+                        if (c["parents"].toArray().size() > 1) continue;
+                        recent.append(c);
+                    }
+                    render(recent);
+                } else if (!mine.isEmpty() && !base.startsWith(mine)) {
+                    // The commits after the newest release this build includes; the compare lists them oldest first.
+                    fetch(d, QString(kCompareApi).arg(base, mine), [render](const QJsonDocument& compared) {
+                        const QJsonArray commits = compared.object()["commits"].toArray();
+                        QJsonArray unreleased;
+                        for (int i = commits.size() - 1; i >= 0; --i) {
+                            const QJsonObject c = commits[i].toObject();
+                            if (c["parents"].toArray().size() > 1) continue;
+                            unreleased.append(c);
+                        }
+                        render(unreleased);
+                    });
+                } else {
+                    render(QJsonArray());
                 }
-                notes->setMarkdown(md.isEmpty() ? QString("No changes yet.") : md);
             });
+        };
+        fetch(d, qEnvironmentVariable("AZTEK_COMMITS_URL", commits_url), [d, with_commits, commits_url](const QJsonDocument& commits) {
+            if (!commits.isArray() && qEnvironmentVariableIsEmpty("AZTEK_COMMITS_URL") && commits_url != QString(kCommitsApi)) {
+                // A build from a fork: its commit isn't in the upstream's history, so show the upstream's main instead.
+                fetch(d, kCommitsApi, with_commits);
+                return;
+            }
+            with_commits(commits);
         });
         fetch(d, qEnvironmentVariable("AZTEK_ANNOUNCEMENTS_URL", kAnnouncements), [ann](const QJsonDocument& doc) {
             const QJsonArray list = doc.isArray() ? doc.array() : doc.object()["announcements"].toArray();
