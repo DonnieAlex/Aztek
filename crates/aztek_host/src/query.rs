@@ -495,8 +495,9 @@ fn node_attrs(g: &Graph, id: NodeId) -> Value {
             // Locked: shown but not typed into, as in the Channel Box (#212). A vector's parts lock one by one.
             "locked": g.is_locked(&aztek_scene::plug::PlugRef::new(id, i as i32)),
             "childLocked": (0..3).map(|k| g.is_locked(&aztek_scene::plug::PlugRef::component(id, i as i32, k as i32))).collect::<Vec<bool>>(),
-            // A vector's parts keyed one by one, as Set Key on its row keys them.
+            // A vector's parts keyed or driven one by one, as Set Key and Connect on its row do.
             "childKeyed": (0..3).map(|k| g.source(&aztek_scene::plug::PlugRef::component(id, i as i32, k)).is_some_and(|s| g.node(s.node).is_some_and(|n| n.ty().name.starts_with("animCurve")))).collect::<Vec<bool>>(),
+            "childConnected": (0..3).map(|k| g.source(&aztek_scene::plug::PlugRef::component(id, i as i32, k)).is_some()).collect::<Vec<bool>>(),
             // Wire and interface colours are shown as they are stored; materials' are linear.
             "displayColor": matches!(a.name.as_str(), "overrideColorRGB" | "objectColorRGB" | "wireColorRGB" | "outlinerColor"),
             "color": a.flags & flags::COLOR != 0,

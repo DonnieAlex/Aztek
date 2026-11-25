@@ -4240,7 +4240,7 @@ Projected Center sets snapMode -meshCenter while the viewport does not use that 
 
 The Attribute Editor is rebuilt on the reference's own chrome: the menu bar with List, Selected, Focus, Attributes,
 Display, Show and Help and the pin at its right; the outlined tab strip with its scroll arrows; and the name row with
-the node type right-aligned, an empty name field, the input and output connection buttons, and Focus, Presets, Show
+the node type right-aligned, the node's name in an editable field, the input and output connection buttons, and Focus, Presets, Show
 and Hide stacked at the right; the connection arrows are live when the node reads from or feeds another. With
 nothing selected the panel says so in the reference's own words. List pins the tab and lists the node categories
 (Dynamics, Kinematics, Deformers, Lights, Shading) from the scene; Selected lists the selected nodes and checks the one
@@ -4392,12 +4392,30 @@ Writes go back to the plug:
 
 Tabs switch to the node they name. A node without a template of its own uses the generic sections and Extra Attributes
 with its real values (a `reverse` utility showed its input X, Y and Z from the scene). Deleting a node removes its tab;
-renaming a node changes its tab and the name placeholder. The name row shows the node type, the node name as a
-placeholder with the full path in its tooltip, and connection arrows that carry the connected path and select it.
+renaming a node changes its tab. The name row shows the node type, the node's name as real text in its field with the
+full path in its tooltip, and connection arrows that carry the connected path and select it. Clicking the name field
+selects the whole name, Enter renames the node, and Escape puts the old name back; a rename the scene refuses (a
+default node such as `lambert1`) leaves the field and the scene on the real name.
+
+Every field wears the Channel Box's field colours: the `@base` background, `@text` text and `@hi` selection, with no
+bevel. Read-only values (`:read-only`) take a darker field, disabled ones darker still; a connected value is yellow, a
+keyed one red and a locked one the button grey, as the Channel Box marks its channels. Checkboxes, menus, sliders and
+buttons keep their own look.
+
+Sections keep the user's own open state, and every tab its scroll position, per node and per section. Opening Pivots,
+Limit Information and Display held through a checkbox edit, a text edit, undo and redo, a rename, a script's
+`setAttr`, a tab switch, and a collapse stayed collapsed through the same changes. The state is keyed by the node's
+UUID (so a rename keeps it) and by the nested section path; the model carries the same state in its section headers, and
+the template only supplies how a section starts. The scroll bar's saved value is put back after the page rebuilds,
+after the focused field has tried to scroll it, without overwriting the position the user left. The built app's check is
+`tools/ui_checks/attribute_editor_sections.py`: it expands three sections, scrolls the page, edits a checkbox and a
+text value, undoes and redoes, renames the node, switches tabs and collapses a section, and exits 0 only when every
+section and the scroll position came back.
 
 Evidence is in `crates/aztek_host/tests/attribute_editor_live.rs`: the values are live and undo returns the old one,
 the UUID and offset parent matrix come from the node, a rename moves the tab, a primitive's Create UVs carries its
-names and value, and a light type change keeps the new shape selected. The manual runs behind the screenshots covered a translate field, rotate child, joint radius, scale
+names and value, and a light type change keeps the new shape selected. The sections, scroll, name field and field
+colours are checked in the built app by `tools/ui_checks/attribute_editor_sections.py`. The manual runs behind the screenshots covered a translate field, rotate child, joint radius, scale
 and blend weight sliders, Visibility, Template, Use Outliner Color and Draw Label checkboxes, Inherits Transform,
 rotate order, Create UVs, light intensity, colour and type, camera focal length, limit fields and enables, undo and
 redo, a time change, and a generic `reverse` tab.

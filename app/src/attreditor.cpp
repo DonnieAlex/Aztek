@@ -719,16 +719,17 @@ QWidget* attr_field(const QJsonObject& a, QWidget* parent) {
         QJsonArray v = a["value"].toArray();
         QJsonArray kids = a["children"].toArray();
         QJsonArray childLocked = a["childLocked"].toArray();
+        QJsonArray childConnected = a["childConnected"].toArray();
         for (int k = 0; k < (a["pair"].toBool() ? 2 : 3); ++k) {
             auto* e = new QLineEdit(fmt3(v.at(k).toDouble()), w);
-            // Three to a row: thin padding, so a value shows whole at the panel's usual width.
-            e->setStyleSheet("padding-left: 1px; padding-right: 0px;");
+            // Three to a row, thin padding from the stylesheet so a value shows whole at the panel's usual width.
             e->setMinimumWidth(34);
             // A locked part takes the locked shade. A driven or output-only part is read-only but is not locked, so it
             // keeps its own look instead of reading as a lock (#212 review).
             const bool locked = a["locked"].toBool() || childLocked.at(k).toBool();
             e->setReadOnly(ro || locked);
             if (a["childKeyed"].toArray().at(k).toBool()) e->setObjectName("keyedField");
+            else if (childConnected.at(k).toBool()) e->setObjectName("connectedField");
             if (locked) e->setObjectName("lockedField");
             QString child = kids.at(k).toString();
             if (child.isEmpty()) child = a["attr"].toString() + QString("XYZ")[k];
@@ -756,14 +757,11 @@ QWidget* attr_field(const QJsonObject& a, QWidget* parent) {
             e->setProperty("editing", false);
             set_plug(plug, is_int ? QJsonValue(qint64(e->text().toDouble())) : QJsonValue(e->text().toDouble()), "float");
         });
-        if (!a["mappable"].toBool()) {
-            if (a["locked"].toBool()) e->setObjectName("lockedField");
-            return e;
-        }
-        // A number a texture can drive: the field, then the map button at the row's end where the sliders' are.
         if (a["keyed"].toBool()) e->setObjectName("keyedField");
         else if (a["connected"].toBool()) e->setObjectName("connectedField");
         if (a["locked"].toBool()) e->setObjectName("lockedField");
+        if (!a["mappable"].toBool()) return e;
+        // A number a texture can drive: the field, then the map button at the row's end where the sliders' are.
         auto* w = new QWidget(parent);
         auto* h = new QHBoxLayout(w);
         h->setContentsMargins(0, 0, 0, 0);
@@ -903,14 +901,36 @@ QString material_label(const QString& section, const QString& attr, const QStrin
     return out;
 }
 
-// A collapsible section header, remembered per title across refreshes.
-QSet<QString>& closed_sections() {
-    static QSet<QString> s{"Node Behaviour", "Limit Information", "Extra Attributes", "Special Effects", "Matte Opacity",
-                           "Raytrace Options", "Light Effects", "Shadows", "Arnold", "Arnold Subdivision", "Arnold Displacement",
-                           "Drawing Overrides", "Display", "Object Display", "Transmission", "Subsurface", "Coat", "Sheen", "Emission",
-                           "Thin Film", "Geometry", "Advanced", "File Attributes", "Color Balance", "Effects",
-                           "2d Texture Placement"};
+// A section's open state, per node (by its UUID, so a rename keeps it) and section path, and each node's scroll
+// position. The template only says how a section starts; once the user opens or closes it, that is what rebuilds keep.
+QHash<QString, QHash<QString, bool>>& section_states() {
+    static QHash<QString, QHash<QString, bool>> s;
     return s;
+}
+
+bool section_open(const QString& owner, const QString& key, bool by_default) {
+    if (owner.isEmpty()) return by_default;
+    const auto it = section_states().constFind(owner);
+    if (it == section_states().constEnd() || !it->contains(key)) return by_default;
+    return it->value(key);
+}
+
+void remember_section(const QString& owner, const QString& key, bool open) {
+    if (!owner.isEmpty()) section_states()[owner][key] = open;
+}
+
+QHash<QString, int>& scroll_states() {
+    static QHash<QString, int> s;
+    return s;
+}
+
+bool default_closed_section(const QString& title) {
+    static const QSet<QString> s{"Node Behaviour", "Limit Information", "Extra Attributes", "Special Effects", "Matte Opacity",
+                                 "Raytrace Options", "Light Effects", "Shadows", "Arnold", "Arnold Subdivision", "Arnold Displacement",
+                                 "Drawing Overrides", "Display", "Object Display", "Transmission", "Subsurface", "Coat", "Sheen",
+                                 "Emission", "Thin Film", "Geometry", "Advanced", "File Attributes", "Color Balance", "Effects",
+                                 "2d Texture Placement"};
+    return s.contains(title);
 }
 
 // The Attribute Editor's layout follows the reference's templates: sections that nest, and open or closed by default.
@@ -1453,6 +1473,9 @@ QList<AeBox> ae_tree(const QString& type) {
 class AeHead : public QWidget {
 public:
     AeHead(const QString& title, bool open, int depth, QWidget* parent) : QWidget(parent), title_(title), open_(open), depth_(depth) {
+        setObjectName("aeSectionHead");
+        setProperty("title", title);
+        setProperty("open", open);
         setFixedHeight(22);
         setCursor(Qt::PointingHandCursor);
         setToolTip(title);
@@ -1461,6 +1484,7 @@ public:
 
     void set_open(bool on) {
         open_ = on;
+        setProperty("open", on);
         update();
     }
     bool open() const { return open_; }
@@ -1737,7 +1761,7 @@ QList<AeBox> light_boxes(const QString& type) {
     shadows.rows = {row("shadowColor")};
     AeBox depth;
     depth.title = "Depth Map Shadow Attributes";
-    depth.open = -1;
+    depth.open = 1;
     depth.rows = {row("useDepthMapShadows"), shown("dmapResolution", "Resolution", "int"), shown("useMidDistDmap", "Use Mid Dist", "check"),
                   shown("useDmapAutoFocus", "Use Auto Focus", "check"), shown("dmapFocus", "Focus", "float"),
                   shown("dmapFilterSize", "Filter Size", "int"), shown("dmapBias", "Bias", "float"),
@@ -1748,7 +1772,7 @@ QList<AeBox> light_boxes(const QString& type) {
     if (type == "ambientLight" || type == "volumeLight") depth.rows = {row("useDepthMapShadows")};
     AeBox raytrace;
     raytrace.title = "Ray Trace Shadow Attributes";
-    raytrace.open = -1;
+    raytrace.open = 1;
     raytrace.rows = {row("useRayTraceShadows")};
     if (type == "directionalLight") raytrace.rows << shown("lightAngle", "Light Angle", "float");
     else raytrace.rows << shown("lightRadius", "Light Radius", "float");
@@ -1831,8 +1855,9 @@ QWidget* material_header(const QString& type, const QHash<QString, QJsonObject>&
     return w;
 }
 
-QFormLayout* add_section(QVBoxLayout* v, QWidget* parent, const QString& title) {
-    const bool open = !closed_sections().contains(title);
+QFormLayout* add_section(QVBoxLayout* v, QWidget* parent, const QString& title, const QString& owner, const QString& key = QString()) {
+    const QString stateKey = key.isEmpty() ? title : key;
+    const bool open = section_open(owner, stateKey, !default_closed_section(title));
     auto* headWrap = new QWidget(parent);
     auto* hw = new QHBoxLayout(headWrap);
     hw->setContentsMargins(18, 0, 18, 0);
@@ -1841,7 +1866,7 @@ QFormLayout* add_section(QVBoxLayout* v, QWidget* parent, const QString& title) 
     hw->addWidget(head);
     v->addWidget(headWrap);
     auto* box = new QWidget(parent);
-    box->setStyleSheet("background: #494949;");
+    box->setObjectName("aeSectionBody");
     auto* f = new QFormLayout(box);
     f->setLabelAlignment(Qt::AlignRight);
     f->setContentsMargins(2, 3, 64, 6);
@@ -1849,11 +1874,10 @@ QFormLayout* add_section(QVBoxLayout* v, QWidget* parent, const QString& title) 
     f->setVerticalSpacing(3);
     box->setVisible(open);
     v->addWidget(box);
-    head->toggled = [box, head, title](bool on) {
+    head->toggled = [box, head, owner, stateKey](bool on) {
         box->setVisible(on);
         head->set_open(on);
-        if (on) closed_sections().remove(title);
-        else closed_sections().insert(title);
+        remember_section(owner, stateKey, on);
     };
     return f;
 }
@@ -2062,6 +2086,7 @@ QWidget* ae_field(const AeRow& r, const QJsonObject& a, const QString& style, QW
             e->setText(a["value"].toString());
             e->setReadOnly(ro);
             QString plug = a["plug"].toString();
+            e->setProperty("plugKey", plug);
             QObject::connect(e, &QLineEdit::textEdited, e, [e] { e->setProperty("editing", true); });
             QObject::connect(e, &QLineEdit::editingFinished, e, [e, plug] {
                 if (!e->property("editing").toBool()) return;
@@ -2113,6 +2138,7 @@ QWidget* ae_vec3(const QJsonObject& a, QWidget* parent) {
     QJsonArray v = a["value"].toArray();
     QJsonArray kids = a["children"].toArray();
     QJsonArray childLocked = a["childLocked"].toArray();
+    QJsonArray childConnected = a["childConnected"].toArray();
     QString plug = a["plug"].toString();
     int count = a["pair"].toBool() ? 2 : 3;
     for (int k = 0; k < count; ++k) {
@@ -2121,6 +2147,7 @@ QWidget* ae_vec3(const QJsonObject& a, QWidget* parent) {
         const bool locked = a["locked"].toBool() || childLocked.at(k).toBool();
         e->setReadOnly(read_only(a) || locked);
         if (a["childKeyed"].toArray().at(k).toBool()) e->setObjectName("keyedField");
+        else if (childConnected.at(k).toBool()) e->setObjectName("connectedField");
         if (locked) e->setObjectName("lockedField");
         QString child = kids.at(k).toString();
         if (child.isEmpty()) child = a["attr"].toString() + QString("XYZ")[k];
@@ -2352,9 +2379,9 @@ void ae_extra_rows(QVBoxLayout* v, QWidget* parent, const QHash<QString, QJsonOb
 }
 
 void ae_render_box(QVBoxLayout* v, QWidget* parent, const AeBox& b, const QHash<QString, QJsonObject>& by, QSet<QString>& used,
-                   const QString& style, int depth) {
-    bool open = b.open != 0;
-    if (b.open == -1) open = !closed_sections().contains(b.title);
+                   const QString& style, int depth, const QString& owner, const QString& prefix) {
+    const QString key = prefix.isEmpty() ? b.title : prefix + "/" + b.title;
+    bool open = section_open(owner, key, b.open == 1);
     auto* headWrap = new QWidget(parent);
     auto* hw = new QHBoxLayout(headWrap);
     hw->setContentsMargins(18, 0, 18, 0);
@@ -2363,17 +2390,16 @@ void ae_render_box(QVBoxLayout* v, QWidget* parent, const AeBox& b, const QHash<
     hw->addWidget(head);
     v->addWidget(headWrap);
     auto* content = new QWidget(parent);
-    content->setStyleSheet("background: #494949;");
+    content->setObjectName("aeSectionBody");
     auto* cv = new QVBoxLayout(content);
     cv->setContentsMargins(0, 3, 0, 5);
     cv->setSpacing(2);
     content->setVisible(open);
     v->addWidget(content);
-    head->toggled = [content, head, title = b.title](bool on) {
+    head->toggled = [content, head, owner, key](bool on) {
         content->setVisible(on);
         head->set_open(on);
-        if (on) closed_sections().remove(title);
-        else closed_sections().insert(title);
+        remember_section(owner, key, on);
     };
     // The group's three limit rows, with the reference's Min, Current and Max above them.
     if (!b.limit.isEmpty()) {
@@ -2411,7 +2437,7 @@ void ae_render_box(QVBoxLayout* v, QWidget* parent, const AeBox& b, const QHash<
         return;
     }
     ae_render_rows(cv, content, b.rows, by, used, style, depth);
-    for (const AeBox& sub : b.subs) ae_render_box(cv, content, sub, by, used, style, depth + 1);
+    for (const AeBox& sub : b.subs) ae_render_box(cv, content, sub, by, used, style, depth + 1, owner, key);
 }
 
 void ae_render_rows(QVBoxLayout* v, QWidget* parent, const QList<AeRow>& rows, const QHash<QString, QJsonObject>& by, QSet<QString>& used,
@@ -2503,7 +2529,8 @@ void ae_render_rows(QVBoxLayout* v, QWidget* parent, const QList<AeRow>& rows, c
             e->setReadOnly(true);
             e->setFixedHeight(20);
             e->setMinimumWidth(225);
-            e->setObjectName("aeUuid");
+            e->setObjectName("aeField");
+            e->setProperty("uuidField", true);
             h->addWidget(e);
             h->addStretch(1);
             v->addWidget(rw);
@@ -2671,28 +2698,29 @@ void ae_render_rows(QVBoxLayout* v, QWidget* parent, const QList<AeRow>& rows, c
 }
 
 void ae_render_tree(QVBoxLayout* v, QWidget* parent, const QList<AeBox>& boxes, const QHash<QString, QJsonObject>& by, QSet<QString>& used,
-                    const QString& style) {
+                    const QString& style, const QString& owner) {
     for (const AeBox& b : boxes) {
         if (b.title == "Arnold") {
+            const QString key = b.title;
+            const bool open = section_open(owner, key, b.open == 1);
             auto* headWrap = new QWidget(parent);
             auto* hw = new QHBoxLayout(headWrap);
             hw->setContentsMargins(18, 0, 18, 0);
             hw->setSpacing(0);
-            auto* head = new AeHead(b.title, b.open != 0, 0, headWrap);
+            auto* head = new AeHead(b.title, open, 0, headWrap);
             hw->addWidget(head);
             v->addWidget(headWrap);
             auto* content = new QWidget(parent);
-            content->setStyleSheet("background: #494949;");
+            content->setObjectName("aeSectionBody");
             auto* cv = new QVBoxLayout(content);
             cv->setContentsMargins(0, 3, 0, 5);
             cv->setSpacing(2);
-            content->setVisible(b.open != 0);
+            content->setVisible(open);
             v->addWidget(content);
-            head->toggled = [content, head, title = b.title](bool on) {
+            head->toggled = [content, head, owner, key](bool on) {
                 content->setVisible(on);
                 head->set_open(on);
-                if (on) closed_sections().remove(title);
-                else closed_sections().insert(title);
+                remember_section(owner, key, on);
             };
             QList<QString> names = by.keys();
             names.sort();
@@ -2715,30 +2743,31 @@ void ae_render_tree(QVBoxLayout* v, QWidget* parent, const QList<AeBox>& boxes, 
             continue;
         }
         if (b.title == "Extra Attributes") {
+            const QString key = b.title;
+            const bool open = section_open(owner, key, b.open == 1);
             auto* headWrap = new QWidget(parent);
             auto* hw = new QHBoxLayout(headWrap);
             hw->setContentsMargins(18, 0, 18, 0);
             hw->setSpacing(0);
-            auto* head = new AeHead(b.title, b.open != 0, 0, headWrap);
+            auto* head = new AeHead(b.title, open, 0, headWrap);
             hw->addWidget(head);
             v->addWidget(headWrap);
             auto* content = new QWidget(parent);
-            content->setStyleSheet("background: #494949;");
+            content->setObjectName("aeSectionBody");
             auto* cv = new QVBoxLayout(content);
             cv->setContentsMargins(0, 3, 0, 5);
             cv->setSpacing(2);
-            content->setVisible(b.open != 0);
+            content->setVisible(open);
             v->addWidget(content);
-            head->toggled = [content, head, title = b.title](bool on) {
+            head->toggled = [content, head, owner, key](bool on) {
                 content->setVisible(on);
                 head->set_open(on);
-                if (on) closed_sections().remove(title);
-                else closed_sections().insert(title);
+                remember_section(owner, key, on);
             };
             ae_extra_rows(cv, content, by, used, style);
             continue;
         }
-        ae_render_box(v, parent, b, by, used, style, 0);
+        ae_render_box(v, parent, b, by, used, style, 0, owner, QString());
     }
 }
 
@@ -3043,13 +3072,25 @@ void AttributeEditor::refresh() {
     QString focus_key;
     QString focus_text;
     bool focus_edited = false;
+    int caret = -1;
+    int sel_start = -1;
+    int sel_end = -1;
     if (auto* fe = qobject_cast<QLineEdit*>(QApplication::focusWidget()); fe && isAncestorOf(fe)) {
         focus_key = fe->property("plugKey").toString();
+        if (focus_key.isEmpty() && fe->property("nameField").toBool()) focus_key = "__name:" + fe->property("nodeName").toString();
         focus_edited = fe->property("editing").toBool();
         focus_text = fe->text();
+        caret = fe->cursorPosition();
+        sel_start = fe->selectionStart();
+        sel_end = fe->selectionEnd();
     }
-    int scrolled = 0;
-    if (auto* sa = tabs_->currentWidget() ? tabs_->currentWidget()->findChild<QScrollArea*>() : nullptr) scrolled = sa->verticalScrollBar()->value();
+    // Where this node was scrolled to, kept per node so a rebuild and a tab switch come back to it.
+    if (auto* page = tabs_->currentWidget()) {
+        if (auto* sa = page->findChild<QScrollArea*>()) {
+            const QString key = page->property("stateKey").toString();
+            if (!key.isEmpty()) scroll_states()[key] = sa->verticalScrollBar()->value();
+        }
+    }
     tabs_->blockSignals(true);
     while (tabs_->count()) {
         QWidget* w = tabs_->widget(0);
@@ -3075,6 +3116,8 @@ void AttributeEditor::refresh() {
 
         QString path = t["path"].toString();
         scroll->setProperty("nodePath", path);
+        QString state_key = t["uuid"].toString();
+        if (state_key.isEmpty()) state_key = path;
 
         QJsonArray attrs = t["attrs"].toArray();
         QHash<QString, QJsonObject> by;
@@ -3126,14 +3169,24 @@ void AttributeEditor::refresh() {
         typeLabel->setToolTip(path);
         nh->addWidget(typeLabel);
         auto* name = new QLineEdit(nameRow);
-        name->setObjectName("aeNameField");
+        name->setObjectName("aeField");
+        name->setProperty("nameField", true);
+        name->setProperty("nodeName", t["name"].toString());
         name->setFixedSize(152, 20);
-        name->setText(QString());
-        name->setPlaceholderText(path.section('|', -1));
+        name->setText(t["name"].toString());
         name->setToolTip(path);
         connect(name, &QLineEdit::editingFinished, name, [name, path] {
-            if (!name->text().trimmed().isEmpty() && name->text().trimmed() != path.section('|', -1))
-                exec("rename", args(QJsonArray{path, name->text().trimmed()}));
+            const QString typed = name->text().trimmed();
+            const QString current = name->property("nodeName").toString();
+            if (typed.isEmpty()) {
+                name->setText(current);
+                return;
+            }
+            if (typed != current) {
+                // A rename that the scene refuses (a default node, a name in use) leaves the field on the real name.
+                if (exec("rename", args(QJsonArray{path, typed})).isUndefined()) name->setText(current);
+                else name->setProperty("nodeName", typed);
+            }
         });
         nh->addWidget(name);
         auto* links = new QWidget(nameRow);
@@ -3289,12 +3342,12 @@ void AttributeEditor::refresh() {
                                          "radialPhase", "radialCenter", "radialCenterX", "radialCenterY", "radialCenterZ", "displayMapBorders",
                                          "message", "componentTags", "instObjGroups"})
                     used.insert(n);
-            ae_render_tree(v, body, boxes, by, used, name_style_);
+            ae_render_tree(v, body, boxes, by, used, name_style_, state_key);
         } else {
         // A parent constraint's offset from each target, as the reference's Target Offsets: Update takes the object's
         // place now as the offset, Key keys the offsets (#121).
         if (node_type == "parentConstraint") {
-            auto* form = add_section(v, body, "Parent Constraint Target Offsets");
+            auto* form = add_section(v, body, "Parent Constraint Target Offsets", state_key);
             const QJsonArray targets = ask("parentConstraint", QJsonObject{{"args", QJsonArray{path}}, {"query", true}, {"targetList", true}, {"queried", QJsonArray{"targetList"}}}).toArray();
             const QJsonArray driven = ask("listRelatives", QJsonObject{{"args", QJsonArray{path}}, {"parent", true}}).toArray();
             for (int i = 0; i < targets.size(); ++i) {
@@ -3341,7 +3394,7 @@ void AttributeEditor::refresh() {
 
         // Cloth: material presets.
         if (node_type == "cloth") {
-            auto* form = add_section(v, body, "Presets");
+            auto* form = add_section(v, body, "Presets", state_key);
             auto* preset = new QComboBox(body);
             preset->addItem("Choose a material...");
             for (const char* p : {"Silk", "Cotton", "Leather", "Heavy Denim", "Rubber"}) preset->addItem(p);
@@ -3362,7 +3415,7 @@ void AttributeEditor::refresh() {
             QJsonObject item = iv.toObject();
             QString kind = item["kind"].toString();
             if (kind == "beginLayout") {
-                current = add_section(v, body, item["title"].toString());
+                current = add_section(v, body, item["title"].toString(), state_key);
             } else if (kind == "endLayout") {
                 current = nullptr;
             } else if (kind == "separator") {
@@ -3379,7 +3432,7 @@ void AttributeEditor::refresh() {
                 for (const QJsonValue& av : attrs) {
                     QJsonObject a = av.toObject();
                     if (a["attr"].toString() != n) continue;
-                    if (!current) current = add_section(v, body, node_type);
+                    if (!current) current = add_section(v, body, node_type, state_key);
                     used.insert(n);
                     QWidget* field = attr_field(a, body);
                     field->setToolTip(item.contains("annotation") ? item["annotation"].toString() : a["doc"].toString());
@@ -3405,7 +3458,7 @@ void AttributeEditor::refresh() {
                 for (const QJsonValue& av : attrs) {
                     QJsonObject a = av.toObject();
                     if (a["attr"].toString() != n || a["type"].toString() == "matrix") continue;
-                    if (!f) f = add_section(v, body, sec.title);
+                    if (!f) f = add_section(v, body, sec.title, state_key);
                     used.insert(n);
                     if (drawing && n == (overrides_rgb ? "overrideColor" : "overrideColorRGB")) continue;
                     QWidget* field = attr_field(a, body);
@@ -3427,7 +3480,7 @@ void AttributeEditor::refresh() {
             if (used.contains(n) || a["type"].toString() == "matrix" || !extra) continue;
             QString cat = a["category"].toString();
             if (cat.isEmpty()) cat = sections_for(node_type).size() > 1 ? QString("Extra Attributes") : QString("%1 Attributes").arg(node_type.left(1).toUpper() + node_type.mid(1));
-            if (!forms.contains(cat)) forms[cat] = add_section(v, body, cat);
+            if (!forms.contains(cat)) forms[cat] = add_section(v, body, cat, state_key);
             QWidget* field = attr_field(a, body);
             field->setToolTip(a["doc"].toString());
             forms[cat]->addRow(attr_label(a["nice"].toString(), a, body, field), field);
@@ -3436,6 +3489,7 @@ void AttributeEditor::refresh() {
         // Notes: a string attribute added the first time it's written, in the reference's fixed area under the sections.
         auto* page = new QWidget();
         page->setProperty("nodePath", path);
+        page->setProperty("stateKey", state_key);
         auto* pl = new QVBoxLayout(page);
         pl->setContentsMargins(0, 0, 0, 0);
         pl->setSpacing(0);
@@ -3476,7 +3530,28 @@ void AttributeEditor::refresh() {
         v->addStretch(1);
         fit_labels(body);
         scroll->setWidget(body);
-        for (QLineEdit* e : page->findChildren<QLineEdit*>()) e->installEventFilter(this);
+        auto* vbar = scroll->verticalScrollBar();
+        // The page's own scroll position, restored after the layout has given the page its height and again once the
+        // fields have settled. Until then, a focus scrolling the view does not overwrite what the user left.
+        const int restore_to = scroll_states().value(state_key);
+        vbar->setProperty("restoreTarget", restore_to);
+        vbar->setProperty("settling", true);
+        QObject::connect(vbar, &QScrollBar::valueChanged, scroll, [state_key, vbar](int v) {
+            if (!vbar->property("settling").toBool()) scroll_states()[state_key] = v;
+        });
+        auto restore_scroll = [vbar] { vbar->setValue(qMin(vbar->property("restoreTarget").toInt(), vbar->maximum())); };
+        QTimer::singleShot(0, vbar, restore_scroll);
+        QTimer::singleShot(50, vbar, restore_scroll);
+        // A hidden page's bar is settled on its own; the current page's is settled after its focus comes back.
+        QTimer::singleShot(250, vbar, [vbar] { vbar->setProperty("settling", false); });
+        for (QLineEdit* e : page->findChildren<QLineEdit*>()) {
+            const QString old = e->objectName();
+            if (old == "keyedField") e->setProperty("keyed", true);
+            else if (old == "connectedField") e->setProperty("connected", true);
+            else if (old == "lockedField") e->setProperty("locked", true);
+            e->setObjectName("aeField");
+            e->installEventFilter(this);
+        }
         int idx = tabs_->addTab(page, t["name"].toString());
         if (t["name"].toString() == keep) select = idx;
         if (t["name"].toString() == focus_tab) focus_index = idx;
@@ -3510,21 +3585,39 @@ void AttributeEditor::refresh() {
         empty_->hide();
         tabs_->show();
     }
-    if (auto* sa = tabs_->currentWidget() ? tabs_->currentWidget()->findChild<QScrollArea*>() : nullptr) {
-        QScrollBar* bar = sa->verticalScrollBar();
-        // After the layout has given the page its height.
-        QTimer::singleShot(0, bar, [bar, scrolled] { bar->setValue(scrolled); });
+    // The focused field must not scroll the page away from where the user left it: put the saved position back
+    // after the focus has done its own ensure-visible, and settle the bar a moment later.
+    if (auto* page = tabs_->currentWidget()) {
+        if (auto* sa = page->findChild<QScrollArea*>()) {
+            auto* bar = sa->verticalScrollBar();
+            const QString key = page->property("stateKey").toString();
+            auto restore = [bar, key] { bar->setValue(qMin(scroll_states().value(key), bar->maximum())); };
+            bar->setProperty("settling", true);
+            restore();
+            QTimer::singleShot(30, bar, restore);
+            QTimer::singleShot(80, bar, [bar, restore] { restore(); bar->setProperty("settling", false); });
+        }
     }
     if (!focus_key.isEmpty())
         for (QLineEdit* e : tabs_->currentWidget() ? tabs_->currentWidget()->findChildren<QLineEdit*>() : QList<QLineEdit*>())
-            if (e->property("plugKey").toString() == focus_key) {
-                // A value half typed stays as typed.
+            if (e->property("plugKey").toString() == focus_key ||
+                (e->property("nameField").toBool() && focus_key == "__name:" + e->property("nodeName").toString())) {
+                // A value half typed stays as typed, and the caret and selection stay where they were.
                 if (focus_edited) {
                     e->setText(focus_text);
                     e->setProperty("editing", true);
                 }
                 e->setFocus(Qt::TabFocusReason);
-                if (!focus_edited) e->selectAll();
+                if (caret >= 0) {
+                    e->setCursorPosition(qBound(0, caret, e->text().size()));
+                    if (sel_start >= 0 && sel_end >= 0) {
+                        const int a = qBound(0, qMin(sel_start, sel_end), e->text().size());
+                        const int b = qBound(0, qMax(sel_start, sel_end), e->text().size());
+                        e->setSelection(a, b - a);
+                    }
+                } else {
+                    e->selectAll();
+                }
                 break;
             }
 }
@@ -3532,6 +3625,19 @@ void AttributeEditor::refresh() {
 bool AttributeEditor::eventFilter(QObject* o, QEvent* e) {
     // A middle drag on a number scrubs it, as the reference's fields do.
     if (auto* le = qobject_cast<QLineEdit*>(o)) {
+        if (e->type() == QEvent::MouseButtonPress && le->property("nameField").toBool()) {
+            auto* me = static_cast<QMouseEvent*>(e);
+            if (me->button() == Qt::LeftButton) QTimer::singleShot(0, le, &QLineEdit::selectAll);
+        }
+        if (e->type() == QEvent::KeyPress) {
+            auto* ke = static_cast<QKeyEvent*>(e);
+            if (ke->key() == Qt::Key_Escape && le->property("nameField").toBool()) {
+                le->setText(le->property("nodeName").toString());
+                le->setProperty("editing", false);
+                le->selectAll();
+                return true;
+            }
+        }
         const QString plug = le->property("plugKey").toString();
         if (!plug.isEmpty()) {
             if (e->type() == QEvent::MouseButtonPress) {
@@ -3559,10 +3665,11 @@ bool AttributeEditor::eventFilter(QObject* o, QEvent* e) {
             }
         }
     }
-    // A numeric field takes its whole value on entering it, as the reference's fields do.
+    // A field takes its whole value on entering it, as the Channel Box's and the reference's fields do.
     if (e->type() == QEvent::FocusIn) {
         if (auto* le = qobject_cast<QLineEdit*>(o))
-            if (!le->property("plugKey").toString().isEmpty()) QTimer::singleShot(0, le, &QLineEdit::selectAll);
+            if (!le->property("plugKey").toString().isEmpty() || le->property("nameField").toBool())
+                QTimer::singleShot(0, le, &QLineEdit::selectAll);
     }
     if (e->type() == QEvent::FocusOut) {
         auto* note = qobject_cast<QPlainTextEdit*>(o);

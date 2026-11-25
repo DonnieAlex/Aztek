@@ -27,9 +27,10 @@ Requests waiting or in progress, newest detail kept. Move to Done with the date 
   materials' Type list and the node families that still use the generic section layout; drawn samples; the NURBS
   component table and advanced tessellation; the cluster handle's Origin frame and the sculpt's advanced maps. The
   data path is live and checked by `crates/aztek_host/tests/attribute_editor_live.rs` (live values and undo, UUID and
-  offset parent matrix, rename tabs, primitive Create UVs names/index, light type selection) and the manual runs
-  recorded in PARITY.md; controls
-  with no Aztek attribute remain disabled placeholders.
+  offset parent matrix, rename tabs, primitive Create UVs names/index, light type selection); the sections keep their
+  open state and scroll per node, the name field edits the node's real name, and the fields wear the Channel Box's
+  colours, checked in the built app by `tools/ui_checks/attribute_editor_sections.py`; controls with no Aztek
+  attribute remain disabled placeholders.
 - Found 16/11/2026: `namespaceInfo -lon` at the root lists only the scene's namespaces; the reference also lists UI and
   shared, which scripts skip by name. Not changed: `core_forms.rs` and `core_cmds.rs` hold the current answer.
 - Left from the issues closed 15/11 and 16/11/2026 (PARITY.md, Issues 37 to 83): Paint Skin Weights' ramp editing
