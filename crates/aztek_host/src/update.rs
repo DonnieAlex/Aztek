@@ -57,12 +57,22 @@ fn agent(url: &str) -> ureq::Agent {
     b.build()
 }
 
+/// Why a status code stopped a fetch, in words a reader can act on: GitHub's unauthenticated limit reads as a limit,
+/// not as a broken server.
+fn status_error(code: u16) -> String {
+    match code {
+        403 => "the server refused the request (403). GitHub allows 60 requests an hour without a sign-in; wait about an hour and fetch again".to_string(),
+        429 => "the server is limiting requests (429); wait a while and fetch again".to_string(),
+        _ => format!("the server answered {code}"),
+    }
+}
+
 /// A JSON document fetched from a URL (the welcome screen's announcements, #85): its text, or {error} as JSON.
 pub fn get_json(url: &str) -> String {
     // Fresh each time: the welcome screen fetches again each time it opens (#157).
     let resp = match agent(url).get(url).set("Accept", "application/json").set("Cache-Control", "no-cache").call() {
         Ok(r) => r,
-        Err(ureq::Error::Status(code, _)) => return json!({ "error": format!("the server answered {code}") }).to_string(),
+        Err(ureq::Error::Status(code, _)) => return json!({ "error": status_error(code) }).to_string(),
         Err(e) => return json!({ "error": format!("couldn't reach it: {e}") }).to_string(),
     };
     match resp.into_string() {
@@ -187,6 +197,14 @@ mod tests {
         assert!(bypasses_proxy("anything", "*"));
         assert!(!bypasses_proxy("api.github.com", "localhost,.studio.lan"));
         assert!(!bypasses_proxy("notstudio.lan", "studio.lan"));
+    }
+
+    #[test]
+    fn a_403_names_the_hourly_limit() {
+        let why = status_error(403);
+        assert!(why.contains("60 requests an hour"), "{why}");
+        assert!(why.contains("fetch again"), "{why}");
+        assert_eq!(status_error(418), "the server answered 418");
     }
 
     #[test]

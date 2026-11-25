@@ -4528,3 +4528,14 @@ The Time and Range Sliders keep their own height, as the reference's do. Going f
 General left them stretched to the height the Script Editor had under the views, and their edge could be dragged
 taller. They now give that space back to the views and their top edge doesn't drag. Checked with a small Qt program
 built the same way; not yet looked at in the built app on macOS.
+
+### Welcome screen: a release's notes under its own release (25/11/2026)
+
+What's new takes each release's own notes from GitHub instead of grouping a date-ordered commit list. GitHub orders
+commits by commit date, so a branch merged after a release can carry commits dated before it: the Attribute Editor's
+tab fix, merged after 2.647, was listed under 2.647 although that release did not have it, while changes belonging to
+2.647 were pushed down into 2.643. The commits after the newest release the running build includes come from the
+compare API and are listed under the running version's "-- not released yet" heading, with "(this version)" beside
+the release it names. A build whose commit isn't on GitHub, one from a fork say, still shows the upstream's releases.
+A 403 names GitHub's hourly limit for unsigned requests and asks for a wait, rather than reading as a broken server.
+
