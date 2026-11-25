@@ -1374,6 +1374,16 @@ pub fn orphans(g: &Graph, doomed: &[NodeId]) -> Vec<NodeId> {
 
 /// The curves supplying the time slider's key ticks.
 pub fn slider_curves(g: &Graph, nodes: &[NodeId]) -> Vec<NodeId> {
+    let mut curves = node_key_curves(g, nodes);
+    if crate::anim_time::slider_shows_layer_weight() {
+        curves.extend(crate::anim_layers::selected_weight_curves(g).into_iter().map(|(_, c)| c));
+    }
+    curves.sort_unstable();
+    curves.dedup();
+    curves
+}
+
+fn node_key_curves(g: &Graph, nodes: &[NodeId]) -> Vec<NodeId> {
     let mut curves = Vec::new();
     for &n in nodes {
         for (p, c) in curves_on(g, n) {
@@ -1385,18 +1395,17 @@ pub fn slider_curves(g: &Graph, nodes: &[NodeId]) -> Vec<NodeId> {
             curves.extend(crate::anim_layers::active_curves(g, &p).into_iter().filter(|&x| x != c));
         }
     }
-    if crate::anim_time::slider_shows_layer_weight() {
-        curves.extend(crate::anim_layers::selected_weight_curves(g).into_iter().map(|(_, c)| c));
-    }
-    curves.sort_unstable();
-    curves.dedup();
     curves
 }
 
 /// Key times on these nodes' curves, sorted and unique.
 pub fn key_times(g: &Graph, nodes: &[NodeId]) -> Vec<f64> {
+    curve_key_times(g, node_key_curves(g, nodes))
+}
+
+fn curve_key_times(g: &Graph, curves: Vec<NodeId>) -> Vec<f64> {
     let mut t = Vec::new();
-    for c in slider_curves(g, nodes) {
+    for c in curves {
         t.extend(keys_of(g, c).keys.iter().map(|k| k.t));
     }
     t.sort_by(f64::total_cmp);
@@ -1499,7 +1508,7 @@ fn find_keyframe(s: &mut Session, a: &aztek_ops::Args) -> CmdResult {
                 nodes.push(id);
             }
         }
-        key_times(&s.graph, &nodes)
+        curve_key_times(&s.graph, slider_curves(&s.graph, &nodes))
     } else {
         // keysOrObjects (the default): the active keys when nothing is named and keys are active.
         let anim_mode = a.string("animation", "keysOrObjects");
@@ -1609,7 +1618,7 @@ pub fn register(c: &mut Commands<Session>) {
                         nodes.push(id);
                     }
                 }
-                Ok(json!(key_times(g, &nodes)))
+                Ok(json!(curve_key_times(g, slider_curves(g, &nodes))))
             },
         )
         .positional("objects")

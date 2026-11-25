@@ -155,7 +155,10 @@ fn selected_layer_weight_keys_reach_the_animation_editors() {
     mel(&mut c, "animLayer -aso L1;");
     mel(&mut c, "animLayer -e -sel 1 -prf 1 L1;");
     mel(&mut c, "setKeyframe -t 12 -v 0.2 L1.weight;");
-    mel(&mut c, "timeControl -e -asw 1;");
+    assert_eq!(mel(&mut c, "timeControl -q -sk;"), json!("active"));
+    assert_eq!(mel(&mut c, "timeControl -q -asw;"), json!(true));
+    let g = &c.s.graph;
+    assert!(aztek_scene::anim::key_times(g, g.selection()).is_empty());
     let ticks = mel(&mut c, "keyTimes;");
     let graph = aztek_host::query::anim_curves(&c, "1:0:1");
     let weight = graph["objects"].as_array().unwrap().iter()
