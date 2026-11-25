@@ -157,8 +157,16 @@ Early. The `macos` job builds `aztek-macos-arm64.zip` on a `macos-15` runner (Ap
 release yet: when it fails, the other packages still go out.
 
 - `Aztek.app` carries Qt (`macdeployqt`), `libpython3.13.dylib` and `libMoltenVK.dylib` in `Contents/Frameworks`, and
-  Python's standard library with PySide6/shiboken6 in `Contents/Resources/python`, with an ad-hoc signature. It isn't
-  notarized: the first start is a right-click and Open.
+  Python's standard library with PySide6/shiboken6 in `Contents/Resources/python`.
+- Signing: `packaging/macos/sign.sh` signs ad hoc, or, with `AZTEK_SIGN_IDENTITY` naming a Developer ID Application
+  certificate, signs every dylib, module, plug-in, framework and program inside, deepest first, with the hardened
+  runtime, a timestamp and `packaging/macos/aztek.entitlements` on the app. `packaging/macos/notarize.sh` then submits it
+  with an App Store Connect API key (`AZTEK_NOTARY_KEY`, `AZTEK_NOTARY_KEY_ID`, `AZTEK_NOTARY_ISSUER`) and staples the
+  ticket; `--package` runs it when both are set.
+- The `macos` job takes the certificate and key from the repository secrets `MACOS_CERTIFICATE` (the .p12, base64),
+  `MACOS_CERTIFICATE_PASSWORD`, `APPLE_API_KEY` (the .p8, base64), `APPLE_API_KEY_ID` and `APPLE_API_ISSUER`. Without
+  them the app is signed ad hoc and Gatekeeper asks first: System Settings > Privacy & Security, Open Anyway, or
+  `xattr -dr com.apple.quarantine Aztek.app`.
 - Every build fetches Qt 6.8.3, Python 3.13 and PySide6 6.8.3 into `build/`; nothing comes from Homebrew but the build
   tools.
 - `gpu.rs` loads MoltenVK from the bundle first, then a Vulkan loader on the library path, then Homebrew's folders.

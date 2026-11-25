@@ -5,6 +5,8 @@
 #   --run      start Aztek when the build is done
 #   --package  put Aztek.app and dist/aztek-macos-<arch>.zip together for release
 #   --install  copy Aztek.app to ~/Applications (implies --package)
+# AZTEK_SIGN_IDENTITY signs with that Developer ID instead of ad hoc; with AZTEK_NOTARY_KEY, AZTEK_NOTARY_KEY_ID and
+# AZTEK_NOTARY_ISSUER as well, --package notarizes the app (packaging/macos/sign.sh, notarize.sh).
 # Every build is self-contained: Qt, Python and PySide6/shiboken6 are fetched into build/ when they are not there, and
 # are copied into Aztek.app, which runs with nothing else installed. tools/bundle/versions.sh holds the versions.
 set -euo pipefail
@@ -108,13 +110,17 @@ install_name_tool -add_rpath "@executable_path/../Resources/python/lib/python3.1
 
 # Harold's command-line renderer, beside the program.
 cp "$DIR/harold" "$APP/Contents/MacOS/"
-codesign --force --deep --sign - "$APP"
-codesign --verify --deep --strict "$APP"
+# Ad hoc, or with a Developer ID when AZTEK_SIGN_IDENTITY names one (packaging/macos/sign.sh).
+packaging/macos/sign.sh "$APP"
 
 if [ "$PACKAGE" = 1 ]; then
   ARCH="$(uname -m)"
   rm -rf dist/Aztek && mkdir -p dist/Aztek
   cp -R "$APP" dist/Aztek/Aztek.app
+  # Notarized when there is a Developer ID signature and an App Store Connect API key, so Gatekeeper lets it open.
+  if [ -n "${AZTEK_SIGN_IDENTITY:-}" ] && [ -n "${AZTEK_NOTARY_KEY:-}" ]; then
+    packaging/macos/notarize.sh dist/Aztek/Aztek.app
+  fi
   cp -R examples dist/Aztek/examples
   rm -f "dist/aztek-macos-$ARCH.zip"
   ditto -c -k --keepParent dist/Aztek "dist/aztek-macos-$ARCH.zip"

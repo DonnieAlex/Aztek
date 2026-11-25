@@ -48,7 +48,7 @@ wheels need glibc 2.28, so the same versions build on Rocky 8. Nothing comes fro
 
 **macOS**, with [Homebrew](https://brew.sh): `--deps` installs Xcode's command line tools, CMake, Ninja, MoltenVK and
 Rust. Every build fetches Qt 6.8.3, Python 3.13 and PySide6 6.8.3 and puts them, with MoltenVK, inside
-`build/aztek.app`, signed ad hoc. `--package` also makes `dist/aztek-macos-<arch>.zip`, and `--install` puts Aztek.app
+`build/aztek.app`, signed ad hoc, or with your Developer ID when `AZTEK_SIGN_IDENTITY` names one (docs/PACKAGING.md). `--package` also makes `dist/aztek-macos-<arch>.zip`, and `--install` puts Aztek.app
 in `~/Applications`. macOS is new: the viewport, menus and shortcuts haven't been checked there yet.
 
 **Windows**, from PowerShell or a command prompt: Visual Studio 2022 (or its Build Tools) with "Desktop development with
@@ -627,7 +627,7 @@ source is pointed at `git pull`. It goes through the proxy in `HTTPS_PROXY`, min
 | Any other Linux, x86_64 | `aztek-<version>-x86_64.AppImage` | `chmod +x aztek-*.AppImage`, then run it (Qt, Python and PySide6 are inside) |
 | Linux on 64-bit ARM, glibc 2.34+ (early) | `aztek-<version>-aarch64.AppImage` | `chmod +x aztek-*.AppImage`, then run it. Needs a Vulkan driver (Mesa's on a Raspberry Pi 5, Asahi, Snapdragon laptops) |
 | Windows 10 and 11 | `aztek-<version>-setup-x64.exe`, or the zip | Run it. It isn't signed, so SmartScreen asks first. Its "Add Aztek to PATH" puts the install's `bin` on PATH, so `aztek`, `aztekpy` and `harold` work from any prompt |
-| macOS 14+, Apple silicon (early) | `aztek-macos-arm64.zip` | Unzip, then right-click Aztek.app and Open the first time: it isn't notarized |
+| macOS 14+, Apple silicon (early) | `aztek-macos-arm64.zip` | Unzip and open Aztek.app. If macOS says it can't check it, go to System Settings > Privacy & Security and click Open Anyway, or run `xattr -dr com.apple.quarantine Aztek.app` |
 
 Every package carries Python 3.13 and Qt and PySide6/shiboken6 6.8.3, the VFX Reference Platform CY2027's versions.
 None needs Qt or Python installed. The ARM AppImage is the other exception: it uses
