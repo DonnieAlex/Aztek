@@ -84,6 +84,9 @@ command once on release so the history shows one reference-style line.
     build.bat                  # Windows (PowerShell script build.ps1), which fetches them into build\ and makes build\dist
     cargo test --workspace     # all Rust tests; keep them green
 
+On a bare Linux machine with no desktop (a fresh container or server), run `tools/install-build-deps.sh` once first:
+it installs the OpenGL, Vulkan and xcb packages the bundled Qt needs, plus Xvfb for the UI checks.
+
 The build never uses the system's Qt or Python: `tools/bundle/versions.sh` holds the versions, `tools/qt/fetch-qt.sh`
 and `tools/python/fetch-python.sh` fetch them once, and `tools/python/fetch-pyside.sh` installs PySide6 and shiboken6
 against that Qt. `cargo test` still needs a Python 3.13 for pyo3: point `PYO3_PYTHON` at
