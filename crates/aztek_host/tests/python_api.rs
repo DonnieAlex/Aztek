@@ -1066,10 +1066,10 @@ print(cmds.pluginInfo("broken", q=True, loaded=True), cmds.loadPlugin("noSuch", 
         ),
         &[
             // The plug-ins that come with Aztek are loaded from the start.
-            "False ['AbcExport', 'AbcImport', 'fbx', 'gltf', 'matrixNodes', 'mayaHIK', 'mayaUsdPlugin', 'objExport', 'quatNodes', 'xjenToolkit']",
+            "False ['AbcExport', 'AbcImport', 'fbx', 'gltf', 'gpuCache', 'matrixNodes', 'mayaHIK', 'mayaUsdPlugin', 'objExport', 'quatNodes', 'xjenToolkit']",
             "Plug-in \"testPlugin\" was not found on the plug-in path.",
             "['testPlugin']",
-            "True ['AbcExport', 'AbcImport', 'fbx', 'gltf', 'matrixNodes', 'mayaHIK', 'mayaUsdPlugin', 'objExport', 'quatNodes', 'testPlugin', 'xjenToolkit'] Testers 1.2 True",
+            "True ['AbcExport', 'AbcImport', 'fbx', 'gltf', 'gpuCache', 'matrixNodes', 'mayaHIK', 'mayaUsdPlugin', 'objExport', 'quatNodes', 'testPlugin', 'xjenToolkit'] Testers 1.2 True",
             "['asksCmd', 'boomCmd', 'innerCmd', 'makeLoc', 'modCmd', 'plainCmd'] ['chatty', 'doubler']",
             "['testPlugin'] True",
             "cannot start",
@@ -1326,4 +1326,30 @@ fn python_api() {
     animation();
     plugins();
     real_world();
+    rig_tools();
+}
+
+/// What rigging tools (mGear's pymaya among them) ask of the API: the world as a DAG node, the parent of a top-level
+/// node, and a three-value attribute as a compound of three.
+fn rig_tools() {
+    fresh();
+    mel("createNode transform -n top;");
+    expect(
+        "import maya.api.OpenMaya as om\n\
+         sel = om.MSelectionList(); sel.add('top')\n\
+         fn = om.MFnDagNode(sel.getDagPath(0))\n\
+         w = fn.parent(0)\n\
+         wfn = om.MFnDagNode(w)\n\
+         print(w.hasFn(om.MFn.kWorld), wfn.name(), repr(wfn.fullPathName()), wfn.parentCount(), wfn.childCount() >= 1)",
+        &["True world '' 0 True"],
+    );
+    expect(
+        "import maya.api.OpenMaya as om\n\
+         sel = om.MSelectionList(); sel.add('top')\n\
+         p = om.MFnDependencyNode(sel.getDependNode(0)).findPlug('translate', False)\n\
+         a = p.attribute()\n\
+         c = om.MFnCompoundAttribute(a)\n\
+         print(a.hasFn(om.MFn.kCompoundAttribute), a.hasFn(om.MFn.kNumericAttribute), p.isCompound, c.numChildren(), om.MFnAttribute(c.child(1)).name, p.child(2).partialName(useLongNames=True))",
+        &["True True True 3 translateY translateZ"],
+    );
 }

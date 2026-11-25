@@ -147,6 +147,15 @@ pub fn gather(g: &mut Graph) -> Vec<DrawItem> {
             }
             continue;
         }
+        // A GPU cache draws its file's meshes at the scene's time, under its own transform.
+        if n.ty().is_a(aztek_scene::gpu_cache::NODE_TYPE) && visible(g, id) {
+            let Some(at) = n.ty().attr_index("outMesh") else { continue };
+            if let Some(mesh) = n.data().mesh(at).cloned() {
+                let world = n.data().matrix(DagNode::WORLD_MATRIX);
+                out.push(DrawItem { shape: id, xf: aztek_scene::dag::transform_of(g, id), world, mesh, smooth: 0 });
+            }
+            continue;
+        }
         if !n.ty().is_a("mesh") || n.bool(DagNode::INTERMEDIATE_OBJECT) || !visible(g, id) {
             continue;
         }

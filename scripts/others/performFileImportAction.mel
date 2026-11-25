@@ -1,0 +1,58 @@
+// performFileImportAction: a file imported by its type, as File > Import reads it. Returns 1 when it was read.
+// Scene files through file -import; FBX, glTF, USD, Alembic, PLY and STL through the plug-in or command that reads
+// them, which has to be loaded for its type.
+
+proc int pfiaLoaded(string $plugin)
+{
+    if (`pluginInfo -q -loaded $plugin`)
+        return 1;
+    catchQuiet(`loadPlugin -quiet $plugin`);
+    return `pluginInfo -q -loaded $plugin`;
+}
+
+global proc int performFileImportAction(string $theFile)
+{
+    string $ext = tolower(fileExtension($theFile));
+    if ($ext == "fbx") {
+        if (!pfiaLoaded("fbx")) {
+            error("FBX files are read by the fbx plug-in, which is not loaded.");
+            return 0;
+        }
+        FBXImport -f $theFile;
+        return 1;
+    }
+    if ($ext == "glb" || $ext == "gltf") {
+        if (!pfiaLoaded("gltf")) {
+            error("glTF files are read by the gltf plug-in, which is not loaded.");
+            return 0;
+        }
+        importGltf $theFile;
+        return 1;
+    }
+    if ($ext == "usd" || $ext == "usda" || $ext == "usdc" || $ext == "usdz") {
+        if (!pfiaLoaded("mayaUsdPlugin")) {
+            error("USD files are read by the mayaUsdPlugin plug-in, which is not loaded.");
+            return 0;
+        }
+        mayaUSDImport -file $theFile;
+        return 1;
+    }
+    if ($ext == "abc") {
+        if (!pfiaLoaded("AbcImport")) {
+            error("Alembic files are read by the AbcImport plug-in, which is not loaded.");
+            return 0;
+        }
+        AbcImport $theFile;
+        return 1;
+    }
+    if ($ext == "ply") {
+        importPly $theFile;
+        return 1;
+    }
+    if ($ext == "stl") {
+        importStl $theFile;
+        return 1;
+    }
+    file -import $theFile;
+    return 1;
+}

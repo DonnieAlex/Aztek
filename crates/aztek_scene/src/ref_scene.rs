@@ -164,6 +164,29 @@ fn list_connections(s: &mut Session, a: &Args) -> CmdResult {
                 }
             }
         }
+        // A node's object sets, as its instObjGroups' connections to the sets' dagSetMembers in the reference: sets hold
+        // their members here, but scripts look for a node's sets this way.
+        let iog = g.node(node).and_then(|n| n.ty().attr_index("instObjGroups"));
+        let asks_iog = match (&attr, iog) {
+            (None, Some(_)) => true,
+            (Some(p), Some(i)) => p.attr as usize == i,
+            _ => false,
+        };
+        if want_dst && asks_iog && g.node(node).is_some_and(|n| n.ty().dag) {
+            for (i, set) in crate::object_sets::sets_of(g, node).into_iter().enumerate() {
+                let Some(sn) = g.node(set) else { continue };
+                if (!ty.is_empty() && !ty.iter().any(|t| sn.ty().is_a(t))) || (!exact.is_empty() && !exact.iter().any(|t| sn.ty().name == *t)) {
+                    continue;
+                }
+                if pairs {
+                    out.push(json!(format!("{}.instObjGroups[0]", g.path(node))));
+                }
+                let v = if plugs { json!(format!("{}.dagSetMembers[{i}]", g.path(set))) } else { json!(g.path(set)) };
+                if pairs || !out.contains(&v) {
+                    out.push(v);
+                }
+            }
+        }
     }
     Ok(Value::Array(out))
 }

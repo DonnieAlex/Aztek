@@ -726,3 +726,15 @@ fn a_wire_rest_curve_moves_with_its_driver() {
     s.run("setAttr", json!({"args": ["drv.ty", 2.0]})).unwrap();
     assert_near(pos(&mut s), &[30.5, 2.0, 10.0], "pulled by the driver");
 }
+
+/// A node's object sets come back from listConnections on its instObjGroups, transforms included, as scripts look
+/// for them in the reference (mGear's Extract Controls finds a control's sets this way).
+#[test]
+fn object_sets_through_inst_obj_groups() {
+    let (mut s, _) = load("createNode transform -n \"ctl\";\ncreateNode transform -n \"other\";\n");
+    s.run("sets", json!({"args": ["ctl"], "name": "controls_grp"})).unwrap();
+    let got = s.run("listConnections", json!({"args": ["ctl.instObjGroups[0]"], "type": "objectSet"})).unwrap();
+    assert_eq!(got, json!(["controls_grp"]));
+    assert_eq!(s.run("listConnections", json!({"args": ["other.instObjGroups[0]"], "type": "objectSet"})).unwrap(), json!([]));
+    assert_eq!(s.run("attributeQuery", json!({"args": ["instObjGroups"], "node": "ctl", "exists": true})).unwrap(), json!(true));
+}

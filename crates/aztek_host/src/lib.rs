@@ -595,6 +595,14 @@ pub extern "C" fn aztek_ui_event(ev: *const c_char) {
     with(|h| h.core.ui_event(&ev));
 }
 
+/// The shelf bar's shelves, {"shelves": [names], "current": index}: scripts see them as $gShelfTopLevel's shelfLayouts.
+#[no_mangle]
+pub extern "C" fn aztek_ui_set_shelves(json: *const c_char) {
+    let v: Value = serde_json::from_str(&cstr(json)).unwrap_or(Value::Null);
+    let names: Vec<String> = v["shelves"].as_array().into_iter().flatten().filter_map(|x| x.as_str().map(str::to_string)).collect();
+    scriptui::set_builtin_shelves(&names, v["current"].as_u64().unwrap_or(0) as usize);
+}
+
 /// Script UI: how commands reach the shell for what must answer at once (dialogs, playblast).
 #[no_mangle]
 pub extern "C" fn aztek_ui_set_hook(hook: Option<scriptui::UiHook>) {

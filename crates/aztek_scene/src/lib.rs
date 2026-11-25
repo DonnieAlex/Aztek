@@ -1,6 +1,7 @@
 //! Aztek's scene graph: dependency graph, transform hierarchy, plugs, node types, naming and the scene document.
 
 pub mod alembic;
+pub mod gpu_cache;
 pub mod anim;
 pub mod extensions;
 pub mod sys_misc;

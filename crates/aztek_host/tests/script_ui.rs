@@ -1490,3 +1490,36 @@ mod python {
         assert_eq!(pv(&mut c, "cmds.currentCtx()"), json!("moveSuperContext"));
     }
 }
+
+/// The main window's own layouts, as rigging tools find them: the panes by $gMainPane, the shelves by $gShelfTopLevel,
+/// with a tab per shelf the bar shows and buttons put on them by script.
+#[test]
+fn main_window_layouts_scripts_reach() {
+    let mut c = Core::new();
+    aztek_host::scriptui::set_builtin_shelves(&["General".into(), "Rigging".into()], 1);
+    assert_eq!(ok(&mut c, "global string $gMainPane; paneLayout -q -ex $gMainPane;"), json!(true));
+    assert_eq!(ok(&mut c, "global string $gShelfTopLevel; shelfTabLayout -q -ca $gShelfTopLevel;"), json!(["General", "Rigging"]));
+    assert_eq!(ok(&mut c, "global string $gShelfTopLevel; shelfTabLayout -q -st $gShelfTopLevel;"), json!("Rigging"));
+    ok(&mut c, "global string $gShelfTopLevel; shelfButton -p ($gShelfTopLevel + \"|Rigging\") -l \"bm\" -c \"print 1\" bm1;");
+    assert_eq!(ok(&mut c, "shelfLayout -q -ca Rigging;"), json!(["bm1"]));
+    assert_eq!(ok(&mut c, "global string $gChannelBoxName; channelBox -q -ex $gChannelBoxName;"), json!(true));
+    aztek_host::scriptui::set_builtin_shelves(&["General".into()], 0);
+    assert_eq!(ok(&mut c, "shelfLayout -q -ex Rigging;"), json!(false));
+    assert!(errors(&mut c).is_empty());
+}
+
+/// A file dropped on the window goes through performFileDropAction, which imports by the file's type.
+#[test]
+fn file_drop_procs_are_built_in() {
+    let mut c = Core::new();
+    for p in ["performFileDropAction", "performFileImportAction"] {
+        let w = ok(&mut c, &format!("whatIs {p};"));
+        assert!(w.as_str().unwrap().ends_with(&format!("{p}.mel")), "{w}");
+    }
+    let f = std::env::temp_dir().join(format!("aztek_drop_{}.ma", std::process::id()));
+    let f = f.to_string_lossy().replace('\\', "/");
+    ok(&mut c, &format!("polyCube -n dropped; file -f -es -type \"mayaAscii\" \"{f}\"; file -f -new;"));
+    ok(&mut c, &format!("performFileDropAction \"{f}\";"));
+    assert_eq!(ok(&mut c, "objExists dropped;"), json!(true));
+    let _ = std::fs::remove_file(&f);
+}

@@ -1820,6 +1820,8 @@ class MObject:
         if k == "world":
             return [MFn.kWorld]
         if k == "attr":
+            if self._fn in (MFn.kAttribute3Double, MFn.kAttribute3Float, MFn.kAttribute2Double, MFn.kAttribute2Float):
+                return [self._fn, MFn.kCompoundAttribute, MFn.kNumericAttribute, MFn.kAttribute]
             return [self._fn, MFn.kAttribute]
         if k == "comp":
             return [self._fn] + _FN_BASES.get(self._fn, [MFn.kComponent])
@@ -2118,7 +2120,9 @@ def _attr_fn(type_name, long=""):
         "string": MFn.kTypedAttribute,
         "mesh": MFn.kTypedAttribute,
         "data": MFn.kTypedAttribute,
-        "vec3": MFn.kNumericAttribute,
+        # A three-value attribute (translate, rotate, a colour) is a compound of three numbers, as the reference's.
+        "vec3": MFn.kAttribute3Double,
+        "compound": MFn.kCompoundAttribute,
     }.get(type_name, MFn.kNumericAttribute)
 
 

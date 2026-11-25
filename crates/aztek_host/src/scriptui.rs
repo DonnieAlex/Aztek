@@ -113,6 +113,8 @@ fn ensure_built_in(m: &mut Model) {
     for (kind, name) in [
         ("mainWindow", MAIN_WINDOW),
         ("progressBar", MAIN_PROGRESS),
+        ("paneLayout", MAIN_PANE),
+        ("shelfTabLayout", SHELF_TOP),
         ("timeControl", TIME_SLIDER),
         ("outlinerEditor", "outlinerPanel1"),
         ("animCurveEditor", "graphEditor1GraphEd"),
@@ -127,11 +129,51 @@ fn ensure_built_in(m: &mut Model) {
     }
 }
 
+/// The application's shelves as the shelfLayouts of SHELF_TOP, so scripts can name one as a shelfButton's parent and
+/// read which is in front. Kept in step by the shell; nothing is sent back to it.
+pub fn set_builtin_shelves(names: &[String], current: usize) {
+    with_model(|m| {
+        let Some(top) = m.controls.iter().find(|(_, c)| c.path == SHELF_TOP).map(|(id, _)| *id) else { return };
+        let have: Vec<Id> = m.controls.get(&top).map(|c| c.children.clone()).unwrap_or_default();
+        // Shelves gone from the bar go from the model, with what scripts put on them.
+        for k in &have {
+            let keep = m.controls.get(k).is_some_and(|c| c.kind == "shelfLayout" && names.contains(&c.name));
+            if !keep {
+                let mut stack = vec![*k];
+                while let Some(x) = stack.pop() {
+                    if let Some(c) = m.controls.remove(&x) {
+                        stack.extend(c.children);
+                    }
+                }
+            }
+        }
+        let mut kids = Vec::new();
+        for n in names {
+            let existing = m.controls.iter().find(|(_, c)| c.parent == Some(top) && c.name == *n).map(|(id, _)| *id);
+            let id = existing.unwrap_or_else(|| {
+                m.next += 1;
+                let id = m.next;
+                m.controls.insert(id, Control { kind: "shelfLayout".into(), name: n.clone(), path: format!("{SHELF_TOP}|{n}"), parent: Some(top), children: Vec::new(), props: Map::new() });
+                id
+            });
+            kids.push(id);
+        }
+        if let Some(t) = m.controls.get_mut(&top) {
+            t.children = kids;
+            t.props.insert("selectTabIndex".into(), json!(current + 1));
+        }
+    });
+}
+
 /// The names scripts know these by, and read from `$gMainWindow` and `$gMainProgressBar`.
 pub const MAIN_WINDOW: &str = "MayaWindow";
 pub const MAIN_PROGRESS: &str = "MainProgressBar";
 /// The time slider: the one timeControl, which scripts read from `$gPlayBackSlider`.
 pub const TIME_SLIDER: &str = "timeControl1";
+/// The pane the views are in, `$gMainPane`: scripts unmanage it to stop the views drawing while they work.
+pub const MAIN_PANE: &str = "MainPane";
+/// The shelves' tabs, `$gShelfTopLevel`: each shelf is a shelfLayout in it, named as its tab.
+pub const SHELF_TOP: &str = "ShelfLayout";
 
 pub fn set_from_python(on: bool) -> bool {
     FROM_PYTHON.with(|f| f.replace(on))

@@ -54,6 +54,8 @@ char* aztek_ui_take_ops(void);
 void aztek_ui_event(const char* json);
 typedef void (*AztekUiHook)(const char* kind, const char* json);
 void aztek_ui_set_hook(AztekUiHook hook);
+// The shelf bar's shelves, {"shelves": [names], "current": index}, for scripts to find as $gShelfTopLevel.
+void aztek_ui_set_shelves(const char* json);
 void aztek_ui_answer(const char* json);
 void aztek_ui_progress_cancel(void);
 int aztek_ui_in_hook(void);

@@ -539,6 +539,8 @@ struct ScriptUi::Item {
     QPointer<QDockWidget> dock;
     // Popup menus: the button and modifiers that bring them up.
     int popup_button = 3;
+    // The application's shelves and what scripts put on them: no widget of this file's own.
+    bool builtin_shelf = false;
 };
 
 ScriptUi* ScriptUi::get() {
@@ -581,6 +583,36 @@ void ScriptUi::add_builtin_editor(const QString& name, const QString& kind, QWid
     it->kind = kind;
     it->w = w;
     items_.insert(name, it);
+}
+
+void ScriptUi::set_shelves(QWidget* bar, const QStringList& names, int current, const ShelfHooks& hooks) {
+    shelf_hooks_ = hooks;
+    Item* top = items_.value("ShelfLayout");
+    if (!top) {
+        top = new Item();
+        top->path = top->name = "ShelfLayout";
+        top->kind = "shelfTabLayout";
+        top->builtin_shelf = true;
+        items_.insert(top->path, top);
+    }
+    top->w = bar;
+    for (Item* k : QList<Item*>(top->kids))
+        if (!names.contains(k->name)) remove(k);
+    for (const QString& n : names) {
+        const QString path = "ShelfLayout|" + n;
+        if (items_.value(path)) continue;
+        auto* it = new Item();
+        it->path = path;
+        it->name = n;
+        it->kind = "shelfLayout";
+        it->builtin_shelf = true;
+        it->parent = top;
+        top->kids.append(it);
+        items_.insert(path, it);
+    }
+    QJsonArray list;
+    for (const QString& n : names) list.append(n);
+    aztek_ui_set_shelves(QJsonDocument(QJsonObject{{"shelves", list}, {"current", current}}).toJson(QJsonDocument::Compact).constData());
 }
 
 ViewportWidget* ScriptUi::embedded_view(const QString& panel) const {
@@ -630,6 +662,12 @@ void ScriptUi::create(const QJsonObject& op) {
     items_.insert(it->path, it);
 
     const QString& k = it->kind;
+    // A button on one of the application's shelves goes on that shelf, where the user keeps it.
+    if (parent && parent->builtin_shelf) {
+        it->builtin_shelf = true;
+        if (k == "shelfButton" && shelf_hooks_.add) shelf_hooks_.add(parent->name, it->path, props);
+        return;
+    }
     if (k == "window" || k == "workspaceControl" || k == "dockControl" || k == "progressWindow") {
         build_window(it, props);
     } else if (k == "menu" || k == "popupMenu") {
@@ -1511,6 +1549,7 @@ void ScriptUi::place(Item* parent, Item* child) {
 }
 
 void ScriptUi::remove(Item* it) {
+    if (it->builtin_shelf && it->kind == "shelfButton" && shelf_hooks_.remove) shelf_hooks_.remove(it->path);
     for (Item* k : QList<Item*>(it->kids)) remove(k);
     if (it->parent) {
         it->parent->kids.removeOne(it);
@@ -4067,6 +4106,14 @@ void ScriptUi::apply_common(Item* it, const QJsonObject& props) {
 void ScriptUi::edit(Item* it, const QJsonObject& props) {
     for (auto i = props.begin(); i != props.end(); ++i) it->props.insert(i.key(), i.value());
     const QString& k = it->kind;
+    // The application's shelves: a script picks the shelf in front; the rest is the Shelf Editor's.
+    if (it->builtin_shelf) {
+        if (k == "shelfTabLayout" && props.contains("selectTabIndex") && shelf_hooks_.select) {
+            int i = int(as_number(props["selectTabIndex"])) - 1;
+            if (i >= 0 && i < it->kids.size()) shelf_hooks_.select(it->kids[i]->name);
+        }
+        return;
+    }
     if (k == "menuItem") {
         apply_menu_item(it, props);
         return;
