@@ -81,6 +81,9 @@ if [ ! -x "$PY" ]; then
   PY=$PYBUNDLE/bin/python3.13
 fi
 QTDIR=$(tools/qt/fetch-qt.sh "$QT_VERSION" "$CACHE/qt" "$PY")
+# Qt before 6.9 links the AGL framework, which the macOS 26 SDK no longer has (QTBUG-137687); nothing uses it.
+WRAPGL="$QTDIR/lib/cmake/Qt6/FindWrapOpenGL.cmake"
+[ -f "$WRAPGL" ] && sed -i '' '/target_link_libraries.*__opengl_agl_fw_path/d' "$WRAPGL"
 SITE=$(PYTHONHOME= "$PY" -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')
 tools/python/fetch-pyside.sh "$PY" "$QT_VERSION" "$SITE"
 PYINC=$(PYTHONHOME= "$PY" -c 'import sysconfig; print(sysconfig.get_paths()["include"])')
