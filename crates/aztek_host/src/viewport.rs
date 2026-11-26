@@ -1196,6 +1196,34 @@ impl Viewport {
 
     /// Whether any material in the scene is glossy enough to reflect, so the ground plane's mirrored draw is worth
     /// making (#302).
+    /// The shapes whose shading group lets light through, for the shadow map to leave out: glass passes light, so an
+    /// opaque shadow under it would be wrong, and the glass would refract that black floor.
+    pub fn transmissive_shapes(&self, items: &[DrawItem]) -> std::collections::HashSet<NodeId> {
+        let groups: Vec<NodeId> = self
+            .mats
+            .materials
+            .iter()
+            .filter(|(_, m)| m.pbr.transmission_weight > 0.5)
+            .map(|(&sg, _)| sg)
+            .collect();
+        if groups.is_empty() {
+            return Default::default();
+        }
+        let member = |node: NodeId| {
+            groups.iter().any(|sg| {
+                self.mats
+                    .members
+                    .get(sg)
+                    .is_some_and(|ms| ms.iter().any(|(m, _)| *m == node))
+            })
+        };
+        items
+            .iter()
+            .filter(|it| member(it.shape) || member(it.xf))
+            .map(|it| it.shape)
+            .collect()
+    }
+
     pub fn needs_planar(&self) -> bool {
         self.mats.materials.values().any(|m| {
             m.pbr.metalness > 0.05 || (m.pbr.specular_weight > 0.0 && m.pbr.specular_roughness < 0.45)

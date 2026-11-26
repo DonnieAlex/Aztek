@@ -36,6 +36,13 @@ Requests waiting or in progress, newest detail kept. Move to Done with the date 
   score, planar/alpha coverage, a roughness-to-level prefiltered gather, and a filtered screen-space irradiance field
   for the bounce instead of raw stochastic samples. Left of that design: EEVEE's world clip plane at the probe's plane
   (the suite's geometry never crosses it) and temporal reprojection of the indirect term.
+- Point-light shadows and glass (#302, 26/11/2026): the cube path now has a slope-scaled depth slack and fixed
+  bilinear taps instead of one texel (a 4 by 4 grid for a point light, a sixteen-tap disc for an area light), and
+  transmissive shapes no longer cast an opaque shadow, so the
+  dielectric_glass floor's blocky glass shadows and the black glass behind them are gone; the glass keeps a floor of
+  its own colour where the background is dark. Verified far, mid and close, two angles each, and grazing; the far
+  view is clean. Left: the glass refraction is still a lens-bend approximation, so its transparency is flatter than
+  the Render View's, and a point light's shadow is still small-penumbra because the light has no size.
 - Realtime motion polish (#302, 26/11/2026): `tools/render_parity/motion_capture.py` checks one session with every
   feature on over an orbit, a dolly, a low terminator sweep and twelve still frames. The bounce, reflection and AO
   terms are temporally stable (still frames are bit-identical, no frame-diff spikes) and show no speckle or tier pop.

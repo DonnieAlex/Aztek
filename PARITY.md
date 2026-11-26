@@ -4725,3 +4725,29 @@ frame at the same time, so the renderer has no cross-session variation and no te
 the twelve still frames were identical again, and the frame-to-frame steps kept the same smooth profile. The wider
 shadow filter introduced no peter-panning: the contact shadow stays attached at the dolly's closest view, and the
 sweep's shadow boundary is the smoother of the two passes. No further change was needed.
+
+### Point-light shadows and the glass that cast them (26/11/2026, #302)
+
+The dielectric_glass floor was covered in dark polygonal patches under the glass spheres. A point light is a cube
+shadow map: six 2048-texel faces, all six rewritten every frame, with near and far from the scene's distance to the
+light. The shader compared a single cube texel against a constant world-space slack. A floor seen at a grazing angle
+from a light close to it needs the bias to follow the texel footprint over the cosine to the light, and one texel
+gives a hard polygonal edge with a mottled fill wherever the comparison flips. The cube path now uses a depth slack
+that grows with the texel footprint and the surface's slope to the light, and fixed bilinear cube taps at a
+four-texel radius: a 4 by 4 grid for a point light, and a golden-angle disc of sixteen taps for an area light's wider
+penumbra. Nothing is rotated per pixel or per frame. The directional and spot path
+keeps its 5 by 5 bilinear PCF, and the cube faces stay at 2048, all six every frame.
+
+The deeper cause was that the glass spheres were drawn into the shadow map. A transmissive shape laid down an opaque
+shadow, the floor under it went black, and the glass refracted that black floor, so it read black inside the shadow.
+Transmissive casters are now left out of the shadow map, so the floor under the glass is lit and the behind-glass
+image is not black; the glass also keeps a floor of its own transmission colour where the background behind it is
+dark, so it never reads blacker than what it lets through. The debug view of the behind-glass image shows the glass
+shadows gone.
+
+Verified at the dielectric scene's far, mid and close distances, two angles at each, and a grazing view. The far views
+push the floor until it fills the frame, where the shadow-map footprint is worst: before, the far floor had the blocky
+glass shadows with a mottled fill; after, they are gone, the remaining cast shadows are smooth, and the glass reads
+red rather than black. The metal roughness sweep and area lights recapture without a regression; the area light's soft
+shadow is smoother for the fixed tap pattern. The point-light shadow costs sixteen bilinear taps instead of one; the
+area-light path is unchanged at twelve blocker plus sixteen taps, and the shadow map's memory is unchanged.

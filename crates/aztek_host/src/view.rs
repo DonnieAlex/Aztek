@@ -391,8 +391,11 @@ impl View {
             if self.realtime.is_none() {
                 self.realtime = Some(crate::realtime::Realtime::new(&self.gpu, self.r.rt_shadow_layout));
             }
+            // A transmissive shape passes light instead of blocking it: drawing it into the shadow map would put an
+            // opaque shadow under the glass and the glass would refract that black floor. Leave it out of the casters.
+            let glass = self.vp.transmissive_shapes(&items);
             if let Some(rt) = self.realtime.as_mut() {
-                rt.render(&mut self.gpu, &items, self.vp.shadow);
+                rt.render(&mut self.gpu, &items, self.vp.shadow, &glass);
             }
             // The material pipelines' set 4 has this renderer's four bindings: it is bound whether or not a shadow map
             // is drawn this frame, and the shader skips the sampling when no light casts one (#228 review).

@@ -481,39 +481,61 @@ float shadow_at(vec3 p, vec3 n) {
         float far = max(lt.shadow_range.y, near + 0.02);
         // Each face looks a quarter turn from the light: its depth turns back into the distance along the face's axis.
         float axis = max(abs(to.x), max(abs(to.y), abs(to.z)));
-        float slack = lt.shadow.x + 0.02;
-        // An area light's shadows soften with its size, as Harold's do: look round the direction for what stands between
-        // (percentage-closer soft shadows), then take the share of the light's spread that gets past it. A point light
-        // has no size and a hard edge.
         int li = int(lt.shadow.z);
         float size = lt.lights[li].pos.w > 3.5 && lt.lights[li].pos.w < 4.5 ? 0.5 * (length(lt.lights[li].a.xyz) + length(lt.lights[li].b.xyz)) : 0.0;
-        if (size <= 0.0) {
-            float stored = cube_distance(d, near, far);
-            return axis <= stored + slack ? 1.0 : 0.0;
-        }
+        // A cube texel covers this much of the face at the receiver's distance, and it stretches along the surface as
+        // the cosine to the light falls. The slack has to follow that stretch: a constant one either acnes on a floor
+        // seen at a grazing angle or detaches the shadow where the surface faces the light.
+        vec3 l = lt.lights[li].pos.xyz - p;
+        float nl = max(dot(n, normalize(l + vec3(1e-6))), 0.0);
+        float texel = 2.0 * lt.shadow.y;
+        float slope = sqrt(max(1.0 - nl * nl, 0.0)) / max(nl, 0.2);
+        float slack = 0.02 + axis * texel * (0.5 + 1.5 * slope);
         vec3 t1 = normalize(cross(d, abs(d.y) < 0.9 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0)));
         vec3 t2 = cross(d, t1);
-        float turn = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))) * 6.2831853;
-        float search = clamp(size / max(axis, 0.001), 0.0, 0.5);
-        float blockers = 0.0, found = 0.0;
-        for (int i = 0; i < 12; ++i) {
-            float r = sqrt((float(i) + 0.5) / 12.0) * search;
-            float a = turn + float(i) * 2.39996323;
-            float stored = cube_distance(normalize(d + (t1 * cos(a) + t2 * sin(a)) * r), near, far);
-            if (stored + slack < axis) {
-                blockers += stored;
-                found += 1.0;
+        // A point light gets a stable 4 by 4 grid of bilinear cube taps, at least a texel and a half across. An area
+        // light widens the same grid to its penumbra. Nothing is rotated per pixel or per frame: that is what made
+        // the floor mottled like a dither.
+        float spread = texel * 4.0;
+        if (size > 0.0) {
+            float search = clamp(size / max(axis, 0.001), 0.0, 0.5);
+            float blockers = 0.0, found = 0.0;
+            for (int i = 0; i < 12; ++i) {
+                float r = sqrt((float(i) + 0.5) / 12.0) * search;
+                float a = float(i) * 2.39996323;
+                float stored = cube_distance(normalize(d + (t1 * cos(a) + t2 * sin(a)) * r), near, far);
+                if (stored + slack < axis) {
+                    blockers += stored;
+                    found += 1.0;
+                }
+            }
+            if (found > 0.5) {
+                float b = blockers / found;
+                spread = clamp(size * (axis - b) / max(b * axis, 0.0001), texel * 2.0, 0.5);
             }
         }
-        if (found < 0.5) return 1.0;
-        float b = blockers / found;
-        float spread = clamp(size * (axis - b) / max(b * axis, 0.0001), 0.0005, 0.5);
+        // The taps are fixed, never rotated per pixel or per frame. A point light gets a 4 by 4 grid of bilinear cube
+        // taps over a few texels: a regular grid has no spiral pattern on a smooth sphere. An area light's penumbra is
+        // wider, so it keeps the smoother golden-angle disc.
         float lit = 0.0;
-        for (int i = 0; i < 16; ++i) {
-            float r = sqrt((float(i) + 0.5) / 16.0) * spread;
-            float a = turn + 1.3 + float(i) * 2.39996323;
-            float stored = cube_distance(normalize(d + (t1 * cos(a) + t2 * sin(a)) * r), near, far);
-            lit += axis <= stored + slack ? 1.0 : 0.0;
+        if (size <= 0.0) {
+            for (int y = 0; y < 4; ++y) {
+                for (int x = 0; x < 4; ++x) {
+                    vec2 o = (vec2(float(x), float(y)) + 0.5) * 0.25 - 0.5;
+                    vec3 dir = normalize(d + (t1 * o.x + t2 * o.y) * spread);
+                    float stored = cube_distance(dir, near, far);
+                    lit += axis <= stored + slack ? 1.0 : 0.0;
+                }
+            }
+        } else {
+            for (int i = 0; i < 16; ++i) {
+                float t = (float(i) + 0.5) / 16.0;
+                float a = float(i) * 2.39996323;
+                float r = sqrt(t) * spread;
+                vec3 dir = normalize(d + (t1 * cos(a) + t2 * sin(a)) * r);
+                float stored = cube_distance(dir, near, far);
+                lit += axis <= stored + slack ? 1.0 : 0.0;
+            }
         }
         return lit / 16.0;
     }

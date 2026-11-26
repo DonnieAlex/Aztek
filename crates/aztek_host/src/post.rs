@@ -497,8 +497,13 @@ void main() {
         behind /= 9.0;
         float travelled = length(offs);
         vec3 tint = texelFetch(sampler2D(t_albedo, s_point), at, 0).rgb;
-        // The tint the glass gives what it lets through; the bend's length shades it a little.
-        sum += behind * tint * 1.4 * exp(-travelled * 0.005);
+        // The tint the glass gives what it lets through; the bend's length shades it a little. A dark background
+        // behind the glass must not swallow it whole: keep its own transmission colour as a floor, so it never reads
+        // blacker than the background it lets through.
+        vec3 through = behind * tint * 1.4 * exp(-travelled * 0.005);
+        float through_lum = dot(through, vec3(0.2126, 0.7152, 0.0722));
+        through = max(through, tint * (0.3 * (1.0 - smoothstep(0.04, 0.30, through_lum))));
+        sum += through;
     }
     // The reflection: the scene where the view shows it, the sky where it doesn't. Glossy surfaces are smoothed over
     // the reflection image in the composite, from their roughness.
@@ -626,6 +631,8 @@ vec3 lit(vec3 color, vec4 got, ivec2 at, float d) {
         if (dbg == 21) return vec3(got.a);
         if (dbg == 22) return pow(max(texelFetch(sampler2D(t_open, s_point), at, 0).rgb, vec3(0.0)), vec3(1.0 / 2.2));
         if (dbg == 23) return vec3(texelFetch(sampler2D(t_open, s_point), at, 0).a);
+        if (dbg == 24) return texelFetch(sampler2D(t_back, s_point), at, 0).rgb;
+        if (dbg == 25) return vec3(texelFetch(sampler2D(t_mat_aux, s_point), at, 0).r);
         shaded = pow(pow(shaded, vec3(2.2)) + refl, vec3(1.0 / 2.2));
     }
     return shaded;

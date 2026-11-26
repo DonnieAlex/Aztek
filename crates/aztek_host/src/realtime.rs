@@ -1,7 +1,7 @@
 //! The Realtime viewport's shadow map: one depth image drawn from the first light that casts shadows, and the meshes it
 //! needs. The shading itself is in `render.rs`; this is what the shader reads.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use ash::vk;
@@ -296,8 +296,9 @@ impl Realtime {
         Some(self.set)
     }
 
-    /// Draws this frame's shadow map, before the scene's pass. Nothing when the frame plans none.
-    pub fn render(&mut self, gpu: &mut Gpu, items: &[DrawItem], plan: Option<ShadowPlan>) {
+    /// Draws this frame's shadow map, before the scene's pass. Nothing when the frame plans none. `skip` holds the
+    /// transmissive shapes: a glass object lets the light through, so it must not lay down an opaque shadow.
+    pub fn render(&mut self, gpu: &mut Gpu, items: &[DrawItem], plan: Option<ShadowPlan>, skip: &HashSet<NodeId>) {
         let Some(plan) = plan else { return };
         self.keep(gpu, items);
         let d = gpu.device.clone();
@@ -317,6 +318,9 @@ impl Realtime {
             d.cmd_set_scissor(cmd, 0, &[vk::Rect2D { offset: vk::Offset2D::default(), extent }]);
             d.cmd_bind_pipeline(cmd, vk::PipelineBindPoint::GRAPHICS, self.pipeline);
             for it in items {
+                if skip.contains(&it.shape) {
+                    continue;
+                }
                 let Some(cast) = self.meshes.get(&it.shape) else { continue };
                 if cast.count == 0 {
                     continue;
