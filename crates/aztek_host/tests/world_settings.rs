@@ -178,3 +178,23 @@ fn the_application_reads_and_keeps_its_preferences() {
     c.mel("newSceneUnits -l cm -t film;");
     c.new_scene();
 }
+
+#[test]
+fn autosave_settings_do_not_put_the_old_up_axis_back() {
+    let _alone = alone();
+    let d = prefs_dir("autosave_up_axis");
+    std::fs::write(d.join("optionVars.json"), r#"{"upAxisDirection":"z","autoSaveEnable":false}"#).unwrap();
+    let mut c = Core::new();
+    c.use_prefs();
+    // The Preferences window reads the autosave settings before its Save, and the autosave command reads the one
+    // optionVars store the up axis change later writes.
+    assert_eq!(c.mel("autoSave -q -enable;"), json!(false));
+    c.mel("upAxis -ax y -rv;");
+    c.mel("autoSave -enable false -interval 600 -prompt false -limitBackups false -maxBackups 10 -destination 0 -folder \"\";");
+    assert_eq!(c.mel("upAxis -q -ax;"), json!("y"));
+    let saved: Value = serde_json::from_str(&std::fs::read_to_string(d.join("optionVars.json")).unwrap()).unwrap();
+    assert_eq!(saved["upAxisDirection"], json!("y"));
+    assert_eq!(saved["autoSaveInterval"], json!(600.0));
+    aztek_scene::world::set_up_z(false);
+    aztek_host::ui_cmds::set_keeps_prefs(false);
+}
