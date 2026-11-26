@@ -1319,6 +1319,51 @@ impl Gpu {
         }
     }
 
+    /// Ends the bounce light's second pass and begins its low-pass along the view's rows, into `ao_image`, whose
+    /// first-pass light the second pass has already read.
+    pub fn begin_bounce_blur_h(&mut self) {
+        unsafe {
+            self.device.cmd_end_render_pass(self.cmd);
+            self.device.cmd_begin_render_pass(
+                self.cmd,
+                &vk::RenderPassBeginInfo::default()
+                    .render_pass(self.ao_pass)
+                    .framebuffer(self.ao_framebuffer)
+                    .render_area(vk::Rect2D { offset: vk::Offset2D::default(), extent: self.extent }),
+                vk::SubpassContents::INLINE,
+            );
+            self.device.cmd_set_viewport(self.cmd, 0, &[vk::Viewport { x: 0.0, y: 0.0, width: self.extent.width as f32, height: self.extent.height as f32, min_depth: 0.0, max_depth: 1.0 }]);
+            self.device.cmd_set_scissor(self.cmd, 0, &[vk::Rect2D { offset: vk::Offset2D::default(), extent: self.extent }]);
+        }
+    }
+
+    /// Ends the row pass and begins the column pass, into `bounce_image` again. The column pass writes the image the
+    /// row pass read, so a barrier waits for that read before the attachment writes.
+    pub fn begin_bounce_blur_v(&mut self) {
+        unsafe {
+            self.device.cmd_end_render_pass(self.cmd);
+            self.device.cmd_pipeline_barrier(
+                self.cmd,
+                vk::PipelineStageFlags::FRAGMENT_SHADER,
+                vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+                vk::DependencyFlags::empty(),
+                &[],
+                &[],
+                &[],
+            );
+            self.device.cmd_begin_render_pass(
+                self.cmd,
+                &vk::RenderPassBeginInfo::default()
+                    .render_pass(self.ao_pass)
+                    .framebuffer(self.bounce_framebuffer)
+                    .render_area(vk::Rect2D { offset: vk::Offset2D::default(), extent: self.extent }),
+                vk::SubpassContents::INLINE,
+            );
+            self.device.cmd_set_viewport(self.cmd, 0, &[vk::Viewport { x: 0.0, y: 0.0, width: self.extent.width as f32, height: self.extent.height as f32, min_depth: 0.0, max_depth: 1.0 }]);
+            self.device.cmd_set_scissor(self.cmd, 0, &[vk::Rect2D { offset: vk::Offset2D::default(), extent: self.extent }]);
+        }
+    }
+
     /// Ends the scene pass (or the guides' after it) and begins the screen-space reflections, into `refl_image`.
     pub fn begin_reflection(&mut self) {
         unsafe {

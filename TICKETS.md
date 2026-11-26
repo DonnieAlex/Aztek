@@ -28,6 +28,14 @@ Requests waiting or in progress, newest detail kept. Move to Done with the date 
   about the floor's top plane with the main camera and lights, shades them with the real model's normals, and the
   composite uses the planar image's alpha rather than its lightness, so the mirror is a complete lit sphere anchored
   under the real one at the shot, low, high and off-axis views instead of a black crescent away from the shot camera.
+  26/11/2026: the bounce light clamps its ray radiance, decorrelates its sequence and is low-passed along each axis in
+  its own quad passes before the picture reads it, and the reflection gather starts from a half-resolution mip instead
+  of an eighth with linear planar sampling; the square texels are gone in every bounce/reflection combination and the
+  mirrored edge is smooth. `modelEditor -bounceLight` and `-ambientOcclusion` drive the two lighting toggles from
+  scripts. The shape follows EEVEE: a full-viewport planar probe with its own depth, a `select_probe`-style normal
+  score, planar/alpha coverage, a roughness-to-level prefiltered gather, and a filtered screen-space irradiance field
+  for the bounce instead of raw stochastic samples. Left of that design: EEVEE's world clip plane at the probe's plane
+  (the suite's geometry never crosses it) and temporal reprojection of the indirect term.
   Left: the sky dome is still not drawn as the viewport's background, the viewport frames about 12% tighter than the
   Render View, only the widest flat ground mesh is mirrored, and a point light close to a large floor can leave a cube
   shadow seam.

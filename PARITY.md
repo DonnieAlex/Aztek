@@ -4509,3 +4509,53 @@ where reading lightness treated it as empty and let the sky stand in, which cut 
 separate lower disc. Measured at the persp camera before the fix, the lit planar image of the red mirrored sphere was
 only rows 313 to 337 (a crescent); with a flat unlit colour it projects to rows 307 to 422, the real red sphere's 111
 rows mirrored about its contact row, and the white mirrored sphere to rows 314 to 435 for the real 110 rows.
+
+### The bounce light's filtering and the reflection's level (26/11/2026, #302)
+
+The viewport's Bounce Light (the indirect light) drew the spheres with scattered square texels. The bounce pass shoots
+a dozen stochastic rays a pixel and stores their mean in the bounce image; a ray that met a specular highlight came
+back as a bright texel, and the composite then spread each one over a hard 9x9 square. The old per-pixel hash also
+left a diagonal weave, so the noise was spatially correlated. The pass now clamps each ray's radiance (the offline
+renderer clamps its indirect samples for the same reason), uses a decorrelated integer hash for its sequences, and the
+composite no longer filters the bounce at the sampling point. Instead the bounce image is low-passed by a separable
+Gaussian quad pass along each axis (sigma 3.5 physical pixels, 19 taps a pass) and the composite reads that filtered
+image with one linear sample. That is where the denoise belongs, after the rasterized passes and before the shading
+uses it. The two passes reuse the occlusion and bounce images, so they add no render target and no VRAM; they replace
+the old 81-tap spread and its 81 depth fetches, so the frame does slightly less work. The openness and contact shadow
+share the buffer and are low-passed with the light, because a sharp alpha against the soft light made the contact
+shadow's steps show on the sphere's dark side.
+
+The reflection gather's prefilter level was the blocky edge: the composite looked the gather up from an
+eighth-resolution mip (level 3) for even a mirror, so every reflection edge stepped at about eight pixels. The gather
+now starts two levels sharper (half resolution for a mirror, quarter and eighth only as the roughness grows), while
+the gather's disc radius stays 8 to 32 pixels at a 720-line view and grows with the buffer, so a rough surface keeps
+the same softness at any window size or pixel ratio; the planar image is read with linear filtering too. The reflection and planar targets were already at the viewport's full
+resolution, so no target grew and no memory changed. Net cost is slightly lower: two 19-tap bounce passes replace the
+9x9 (81-tap) composite spread, and the reflection reads a higher mip. `modelEditor -bounceLight` and
+`-ambientOcclusion` now drive those two lighting toggles from scripts as well.
+
+Measured with the indirect debug view: before, the bounce was a sparse field of bright texels that the 9x9 box turned
+into square blocks; now it is a smooth field. The four viewpoints, with the bounce on and off and reflections on and
+off, show no square texels, and the mirrored edge against the floor is smooth and continuous.
+
+EEVEE is the reference for the shape of these two effects. Its planar probes (`eevee_lightprobe_planar.cc`,
+`PlanarProbe::set_view`, and `shaders/eevee_lightprobe_plane.bsl.hh`) render one full-viewport mirrored image per flat
+plane, with a depth image of its own and a world clip plane at the probe's plane (`world_clip_buf_.plane`), and its
+`select_probe` scores a surface with `saturate(dot(N, probe_normal)) * inside_bounds`. Aztek's mirrored-model pass is
+the same probe: full-viewport radiance and `planar_depth`, the main camera and lights, and the real model's normals.
+Our `planar_cover` is the `saturate(dot(N, up))` score and the height fade is the `inside_bounds` test; the planar
+alpha is the stand-in for EEVEE's `planar_depth_tx == reverse_z::read(1.0)` background rejection in
+`eevee_forward_lib.bsl.hh`, and the composite blends the planar and screen-space tiers by roughness the way EEVEE
+mixes its planar probe with the screen trace. Because the models are mirrored and the camera is not, the image is
+right-side up at the same screen UV, so EEVEE's NDC flip for its upside-down probes does not apply, and the planar
+tier is used only on the plane, where the `parallax()` term is the identity. The reflection gather reads a prefiltered
+chain and chooses the level from the roughness, as `roughness_to_lod` does for the sphere probes
+(`eevee_lightprobe_sphere.bsl.hh`). The one EEVEE detail not mirrored yet is the world clip plane: the suite's
+geometry never crosses the probe plane and the reflector itself is skipped, so it is left for a scene that does.
+
+For the indirect term EEVEE never shades from a raw stochastic trace: `eevee_lightprobe_volume.cc` bakes irradiance
+into a 3D grid of spherical harmonics and the forward pass samples it with a filtered lookup. Aztek keeps a
+screen-space variant of that idea: the bounce rays are clamped and decorrelated, then the finished bounce image is
+blurred along each axis in quad passes and read with a linear sample, so the shading sees a smooth irradiance field
+rather than the sample points. Temporal reprojection would be the next step if the screen-space field is not enough;
+the clamp, the low-discrepancy sequence and the filtered lookup are the parts that matter for the blocks today.

@@ -458,6 +458,13 @@ impl View {
         if settings.bounce > 0.0 {
             self.gpu.begin_bounce();
             self.post.draw_bounce(&self.gpu, proj, ortho, &settings);
+            // The bounce's rays are stochastic: low-pass it along each axis into a soft, continuous field before the
+            // picture reads it, so no single hit comes back as a bright texel (#302).
+            self.gpu.begin_bounce_blur_h();
+            self.post.draw_bounce_blur(&self.gpu, proj, ortho, &settings, true);
+            self.gpu.begin_bounce_blur_v();
+            self.post.draw_bounce_blur(&self.gpu, proj, ortho, &settings, false);
+            // The pass stays open: begin_post ends whichever pass is current.
         }
         self.gpu.begin_post(index);
         self.post.draw(&self.gpu, proj, ortho, &settings);

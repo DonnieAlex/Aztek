@@ -122,9 +122,12 @@ float behind_at(vec3 at) {
     return point_at(q, dq).z - at.z;
 }
 
-// Noise that differs from pixel to pixel with no pattern the eye picks out.
+// Noise that differs from pixel to pixel with no pattern the eye picks out. The integer hash spreads the low bits
+// over both axes; the sine-free form avoids the diagonal bands a cheap dot-and-fract leaves on a screen grid.
 float noise(vec2 px) {
-    return fract(52.9829189 * fract(dot(px, vec2(0.06711056, 0.00583715))));
+    vec3 p3 = fract(vec3(px.xyx) * 0.1031);
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.x + p3.y) * p3.z);
 }
 
 void main() {
@@ -213,6 +216,7 @@ void main() {
         float jitter = noise(c.yx + vec2(17.0, 5.0));
         // Rays leave a little off the surface, so those that skim along it don't meet it again in its own depth.
         vec3 from = p + n * (0.01 * reach);
+        // The bounce's grain is the few stochastic hits a pixel gets; the clamp and the filter carry the rest.
         const int RAYS = 12;
         vec3 hit_albedo = vec3(0.0);
         float hits = 0.0, gone = 0.0;
@@ -252,9 +256,12 @@ void main() {
                         vec4 clip = pp.proj * vec4(at, 1.0);
                         ivec2 q = ivec2(clip.xy / clip.w * 0.5 * pc.size.xy + 0.5 * pc.size.xy);
                         vec3 hit_colour = texelFetch(sampler2D(t_albedo, s_point), q, 0).rgb;
-                        gi += pow(texelFetch(sampler2D(t_scene, s_point), q, 0).rgb, vec3(2.2));
+                        // A ray that lands on a specular highlight must not carry it back as a bright texel: one such
+                        // hit would light a whole square of the filter's footprint. The offline path clamps its
+                        // indirect samples for the same reason.
+                        gi += min(pow(max(texelFetch(sampler2D(t_scene, s_point), q, 0).rgb, vec3(0.0)), vec3(2.2)), vec3(4.0));
                         // The second time round, the surface met also sends back what the first bounce brought it.
-                        if (second) gi += hit_colour * texelFetch(sampler2D(t_open, s_point), q, 0).rgb;
+                        if (second) gi += min(hit_colour * texelFetch(sampler2D(t_open, s_point), q, 0).rgb, vec3(4.0));
                         hit_albedo += hit_colour;
                         hits += 1.0;
                         break;
@@ -278,6 +285,30 @@ void main() {
         gi *= pp.quality.y / float(RAYS) / (vec3(1.0) - keep);
     }
     o = vec4(gi, clamp(open * contact, 0.0, 1.0));
+}
+"#;
+
+/// The bounce light low-passed along one axis: the rays that found it are stochastic, and indirect light is not, so a
+/// separable Gaussian turns the grain into a soft field before the picture reads it (#302).
+const BOUNCE_BLUR_MAIN: &str = r#"
+void main() {
+    vec2 c = floor(gl_FragCoord.xy) + 0.5;
+    vec2 dir = pc.bg_top.xy;
+    float sigma = max(pc.bg_top.z, 0.5);
+    int radius = int(clamp(ceil(sigma * 2.5), 1.0, 16.0));
+    vec4 sum = vec4(0.0);
+    float total = 0.0;
+    for (int i = -16; i <= 16; ++i) {
+        if (i < -radius || i > radius) continue;
+        float f = float(i);
+        float w = exp(-f * f / (2.0 * sigma * sigma));
+        ivec2 at = clamp(ivec2(c + dir * f), ivec2(0), ivec2(pc.size.xy) - 1);
+        sum += textureLod(sampler2D(t_open, s_refl), (vec2(at) + 0.5) / pc.size.xy, 0.0) * w;
+        total += w;
+    }
+    // The openness and contact shadow share the buffer and the rays' grain, so they are low-passed with them: a sharp
+    // alpha against the soft light made the contact shadow's steps show on the sphere's dark side.
+    o = sum / max(total, 1e-6);
 }
 "#;
 
@@ -321,7 +352,8 @@ vec3 planar_at(vec2 c, vec3 p, vec3 n, vec3 r, float rough, out float cover) {
     for (int y = -1; y <= 1; ++y) {
         for (int x = -1; x <= 1; ++x) {
             ivec2 q = clamp(at + ivec2(x, y), ivec2(0), top);
-            vec4 t = texelFetch(sampler2D(t_planar, s_point), q, 0);
+            // Linear filtering, so the mirrored silhouette hands over to the floor without a stepped edge.
+            vec4 t = textureLod(sampler2D(t_planar, s_refl), (vec2(q) + 0.5) / pc.size.xy, 0.0);
             plane += pow(max(t.rgb, vec3(0.0)), vec3(2.2));
             data += t.a;
         }
@@ -517,8 +549,14 @@ vec3 reflection_at(ivec2 at, float d) {
     if (d <= 0.0) return textureLod(sampler2D(t_refl_soft, s_refl), uv, 0.0).rgb;
     // The mip chain is the filtered copy: one bright texel of a mirrored highlight is spread over the level the
     // roughness asks for, so a rough gather is smooth and a mirror stays a mirror.
-    float radius = clamp(rough * rough * 120.0, 8.0, 32.0);
-    float lod = clamp(log2(radius), 3.0, 5.0);
+    // The radius is a physical blur, so it is measured against a 720-line view and grows with this one: a rough
+    // surface keeps the same softness when the window or the display's pixel ratio changes.
+    float res = max(pc.size.y / 720.0, 1.0);
+    float radius = clamp(rough * rough * 120.0, 8.0, 32.0) * res;
+    // The disc below is the gather itself; the level it starts from is only a prefilter, so take it two steps sharper
+    // than the radius and let the disc reach the rest. Sampling the whole blur from the level made every reflection
+    // step at an eighth of the view (#302).
+    float lod = clamp(log2(radius) - 2.0, 1.0, 4.0);
     float z = -point_at(vec2(at) + 0.5, d).z;
     vec3 base = clamp(textureLod(sampler2D(t_refl_soft, s_refl), uv, lod).rgb, vec3(0.0), vec3(8.0));
     vec3 sum = base;
@@ -566,6 +604,10 @@ vec3 lit(vec3 color, vec4 got, ivec2 at, float d) {
         if (dbg == 14) return texelFetch(sampler2D(t_refl, s_point), at, 0).rgb;
         if (dbg == 15) return reflection_at(at, d);
         if (dbg == 16) return textureLod(sampler2D(t_refl_soft, s_refl), (vec2(at) + 0.5) / pc.size.xy, 3.0).rgb;
+        if (dbg == 20) return pow(max(got.rgb, vec3(0.0)), vec3(1.0 / 2.2));
+        if (dbg == 21) return vec3(got.a);
+        if (dbg == 22) return pow(max(texelFetch(sampler2D(t_open, s_point), at, 0).rgb, vec3(0.0)), vec3(1.0 / 2.2));
+        if (dbg == 23) return vec3(texelFetch(sampler2D(t_open, s_point), at, 0).a);
         shaded = pow(pow(shaded, vec3(2.2)) + refl, vec3(1.0 / 2.2));
     }
     return shaded;
@@ -578,26 +620,11 @@ vec3 picture(vec2 c) {
     // Nothing drawn here: the gradient, top of the view to bottom. What was drawn without depth keeps its colour.
     if (pc.bg_top.w > 0.5 && cleared(color, d)) return mix(pc.bg_top.rgb, pc.bg_bottom.rgb, c.y * pc.size.w);
     if (effects_off() || d <= 0.0) return lit(color, vec4(0.0, 0.0, 0.0, 1.0), ivec2(c), d);
-    float z = point_at(c, d).z;
-    float per_px = length(point_at(c + vec2(1.0, 0.0), d) - point_at(c, d));
-    vec4 sum = vec4(0.0);
-    float weight = 0.0;
-    // Realtime smooths over a wider square, which takes the finer sampling's remaining grain out.
-    int blur = pp.quality.x > 0.5 ? 4 : 3;
-    for (int y = -blur; y <= blur; ++y) {
-        for (int x = -blur; x <= blur; ++x) {
-            vec2 q = c + vec2(float(x), float(y));
-            ivec2 at = clamp(ivec2(q), ivec2(0), ivec2(pc.size.xy) - 1);
-            float dq = depth_at(q);
-            if (dq <= 0.0) continue;
-            // Pixels much nearer or farther are another surface: a slope across the square is not.
-            float dz = abs(point_at(q, dq).z - z) / (per_px * float(blur * 2) + 1e-9);
-            float w = exp(-float(x * x + y * y) / float(blur * blur * 2)) * max(1.0 - dz, 0.0);
-            sum += texelFetch(sampler2D(t_open, s_point), at, 0) * w;
-            weight += w;
-        }
-    }
-    return lit(color, weight > 0.0 ? sum / weight : vec4(0.0, 0.0, 0.0, 1.0), ivec2(c), d);
+    // The bounce was low-passed along both axes before this pass, so one bilinear sample is already smooth: no
+    // stochastic grain and no square footprint, and no gather cost here.
+    ivec2 at = clamp(ivec2(c), ivec2(0), ivec2(pc.size.xy) - 1);
+    vec4 got = textureLod(sampler2D(t_open, s_refl), (vec2(at) + 0.5) / pc.size.xy, 0.0);
+    return lit(color, got, ivec2(c), d);
 }
 
 // The picture at a pixel the depth of field gathers from: the same, without the occlusion's smoothing, which the
@@ -605,7 +632,7 @@ vec3 picture(vec2 c) {
 vec3 picture_rough(ivec2 at, vec3 color, float d) {
     if (pc.bg_top.w > 0.5 && cleared(color, d)) return mix(pc.bg_top.rgb, pc.bg_bottom.rgb, (float(at.y) + 0.5) * pc.size.w);
     if (effects_off() || d <= 0.0) return lit(color, vec4(0.0, 0.0, 0.0, 1.0), at, d);
-    return lit(color, texelFetch(sampler2D(t_open, s_point), at, 0), at, d);
+    return lit(color, textureLod(sampler2D(t_open, s_refl), (vec2(at) + 0.5) / pc.size.xy, 0.0), at, d);
 }
 
 // What depth of field blurs: the background, and what has depth (only shaded surfaces when the renderer marks them).
@@ -768,6 +795,7 @@ pub struct Post {
     ao_pipeline: vk::Pipeline,
     reflection_pipeline: vk::Pipeline,
     reflection_blur_pipeline: vk::Pipeline,
+    bounce_blur_pipeline: vk::Pipeline,
     layout: vk::PipelineLayout,
     set_layout: vk::DescriptorSetLayout,
     env_layout: vk::DescriptorSetLayout,
@@ -815,6 +843,7 @@ impl Post {
             let ao_fs = module(&compile(&fragment_source(AO_MAIN, multisampled), naga::ShaderStage::Fragment));
             let reflect_fs = module(&compile(&fragment_source(REFLECT_MAIN, multisampled), naga::ShaderStage::Fragment));
             let blur_fs = module(&compile(&fragment_source(REFL_BLUR_MAIN, multisampled), naga::ShaderStage::Fragment));
+            let bounce_blur_fs = module(&compile(&fragment_source(BOUNCE_BLUR_MAIN, multisampled), naga::ShaderStage::Fragment));
             let bindings = vec![
                 vk::DescriptorSetLayoutBinding::default().binding(0).descriptor_type(vk::DescriptorType::SAMPLED_IMAGE).descriptor_count(1).stage_flags(vk::ShaderStageFlags::FRAGMENT),
                 vk::DescriptorSetLayoutBinding::default().binding(1).descriptor_type(vk::DescriptorType::SAMPLED_IMAGE).descriptor_count(1).stage_flags(vk::ShaderStageFlags::FRAGMENT),
@@ -931,6 +960,13 @@ impl Post {
             ];
             let blur_info = info.stages(&blur_stages).render_pass(gpu.ao_pass);
             let reflection_blur_pipeline = d.create_graphics_pipelines(vk::PipelineCache::null(), &[blur_info], None).map_err(|e| e.1).unwrap()[0];
+            // The bounce light's low-pass, along one axis at a time.
+            let bounce_blur_stages = [
+                vk::PipelineShaderStageCreateInfo::default().stage(vk::ShaderStageFlags::VERTEX).module(vs).name(c"main"),
+                vk::PipelineShaderStageCreateInfo::default().stage(vk::ShaderStageFlags::FRAGMENT).module(bounce_blur_fs).name(c"main"),
+            ];
+            let bounce_blur_info = info.stages(&bounce_blur_stages).render_pass(gpu.ao_pass);
+            let bounce_blur_pipeline = d.create_graphics_pipelines(vk::PipelineCache::null(), &[bounce_blur_info], None).map_err(|e| e.1).unwrap()[0];
             // The occlusion and reflection passes can't read the image they write: their sets have another image there.
             let allocate = || d.allocate_descriptor_sets(&vk::DescriptorSetAllocateInfo::default().descriptor_pool(pool).set_layouts(&layouts)).unwrap()[0];
             let ao_set = allocate();
@@ -943,7 +979,8 @@ impl Post {
             d.destroy_shader_module(ao_fs, None);
             d.destroy_shader_module(reflect_fs, None);
             d.destroy_shader_module(blur_fs, None);
-            Post { pipeline, ao_pipeline, reflection_pipeline, reflection_blur_pipeline, layout, set_layout, env_layout, pool, set, ao_set, bounce_set, bounced_set, reflection_set, env_set, sampler, refl_sampler, params }
+            d.destroy_shader_module(bounce_blur_fs, None);
+            Post { pipeline, ao_pipeline, reflection_pipeline, reflection_blur_pipeline, bounce_blur_pipeline, layout, set_layout, env_layout, pool, set, ao_set, bounce_set, bounced_set, reflection_set, env_set, sampler, refl_sampler, params }
         }
     }
 
@@ -1054,6 +1091,18 @@ impl Post {
         self.pass(gpu, self.ao_pipeline, self.bounce_set, &push);
     }
 
+    /// One axis of the bounce light's low-pass, between the two passes the view begins for it.
+    pub fn draw_bounce_blur(&self, gpu: &Gpu, proj: Mat4, orthographic: bool, s: &PostSettings, horizontal: bool) {
+        if s.bounce <= 0.0 {
+            return;
+        }
+        let mut push = self.push(gpu, proj, orthographic, s);
+        // bg_top is unused by this pass otherwise: the axis, then the Gaussian's sigma in pixels.
+        push.bg_top = [if horizontal { 1.0 } else { 0.0 }, if horizontal { 0.0 } else { 1.0 }, 3.5, 0.0];
+        let set = if horizontal { self.bounced_set } else { self.bounce_set };
+        self.pass(gpu, self.bounce_blur_pipeline, set, &push);
+    }
+
     /// The screen-space reflections and refraction. Between `Gpu::begin_reflection` and `Gpu::begin_occlusion`, with
     /// the Realtime renderer's material buffer.
     pub fn draw_reflection(&self, gpu: &Gpu, proj: Mat4, orthographic: bool, s: &PostSettings) {
@@ -1082,6 +1131,7 @@ impl Post {
             d.destroy_pipeline(self.ao_pipeline, None);
             d.destroy_pipeline(self.reflection_pipeline, None);
             d.destroy_pipeline(self.reflection_blur_pipeline, None);
+            d.destroy_pipeline(self.bounce_blur_pipeline, None);
             d.destroy_pipeline_layout(self.layout, None);
             d.destroy_descriptor_pool(self.pool, None);
             d.destroy_descriptor_set_layout(self.set_layout, None);
@@ -1125,7 +1175,7 @@ fn roughness_pixels(rough: f32) -> f32 {
 /// The mip level the reflection gather samples for a roughness, as `reflection_at`.
 #[cfg(test)]
 fn reflection_lod(rough: f32) -> f32 {
-    roughness_pixels(rough).log2().clamp(1.0, 5.0)
+    (roughness_pixels(rough).log2() - 2.0).clamp(1.0, 4.0)
 }
 
 #[cfg(test)]
@@ -1222,14 +1272,18 @@ mod tests {
         assert!(roughness_pixels(0.3) < roughness_pixels(0.5));
         assert!(roughness_pixels(0.2) < roughness_pixels(0.5));
         assert_eq!(roughness_pixels(1.0), 32.0);
-        // The composite's gather is the same radius, with at least a pixel and a half at any roughness.
-        assert!(COMPOSITE_MAIN.contains("float radius = clamp(rough * rough * 120.0, 8.0, 32.0);"));
+        // The composite's gather is the same radius, scaled to the view's height, with a pixel and a half at least at
+        // any roughness.
+        assert!(COMPOSITE_MAIN.contains("float res = max(pc.size.y / 720.0, 1.0);"));
+        assert!(COMPOSITE_MAIN.contains("clamp(rough * rough * 120.0, 8.0, 32.0) * res;"));
         // The gather reads the filtered copy at a level that follows the roughness, and clamps bright taps.
         assert!(COMPOSITE_MAIN.contains("textureLod(sampler2D(t_refl_soft, s_refl)"));
         assert!(COMPOSITE_MAIN.contains("vec3(0.0), vec3(8.0)"));
-        assert!((reflection_lod(0.02) - 3.0).abs() < 1e-2);
+        // The prefilter starts two levels sharper than the gather's radius: a mirror reads the half-resolution mip,
+        // not an eighth.
+        assert_eq!(reflection_lod(0.02), 1.0);
         assert!(reflection_lod(0.2) < reflection_lod(0.5));
-        assert_eq!(reflection_lod(1.0), 5.0);
+        assert_eq!(reflection_lod(1.0), 3.0);
     }
 
     #[test]
