@@ -4482,13 +4482,30 @@ moving.
 
 The ground plane's planar image and the screen-space reflection now share one brightness scale and the same filtered
 copy. The planar side gets a three by three sample so its silhouette hands over gradually; the weight is the surface's
-planarity, its roughness and the planar image's own light, and the two are mixed by one minus that weight, so the
-weights sum to one. The mirrored draw gets a plain ambient fill in place of the bounce light the real floor would send
-back. The reflections example's key is a directional light: a point light close to the floor left a cube shadow face
-seam across it, which read as a second reflection.
+planarity, its roughness and the planar image's own coverage, read from its alpha, and the two are mixed by one minus
+that weight, so the weights sum to one. The reflections example's key is a directional light: a point light close to
+the floor left a cube shadow face seam across it, which read as a second reflection.
 
-What still differs from the Render View: the viewport's planar reflection of the standing spheres is smaller and
-sharper than the render's soft full reflection, and away from the shot camera it can sit offset from the sphere
-rather than under it; the HDRI scene's sky is still not drawn as the viewport's background;
-and a point light near a large floor can still show a cube shadow seam. The new captures are in
+What still differs from the Render View: the HDRI scene's sky is still not drawn as the viewport's background, the
+viewport frames about 12% tighter than the render at the same focal length, only the widest flat ground mesh is
+mirrored, and a point light near a large floor can still show a cube shadow seam. The new captures are in
 `examples/rendering/reference` and `examples/rendering/viewport`.
+
+### The mirrored pass and the floor's top (26/11/2026, #302)
+
+The planar pass used to mirror the camera and rewrite the light block for that view. The geometry drew, but the
+fragment shader shaded it in the mirrored view's light space while its normal matrix and the main pass did not agree,
+so a mirrored sphere came out black except for one lit crescent, and it sat away from the sphere at most angles. The
+pass now keeps the main camera, projection and lights and mirrors the model instead: each item is drawn with the
+reflection matrix about the reflector's actual top plane (`translate(point) * reflect(up) * translate(-point)`), not
+about the world origin, so a floor slab whose top is not at zero works too. Normals are recomputed from the real
+model, so the planar image is the real scene's shading mirrored about the floor; culling is off because the mirror
+turns the winding. The planar pass has its own light buffer without the camera's shadow map, which would be sampled at
+the mirrored point.
+
+The composite reads the planar image's alpha, not its lightness, as the weight. The planar pass clears to transparent
+black, so alpha is exactly the mirrored scene's coverage: a sphere's own shadowed side is dark and still a reflection,
+where reading lightness treated it as empty and let the sky stand in, which cut the mirror into a bright cap and a
+separate lower disc. Measured at the persp camera before the fix, the lit planar image of the red mirrored sphere was
+only rows 313 to 337 (a crescent); with a flat unlit colour it projects to rows 307 to 422, the real red sphere's 111
+rows mirrored about its contact row, and the white mirrored sphere to rows 314 to 435 for the real 110 rows.

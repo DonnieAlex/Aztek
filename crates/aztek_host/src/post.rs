@@ -315,16 +315,21 @@ vec3 planar_at(vec2 c, vec3 p, vec3 n, vec3 r, float rough, out float cover) {
     ivec2 at = ivec2(c);
     ivec2 top = ivec2(pc.size.xy) - 1;
     vec3 plane = vec3(0.0);
+    // How much of the sample is mirrored scene: the planar pass clears to transparent black, so its alpha is the
+    // coverage. Lightness is not coverage: a mirrored sphere's own shadowed side is dark and still a reflection.
+    float data = 0.0;
     for (int y = -1; y <= 1; ++y) {
         for (int x = -1; x <= 1; ++x) {
             ivec2 q = clamp(at + ivec2(x, y), ivec2(0), top);
-            plane += pow(max(texelFetch(sampler2D(t_planar, s_point), q, 0).rgb, vec3(0.0)), vec3(2.2));
+            vec4 t = texelFetch(sampler2D(t_planar, s_point), q, 0);
+            plane += pow(max(t.rgb, vec3(0.0)), vec3(2.2));
+            data += t.a;
         }
     }
     plane /= 9.0;
-    // Where the planar image has nothing, the screen-space reflection stands in: the weight falls away with the
-    // image's own light and with roughness, and the two are mixed by one minus the other in the caller.
-    float data = smoothstep(0.0, 0.35, dot(plane, vec3(0.2126, 0.7152, 0.0722)));
+    // Where the planar image has nothing, the screen-space reflection stands in: the weight falls away at the image's
+    // edge and with roughness, and the two are mixed by one minus the other in the caller.
+    data = smoothstep(0.0, 0.5, data / 9.0);
     float rough_w = 1.0 - 0.5 * smoothstep(0.15, 0.7, rough);
     // The plane itself takes the planar image, fading to the sky where the image has nothing. The screen-space march
     // fills in on surfaces that are not the mirror, and only partly here where the surface is rough.

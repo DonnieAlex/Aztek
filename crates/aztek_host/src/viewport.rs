@@ -1225,36 +1225,11 @@ impl Viewport {
 
     /// This frame's lights again, in the planar reflection's own buffer: the same view and lights as the camera's, with
     /// no shadow map, since the mirrored geometry would sample it at the wrong place (#302).
-    pub fn write_lights_for(&mut self, s: &mut Session, items: &[DrawItem], view: DMat4, proj: DMat4, mode: crate::lighting::LightMode) {
+    pub fn write_lights_for(&mut self, s: &mut Session, _items: &[DrawItem], view: DMat4, proj: DMat4, mode: crate::lighting::LightMode) {
         let Some(lit) = self.lit.as_mut() else { return };
-        let mut chosen = crate::lighting::chosen(&mut s.graph, mode, visible);
-        if !chosen.is_empty() {
-            // The mirrored scene has no bounce light of its own: a plain fill stands in for the floor sending light
-            // back, so the underside of a mirrored sphere is shaded rather than cut black at its terminator (#302).
-            chosen.push(aztek_scene::lights::SceneLight {
-                shape: NO_NODE,
-                transform: NO_NODE,
-                kind: aztek_scene::lights::Kind::Ambient,
-                world: DMat4::IDENTITY,
-                color: [0.35, 0.35, 0.35],
-                diffuse: true,
-                specular: false,
-                decay: 0,
-                cone_deg: 180.0,
-                penumbra_deg: 0.0,
-                dropoff: 0.0,
-                ambient_shade: 0.0,
-                by_area: false,
-                volume_shape: 0,
-                volume_dir: 0,
-                volume_ambient: false,
-                cast_shadows: false,
-                exposure: 0.0,
-                ies: None,
-            });
-            let used: Vec<NodeId> = chosen.iter().map(|l| l.shape).collect();
-            lit.update_masks(&s.graph, &used, items.iter().map(|i| i.shape));
-        }
+        // The same lights as the camera's own pass, re-selected so they can go in the planar buffer without the shadow
+        // map. The per-shape masks are already the ones prepare_lights worked out for those same lights.
+        let chosen = crate::lighting::chosen(&mut s.graph, mode, visible);
         lit.write_planar_block(mode, &chosen, &view, &proj, self.disp.two_sided, self.cam.orthographic);
     }
 
