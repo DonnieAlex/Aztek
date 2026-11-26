@@ -63,6 +63,7 @@ Each is a guess in a test, marked `// unverified:` at the line. `calls.json` car
 | Does `displaySmoothness -q -po` answer per object as an array? | `smooth_preview_attributes` | `smooth.query` |
 | What does `hyperShade -listUpstreamShaderNodes` return? | `shading_node_colour_managed` | none yet |
 | Does joint `stiffness` change an ikRPsolver or ikSCsolver solve (a three-joint chain, the middle joint's stiffnessY at 90, the handle dragged in)? Does `priority` change anything for two RP handles sharing a joint? | `ik.rs` (none yet) | none yet |
+| The IK Spline Handle Tool's defaults: `for f in ("roc","cra","pcv","snc","ccv","scv","ns","rtm","tws"): print(f, cmds.ikSplineHandleCtx("ikSplineHandleContext", q=True, **{f: True}))` (#317) | `ctx_cmds.rs` default_prop | none yet |
 | Every XGen default, the commands the Generate menu and the grooming tools run, how a groom is stored in `.ma` and `.mb` | XJEN, all steps | `xgen_capture.py` |
 
 Add a row, and a call in `calls.json`, whenever a test takes a guess.

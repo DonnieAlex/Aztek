@@ -155,6 +155,23 @@ MainWindow::MainWindow() {
     shelf_capture() = [this](QAction* a) { add_to_shelf(a); };
     shelf_holder->addWidget(shelf_bar_);
     shelf_bar_->set_corner(make_feedback_button(shelf_bar_));
+    // Scripts reach the views' pane as $gMainPane and the shelves as $gShelfTopLevel, by the reference's names.
+    ScriptUi::get()->add_builtin_editor("MainPane", "paneLayout", panels_);
+    shelf_bar_->fire_script = [](const QString& path) {
+        QByteArray text = QJsonDocument(QJsonObject{{"path", path}, {"fire", QJsonArray{"command"}}}).toJson(QJsonDocument::Compact);
+        aztek_ui_event(text.constData());
+        Host::get()->poke();
+        ScriptUi::get()->sync();
+    };
+    auto shelves_for_scripts = [this] {
+        ScriptUi::ShelfHooks hooks;
+        hooks.add = [this](const QString& shelf, const QString& path, const QJsonObject& props) { shelf_bar_->add_script_button(shelf, path, props); };
+        hooks.remove = [this](const QString& path) { shelf_bar_->remove_script_button(path); };
+        hooks.select = [this](const QString& shelf) { shelf_bar_->select_shelf(shelf); };
+        ScriptUi::get()->set_shelves(shelf_bar_, shelf_bar_->shelf_names(), shelf_bar_->current(), hooks);
+    };
+    connect(shelf_bar_, &ShelfBar::shelves_changed, this, shelves_for_scripts);
+    shelves_for_scripts();
     watch_menus();
     build_toolbox();
     build_docks();
@@ -758,7 +775,8 @@ QMenu* MainWindow::skeleton_menu() {
     hik->addAction("Create Control Rig", [] { exec("hikCreateControlRig"); });
     m->addSeparator();
     cmd(m, "Create IK Handle", "ikHandle", {}, QString(), true);
-    cmd(m, "Create IK Spline Handle", "ikHandle", QJsonObject{{"solver", "ikSplineSolver"}}, QString(), true);
+    // A tool, as in the reference: click the start joint, then the end joint. The option box is its tool settings (#317).
+    m->addAction(new OptionRow("Create IK Spline Handle", QString(), [this] { set_tool("ikSplineHandle"); }, [this] { set_tool("ikSplineHandle"); show_tool_settings(); }, m));
     cmd(m, "Enable Selected IK Handles", "ikHandle", QJsonObject{{"enableHandles", true}});
     cmd(m, "Disable Selected IK Handles", "ikHandle", QJsonObject{{"disableHandles", true}});
     return m;
@@ -771,6 +789,25 @@ QMenu* MainWindow::skin_menu() {
     cmd(m, "Go to Bind Pose", "dagPose", QJsonObject{{"restore", true}, {"global", true}, {"bindPose", true}});
     m->addSeparator();
     m->addAction("Paint Skin Weights", [this] { set_tool("paintSkin"); show_tool_settings(); });
+    // Skin Tools: layered weights on the skinCluster, painted with the same brush.
+    m->addAction("Skin Tools", [this] { show_named_window("skinTools"); });
+    m->addAction("Initialize Skin Layers", [] {
+        bool any = false;
+        for (const QJsonValue& s : state()["selection"].toArray()) {
+            QString obj = s.toString().section('.', 0, 0);
+            if (ask("findRelatedSkinCluster", QJsonObject{{"args", QJsonArray{obj}}}).toString().isEmpty()) continue;
+            exec("skinLayers", QJsonObject{{"args", QJsonArray{obj}}, {"initialize", true}});
+            any = true;
+        }
+        if (!any) log("// Warning: select a skinned mesh //", 4);
+    });
+    m->addAction("Delete Skin Layers", [] {
+        for (const QJsonValue& s : state()["selection"].toArray()) {
+            QString obj = s.toString().section('.', 0, 0);
+            if (ask("findRelatedSkinCluster", QJsonObject{{"args", QJsonArray{obj}}}).toString().isEmpty()) continue;
+            exec("skinLayers", QJsonObject{{"args", QJsonArray{obj}}, {"delete", true}});
+        }
+    });
     cmd(m, "Hammer Skin Weights", "weightHammerVerts", {});
     cmd(m, "Remove Unused Influences", "removeUnusedInfluences", {});
     cmd(m, "Substitute Geometry", "substituteGeometry", {});
@@ -1272,6 +1309,9 @@ void MainWindow::build_menu_set(const QString& set) {
     help->addAction("Welcome Screen", [this] { show_welcome(); });
     help->addAction("This doesn't feel right!", [this] { open_feedback(this); });
     help->addAction("Check for Updates...", [this] { check_for_updates(this, [this] { return close(); }); });
+    // Tools animators and riggers add to the reference, each built and checked for Aztek.
+    QMenu* install = help->addMenu("Install");
+    install->addAction("mGear...", [this] { install_mgear(this); });
     help->addAction("Thanks", [this] { show_thanks(this); });
     help->addAction("About Aztek", [this] { show_about(this); });
     mb->addMenu(help);
@@ -1431,23 +1471,17 @@ QDockWidget* MainWindow::slider_dock(const QString& title, const QString& id) {
     return d;
 }
 
-// A saved window layout. One kept before the sliders were docks of their own has no place for them: they go under the
-// views, the Time Slider over the Range Slider, as a fresh layout has them.
+// A saved window layout. One kept before the sliders were docks of their own (#272) has no place for them and is not
+// restored: the window keeps the fresh layout it was built with. Restoring it and then taking the sliders out and docking
+// them again, before the window was first shown, left the main window's layout holding a freed item, and Aztek crashed
+// at start on Windows wherever such a layout was saved.
 void MainWindow::restore_layout(const QByteArray& state) {
+    QByteArray name;
+    for (QChar c : QStringLiteral("TimeSlider")) name.append(char(c.unicode() >> 8)).append(char(c.unicode() & 0xff));
+    if (!state.contains(name)) return;
     restoreState(state);
     // A layout keeps the corners it was saved with; the bottom right is the sliders' now.
     setCorner(Qt::BottomRightCorner, Qt::BottomDockWidgetArea);
-    QByteArray name;
-    for (QChar c : QStringLiteral("TimeSlider")) name.append(char(c.unicode() >> 8)).append(char(c.unicode() & 0xff));
-    if (state.contains(name)) return;
-    for (QDockWidget* d : {time_dock_, range_dock_}) {
-        d->setFloating(false);
-        removeDockWidget(d);
-    }
-    addDockWidget(Qt::BottomDockWidgetArea, time_dock_, Qt::Vertical);
-    splitDockWidget(time_dock_, range_dock_, Qt::Vertical);
-    time_dock_->show();
-    range_dock_->show();
 }
 
 // The slider docks go back under whatever a workspace docked below the views, as the reference keeps them.
@@ -1648,6 +1682,10 @@ void MainWindow::build_bottom() {
     play->addAction(icon("next"), "Step forward one frame", [this] { step_time(1); });
     play->addAction(icon("last"), "Go to end of playback range", [this] { go_to_time(time_slider_->end()); });
     row1->addWidget(play);
+    // The sliders keep their own height, as the reference's do: a dock area left tall by an editor docked under the
+    // views (the Rendering workspace's Script Editor) gives the space back rather than stretching them, and the edge
+    // between them and the views doesn't drag (#312).
+    time_row->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     time_dock_->setWidget(time_row);
     auto* range_row = new QWidget(range_dock_);
     range_row->setObjectName("rangeSliderRow");
@@ -1754,6 +1792,7 @@ void MainWindow::build_bottom() {
     auto_key_->setCheckable(true);
     auto_key_->setObjectName("autoKey");
     row2->addWidget(tb);
+    range_row->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     range_dock_->setWidget(range_row);
 
     help_line_ = new QLabel(this);
@@ -1966,6 +2005,7 @@ void MainWindow::set_tool(const QString& tool) {
         {"createTorus", "Polygon Torus: drag on the grid for the radius."},
         {"snapTogether", "Snap Together Tool: click a point on the object to move, then the point it goes to."},
         {"insertJoint", "Insert Joint: drag from a joint to add a joint along the bone."},
+        {"ikSplineHandle", "IK Spline Handle Tool: click the start joint, then the end joint. With Auto create curve off, then click the curve."},
         {"multiCut", "Multi-Cut: click to place cut points, Shift snaps along edges by the snap step, Ctrl+Shift squares to the last edge, Ctrl-click inserts a loop (Ctrl+middle centred), middle-drag slices, Backspace takes the last back, Enter cuts."},
         {"insertLoop", "Insert Edge Loop: hover an edge to see the loop, click to insert it."},
         {"offsetLoop", "Offset Edge Loop: drag from an edge to add loops either side."},
@@ -2033,6 +2073,12 @@ bool droppable(const QString& f) {
 
 void MainWindow::dragEnterEvent(QDragEnterEvent* e) {
     if (e->mimeData()->hasUrls()) {
+        // With performFileDropAction redefined, any file is offered to it.
+        const QString owner = ask("whatIs", QJsonObject{{"args", QJsonArray{"performFileDropAction"}}}).toString();
+        if (owner.startsWith("Mel procedure") && !owner.contains("performFileDropAction.mel")) {
+            e->acceptProposedAction();
+            return;
+        }
         for (const QUrl& u : e->mimeData()->urls()) {
             if (droppable(u.toLocalFile())) {
                 e->acceptProposedAction();
@@ -2045,8 +2091,19 @@ void MainWindow::dragEnterEvent(QDragEnterEvent* e) {
 // A dropped file is imported, as the reference does, with the import options last used for its type; a USD file
 // becomes a stage, as the reference's USD plug-in makes it.
 void MainWindow::dropEvent(QDropEvent* e) {
+    // A tool that redefined performFileDropAction (mGear's guide templates and skin packs) takes the files first, as
+    // the reference hands them to it; Aztek's own definition is the import below.
+    const QString owner = ask("whatIs", QJsonObject{{"args", QJsonArray{"performFileDropAction"}}}).toString();
+    const bool redefined = owner.startsWith("Mel procedure") && !owner.contains("performFileDropAction.mel");
     for (const QUrl& u : e->mimeData()->urls()) {
         const QString f = u.toLocalFile();
+        if (f.isEmpty()) continue;
+        if (redefined) {
+            QString quoted = f;
+            quoted.replace("\\", "/").replace("\"", "\\\"");
+            mel("performFileDropAction \"" + quoted + "\";");
+            continue;
+        }
         // Read as File > Import reads it, by the import options kept for its type (#110).
         if (droppable(f)) import_file(f);
     }
@@ -2058,8 +2115,10 @@ bool MainWindow::confirm_unsaved() {
     if (no_prompts_ || !state()["modified"].toBool()) return true;
     QString file = state()["file"].toString();
     QMessageBox box(QMessageBox::Warning, "Save Changes", file.isEmpty() ? "Save changes to the untitled scene?" : QString("Save changes to %1?").arg(file), QMessageBox::NoButton, this);
-    QPushButton* save = box.addButton("Save", QMessageBox::AcceptRole);
-    QPushButton* discard = box.addButton("Don't Save", QMessageBox::DestructiveRole);
+    // As in the reference, S saves and N doesn't, without Alt: a message box clicks the button whose mnemonic is
+    // pressed on its own, and Escape cancels (#318).
+    QPushButton* save = box.addButton("&Save", QMessageBox::AcceptRole);
+    QPushButton* discard = box.addButton("Do&n't Save", QMessageBox::DestructiveRole);
     box.addButton("Cancel", QMessageBox::RejectRole);
     box.setDefaultButton(save);
     box.exec();
@@ -2696,8 +2755,10 @@ void MainWindow::closeEvent(QCloseEvent* e) {
 void MainWindow::restore_saved_window() {
     QSettings s;
     if (!s.contains("window/geometry")) return;
-    restoreGeometry(s.value("window/geometry").toByteArray());
+    // Restore the docks before maximising. Qt can keep a pending copy of a maximised layout that refers to
+    // the old dock items when restore_layout reseats the sliders from a legacy layout (#289).
     restore_layout(s.value("window/state").toByteArray());
+    restoreGeometry(s.value("window/geometry").toByteArray());
 }
 
 void MainWindow::run_startup(const QString& script, const QString& screenshot) {

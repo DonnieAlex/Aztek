@@ -343,6 +343,13 @@ fn the_formats_are_plug_ins_that_load_at_start_and_unload() {
         assert!(cmds.contains(&json!(name)), "{name}");
     }
     assert_eq!(c.mel("pluginInfo -q -vendor fbx"), json!("Aztek"));
+    // The version list as the export options show it; the value is the first year of a label, as tools derive it.
+    let versions = c.mel("FBXExportFileVersion -uivl;");
+    assert_eq!(versions[0], json!("FBX 2020"));
+    assert!(versions.as_array().unwrap().contains(&json!("FBX 2016/2017")));
+    c.mel("FBXExportFileVersion -v FBX201600;");
+    assert_eq!(c.mel("FBXExportFileVersion -q;"), json!("FBX201600"));
+    c.mel("FBXResetExport;");
     // The names they had when they only exported still find them.
     assert_eq!(c.mel("pluginInfo -q -loaded fbxExport"), json!(true));
 

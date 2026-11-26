@@ -117,3 +117,25 @@ fn skeleton_tab_choices() {
         assert_eq!(run(&mut s, "objExists", json!({"args": [missing]})), json!(false), "{missing}");
     }
 }
+
+/// The calls mGear's HumanIK mapper makes: a source set and read back by name, a joint taken out of the definition,
+/// and the bake bracketed by its pre and post steps.
+#[test]
+fn mapper_calls() {
+    let mut s = Session::new();
+    run(&mut s, "hikCreateSkeleton", json!({"name": "Src", "character": true}));
+    run(&mut s, "hikCreateSkeleton", json!({"name": "Dst", "character": true}));
+    assert_eq!(run(&mut s, "hikGetCharacterInputString", json!({"args": ["Dst"]})), json!("None"));
+    run(&mut s, "mayaHIKsetCharacterInput", json!({"args": ["Dst", "Src"]}));
+    assert_eq!(run(&mut s, "hikGetCharacterInputString", json!({"args": ["Dst"]})), json!("Src"));
+    run(&mut s, "hikSetCharacterInput", json!({"args": ["Dst", ""]}));
+    assert_eq!(run(&mut s, "hikGetCharacterInputString", json!({"args": ["Dst"]})), json!("None"));
+    run(&mut s, "hikRemoveSkFromCharacter", json!({"args": ["Dst", 15]}));
+    assert_eq!(run(&mut s, "hikGetSkNode", json!({"args": ["Dst", "Head"]})), json!(""));
+    run(&mut s, "hikReadStancePoseTRSOffsets", json!({"args": ["Dst"]}));
+    let picked = run(&mut s, "hikBakeCharacterPre", json!({"args": ["Dst"]}));
+    assert!(picked.as_array().unwrap().iter().any(|v| v == "Dst_Hips"));
+    assert_eq!(run(&mut s, "ls", json!({"selection": true})).as_array().unwrap().len(), picked.as_array().unwrap().len());
+    run(&mut s, "hikBakeCharacterPost", json!({"args": ["Dst"]}));
+    assert!(s.run("hikGetCharacterInputString", json!({"args": ["Nobody"]})).is_err());
+}

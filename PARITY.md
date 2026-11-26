@@ -4191,6 +4191,25 @@ plug-ins Aztek ships:
 Not done: a plug-in locator under the transform it drives (mGear's weightDriver under its driven node) is read as a
 cycle and its outputs are left unconnected; ikSpringSolver.
 
+### mGear rigs at rest and moved as a whole (25/11/2026)
+
+Checked on the Kaneda rig (mGear, 761 joints, 21 skinned meshes): every joint a skinCluster binds now sits on its bind
+pose as the file loads (516 of 516, against the bind pre-matrices the file holds), and moving or turning world_ctl or
+global_C0_ctl moves every joint and every skinned point with it once. Four causes:
+- A motionPath made with createNode has the reference node's defaults, front axis y, up axis z and a vector up;
+  pathAnimation still sets its own (x, y, scene). mGear's spine and neck took the curve's line on x.
+- A mirrored matrix comes apart with its mirror in the z scale (decomposeMatrix and the rest), as the reference's
+  does, not with all three scales negated: right-side children of mGear's mirrored offsets turned half a turn.
+- A plug-in deformer's deform() is handed the deformed shape's world matrix, as in the reference: its geomMatrix is a
+  hidden input linked to the shape's transform and not written to files. mGear's curveCns and slideCurve curves under
+  the rig moved twice, then three times through the curves made from them.
+- A wire whose rest curve is a shape reads it live, as the reference's baseWire; a single chain IK handle turns its
+  chain by the handle's rotation alone, so a parent turning with it no longer counts twice.
+`tools/rig_check/pose_dump.py` poses a rig through a fixed set of control moves in either application and
+`pose_compare.py` compares two dumps.
+Not done: posed against the reference. Turning a leg's IK control past half a turn flips its twist joints and an arm's
+IK control pulled to the shoulder flips the arm, which may be the reference's behaviour too; it needs a dump from it.
+
 ### Channel Box and Layer Editor, to the reference's interface (24/11/2026)
 
 ![The Channel Box and Layer Editor](docs/channel-box.png)
@@ -4216,7 +4235,9 @@ Not done: the Show menu's Selected Type(s), Select Attributes, Create Entry and 
 attribute filters are the four above rather than the reference's dynamic filter list. `Add New Objects to Current
 Layer`, `Auto Overrides`, the Anim Export Layer/Branch, Membership, Template Curves of Locked Layers, Buttons on Right,
 the ghost modes and Package into Assets are greyed because the feature is not in Aztek. The Display layer list has no
-current-layer marker or membership count, and a channel's label and value widths are not draggable.
+current-layer marker or membership count, and a channel's label and value widths are not draggable. The
+manipulator switch above the channels is greyed: the reference draws the manipulator of the channel selected in the
+Channel Box, and Aztek has no per-attribute manipulators yet (#310).
 
 ### The status line to the reference's own definition (23/11/2026)
 
@@ -4260,6 +4281,15 @@ per-template collapse defaults, and Shift-click takes every section on the tab w
 in the reference's 160 pixel column, put a checkbox and its text at the value column, pair checkboxes on the two-column
 rows, use its 68 pixel fields, and draw separators where the templates do. Controls the reference has and Aztek has no attribute for are present
 and greyed, never left out.
+
+The open tab survives edits: a value commit, a menu or checkbox change, a Channel Box or script change, undo and redo,
+and a rename all rebuild the panel in place, keeping the tab on show (keyed by the node's UUID, so a rename keeps it)
+and the field and caret being edited. A genuine selection change still shows the newly selected node's tab, except in
+a pinned Copy Tab window. The sections keep their own open state, and every page its scroll position, through the same
+rebuilds. A field wears the Channel Box's field colours, with read-only and disabled fields darker, connected values
+yellow, keyed ones red and locked ones the button grey; the name field shows the node's real name, selects it on entry,
+renames on Enter and goes back to the old name on Escape or a refused rename. `tools/ui_checks/attribute_editor_sections.py`
+checks the tab, sections, scroll, undo and redo, rename and a tab switch in the built app.
 
 The transform tab follows AEtransformMain and AEtransformNoScroll: Transform Attributes with Offset Parent Matrix;
 Pivots with Local Space and World Space; Limit Information with Translate, Rotate and Scale, each with the reference's
@@ -4312,8 +4342,8 @@ Not done:
   against the reference; the order is not saved, and a torn-off tab's window keeps no order.
 - Attribute Names' Short mode shows the long names, as Aztek keeps no short ones. Long changes the template layouts'
   labels only, not the generic material rows'.
-- The name field is intentionally empty. Long attribute names elide at the left of their column. The dock's own title
-  bar remains as Aztek's panel chrome, where the reference has only its vertical tab.
+- Long attribute names elide at the left of their column. The dock's own title bar remains as Aztek's panel chrome,
+  where the reference has only its vertical tab.
 
 **Transform, mesh and joint**
 - Controls whose attributes Aztek lacks are greyed: numbers are empty and menus and checkboxes hold a template
@@ -4346,6 +4376,11 @@ Not done:
   of attributes.
 - A cluster handle's Origin sits in a Cluster Attributes frame where the reference leaves it unframed; the sculpt's
   advanced sculpt maps and attribute buttons are not built.
+
+The node types with a template of their own and those still on the generic page are listed in
+[docs/ATTRIBUTE_EDITOR_NODE_TYPES.md](docs/ATTRIBUTE_EDITOR_NODE_TYPES.md): 80 of the 685 types Aztek exposes
+have the reference's sections, and the other 605 show one section named after the type with all of its
+attributes, which read and write as they do anywhere else.
 
 ### Script Editor chrome (24/11/2026)
 
@@ -4422,6 +4457,110 @@ treated as before.
 
 A Move drag with Snap to Curve enabled follows the nearest point on the curve even when the cursor moves farther
 than 40 pixels away. This applies to the C shortcut and the Snap to Curves toggle.
+
+### mGear's menus, run item by item (25/11/2026)
+
+Every item of mGear 5.4.8's menus (136) was triggered in the running application, with nothing selected, with a rig
+control selected and with a skinned mesh selected, after building mGear's biped template. What failed and was put
+right: a top-level node's parent as the world DAG node in the API, `translate` and `rotate` as compounds of three
+(`MFnCompoundAttribute`), `instObjGroups` on every DAG node with object sets listed through it, `$gMainPane`,
+`$gShelfTopLevel` and `$gChannelBoxName` with the shelves as `shelfLayout`s scripts can put buttons on,
+`performFileDropAction` and `performFileImportAction` (a tool that redefines the first takes dropped files),
+`maya.app.flux.core.getPixmap`, `OpenMayaUI.MQtUtil.findMenuItem` by menu path, the HumanIK commands mGear's mapper
+calls (`hikRemoveSkFromCharacter`, `hikSetCharacterInput`, `mayaHIKsetCharacterInput`, `hikGetCharacterInputString`,
+`hikReadStancePoseTRSOffsets`, `hikBakeCharacterPre`, `hikBakeCharacterPost`), `FBXExportFileVersion -uiVersionList`,
+and the gpuCache plug-in: the `gpuCache` command writes Alembic files over a frame range and the `gpuCache` shape plays
+one back in the views. What still reports an error does so in the reference too: items that need a different selection
+(Copy Skin Add, Match Pos with BBox, Bake and Clear Spring nodes, Settings and Export Guide Template on a non-guide,
+Select Skin Deformers on a control, Characterize Biped without the mocap skeleton), and on a freshly bound mesh,
+Duplicate symmetrical and Proxy Slicer, which set channels that binding locked. mGear moved to Help > Install > mGear.
+Not done: gpuCache shapes draw without their materials.
+
+### Skin Tools (25/11/2026)
+
+The reference's Skin Tools (ngSkinTools 2, built in) as the `ngSkinTools2` plug-in, loaded at start. A skinCluster
+with layers has an `ngst2SkinLayerData` node (`ngSkinToolsData_<skinCluster>`) holding the stack; each layer has
+weights for some influences, a mask, dual quaternion weights, opacity, an on/off switch, a paint target and locked
+influences, and a layer with children is a group whose mask and opacity cover its children. The stack blends from the
+bottom up into the skinCluster's weights (and its blendWeights, with skinningMethod 2, when a layer has dual
+quaternion weights): a layer covers what is below by opacity times mask, and a point whose layer weights add up to
+less than one takes the rest from below. Skin > Skin Tools opens the window (layers, paint target, mode, intensity,
+iterations, flood, Assign From Closest Joint, Unify Weights, Mirror with axis, direction and seam width, Export,
+Import, Transfer); Skin > Initialize Skin Layers and Delete Skin Layers work on the selection. With layers on a skin
+the Paint Skin Weights brush paints the current layer's target in replace, add, scale, smooth or sharpen, and its
+colour feedback shows that target. Mirror pairs influences by name (L_/R_, _L/_R, left/right and parts like
+arm_L0_jnt) and else by mirrored bind position. Layers save in `.ma` files, and export to and import from JSON files
+by closest point or vertex id. `ngSkinTools2.api` gives `init_layers`, `Layers` and `Layer` (name, enabled, opacity,
+index, parent, children, paint_target, locked_influences, get_weights, set_weights, configure_mirror), `flood_weights`
+with `FloodSettings` and `PaintMode`, `assign_from_closest_joint`, `unify_weights`, `Mirror` and `MirrorOptions`,
+`export_json`, `import_json`, `transfer_layers`, `target_info` and `NamedPaintTarget`. The commands under it are
+Aztek's own, `skinLayers` and `skinLayersTool`, as the reference documents none.
+Not done: the reference's JSON file layout is not read (the files are Aztek's), the volume-neighbour smoothing and
+influence glob mapping options are accepted but not used, and the brush has no separate on-screen help.
+
+### What changed (25/11/2026, #301)
+
+The view's background no longer lights the scene. The bounce light's first pass read the flag that tells it from its
+second pass out of the background's push constants, which held the gradient's top colour: with the gradient on (the
+first of Alt+B's backgrounds), a top colour with more than half red (the default's is 0.54) made the first pass take
+last frame's occlusion and bounce as its own, so indirect light and its reflections changed as the background was
+cycled. The occlusion passes now get a cleared background and the flag alone. A ray that meets a surface at its
+anti-aliased edge also takes that surface's colour from the pixel round about that it covers most, so the background
+mixed into an edge pixel is not bounced back either. The background is a working aid only, as in the reference, and
+Harold renders with its own background (black, alpha 0). Not yet checked in the built app against the screenshots in
+the issue.
+
+### What changed (25/11/2026, #289)
+
+A saved maximized window from before the Time and Range Sliders became docks can reopen with its floating panels.
+Aztek places the sliders under the views before restoring the window size and maximized state.
+
+### What changed (25/11/2026, #306)
+
+The Attribute Editor follows the active theme. Sections, tabs, menus, controls and link icons update when the theme
+changes while the editor is open. Keyed and connected fields keep the same state colours as the Channel Box.
+
+### What changed (25/11/2026, #312)
+
+The Time and Range Sliders keep their own height, as the reference's do. Going from a Rendering workspace back to
+General left them stretched to the height the Script Editor had under the views, and their edge could be dragged
+taller. They now give that space back to the views and their top edge doesn't drag. Checked with a small Qt program
+built the same way; not yet looked at in the built app on macOS.
+
+### Welcome screen: a release's notes under its own release (25/11/2026)
+
+What's new takes each release's own notes from GitHub instead of grouping a date-ordered commit list. GitHub orders
+commits by commit date, so a branch merged after a release can carry commits dated before it: the Attribute Editor's
+tab fix, merged after 2.647, was listed under 2.647 although that release did not have it, while changes belonging to
+2.647 were pushed down into 2.643. The commits after the newest release the running build includes come from the
+compare API and are listed under the running version's "-- not released yet" heading, with "(this version)" beside
+the release it names. A build whose commit isn't on GitHub, one from a fork say, still shows the upstream's releases.
+A 403 names GitHub's hourly limit for unsigned requests and asks for a wait, rather than reading as a broken server.
+
+
+### What changed (26/11/2026, #315)
+
+A machine with no Vulkan driver: Vulkan is tried once, the Script Editor says so once (the error and a line saying to
+install the graphics card's driver) instead of once a repaint, and each view paints the reason and what to do in
+place of a black panel. The rest of the application already worked without it. Not yet: the reference's viewport also
+draws through OpenGL and DirectX 11, so a graphics chip with no Vulkan driver at all (Intel before the 6th generation,
+on Windows) draws there and not here.
+
+### What changed (26/11/2026, #318)
+
+Save Changes (New Scene, Open, Exit and the rest): S saves and N doesn't, on their own without Alt, as in the
+reference, so Ctrl+N then N starts a new scene. Escape cancels.
+
+### What changed (26/11/2026, #317)
+
+Skeleton > Create IK Spline Handle is the reference's IK Spline Handle Tool rather than a command on the selection:
+click the start joint, then the end joint, and the handle and its curve are made; with Auto create curve off, the
+next click picks the curve to follow. Its option box is the tool's settings, in the reference's order (Root on curve,
+Auto create root axis, Auto parent curve, Snap curve to root, Auto create curve, Auto simplify curve, Number of spans,
+Root twist mode, Twist type), kept between sessions in ikSplineHandleContext, with the same rows greyed as the
+reference greys them. `IKSplineHandleTool` starts it. The defaults are those ikSplineHandleCtx documents; Snap curve
+to root off is unverified. Not yet: Create IK Handle is still a command on two selected joints, not the IK Handle
+Tool; Auto simplify curve and Root twist mode are passed on but don't change the solve.
 
 ### What changed (25/11/2026, #302)
 

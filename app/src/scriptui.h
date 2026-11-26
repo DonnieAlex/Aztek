@@ -42,6 +42,15 @@ public:
     void show_in_view_message(const QJsonObject& o);
     // One of the application's own editors, for scripts to set up by the reference's name for it.
     void add_builtin_editor(const QString& name, const QString& kind, QWidget* w);
+    // The application's shelves, for scripts: $gShelfTopLevel and a shelfLayout for each shelf. A shelfButton a script
+    // puts on one goes on that shelf (add, by shelf name and the button's path); deleteUI takes it off (remove); a tab
+    // chosen from a script comes to the front (select).
+    struct ShelfHooks {
+        std::function<void(const QString& shelf, const QString& path, const QJsonObject& props)> add;
+        std::function<void(const QString& path)> remove;
+        std::function<void(const QString& shelf)> select;
+    };
+    void set_shelves(QWidget* bar, const QStringList& names, int current, const ShelfHooks& hooks);
     void hook(const QString& kind, const QJsonObject& payload);
     // The menus scripts put on the main window's menu bar, in the order they were made: the bar keeps them after the
     // menu set's own when it is rebuilt for another menu set.
@@ -51,6 +60,7 @@ protected:
 private:
     struct Item;
     ScriptUi();
+    ShelfHooks shelf_hooks_;
     QList<QPointer<QMenu>> main_menus_;
     void apply_op(const QJsonObject& op);
     void create(const QJsonObject& op);
@@ -63,6 +73,7 @@ private:
     void place_dock(Item* it, const QJsonObject& props, bool made);
     QDockWidget* dock_named(const QString& name) const;
     void build_group(Item* it, const QJsonObject& props);
+    void name_action(Item* it);
     void build_menu(Item* it, Item* parent, const QJsonObject& props);
     void build_menu_item(Item* it, Item* parent, const QJsonObject& props);
     void place(Item* parent, Item* child);

@@ -307,6 +307,11 @@ pub fn sample_at(a: &Archive, ts: u32, count: usize, seconds: f64) -> usize {
     }
 }
 
+/// A mesh of the file at sample k.
+pub fn mesh_at(r: &geom::MeshRead, k: usize) -> Mesh {
+    mesh_from(r, k)
+}
+
 fn mesh_from(r: &geom::MeshRead, k: usize) -> Mesh {
     let pts: Vec<DVec3> = r.points.get(k).or(r.points.first()).map(|p| p.iter().map(|x| DVec3::new(x[0] as f64, x[1] as f64, x[2] as f64)).collect()).unwrap_or_default();
     let counts: Vec<u32> = r.counts.iter().map(|&c| c.max(0) as u32).collect();

@@ -50,12 +50,18 @@
 <section class="build" id="build">
   <h2>Build from source</h2>
 <pre><code>git clone https://github.com/srlegrand/Aztek.git
-cd Aztek
-./build.sh --deps --run        # Linux
-./build-macos.sh --deps --run  # macOS, with Homebrew
-.\build.bat -Run               # Windows, from PowerShell</code></pre>
+cd Aztek</code></pre>
+  <p class="small">Then, on Linux:</p>
+<pre><code>./build.sh --deps --run</code></pre>
+  <p class="small">On macOS:</p>
+<pre><code>./build-macos.sh --run</code></pre>
+  <p class="small">On Windows, from PowerShell:</p>
+<pre><code>.\build.bat -Run</code></pre>
+  <p class="small">What you build yourself runs straight away; downloaded packages need one step the first time, under
+    <a href="#unsigned">Running unsigned builds</a>.</p>
   <p class="small">Needs Rust, CMake, Ninja, Qt 6 (6.8 for Windows and macOS), Python 3.13 (fetched by the build where the system has none) and, on Windows, Visual Studio 2022 with the C++ workload.
-    <code>--deps</code> installs what the build needs (apt, dnf or pacman on Linux, Homebrew on macOS) and only needs running once.
+    On Linux <code>--deps</code> installs what the build needs (apt, dnf or pacman) and only needs running once. On macOS the
+    script installs whatever is missing, Homebrew included; <code>git clone</code> first asks to install Xcode's command line tools.
     On macOS <code>--package</code> makes a self-contained Aztek.app. Prebuilt packages are under <a href="#download">Download</a>;
     details in the <a href="https://github.com/srlegrand/Aztek#build">README</a>.</p>
 </section>
@@ -87,19 +93,21 @@ cd Aztek
       (GitHub's command line tool) if you will send a pull request.
       <div class="os-grid">
         <div><h4>Linux</h4>
-<pre><code>sudo apt install git   # or dnf, pacman
+<pre><code>sudo apt install git
 git clone https://github.com/srlegrand/Aztek.git
 cd Aztek
 ./build.sh --deps --run</code></pre>
           <p class="small">For <code>gh</code>, follow
             <a href="https://github.com/cli/cli/blob/trunk/docs/install_linux.md">its Linux instructions</a>: the one
-            Debian and Ubuntu ship is too old to work with GitHub.</p></div>
+            Debian and Ubuntu ship is too old to work with GitHub. Fedora and Rocky: <code>sudo dnf install git</code>; Arch:
+            <code>sudo pacman -S git</code>.</p></div>
         <div><h4>macOS</h4>
-<pre><code>brew install git gh
-git clone https://github.com/srlegrand/Aztek.git
+<pre><code>git clone https://github.com/srlegrand/Aztek.git
 cd Aztek
-./build-macos.sh --deps --run</code></pre>
-          <p class="small">With <a href="https://brew.sh">Homebrew</a>.</p></div>
+./build-macos.sh --run</code></pre>
+          <p class="small"><code>git clone</code> asks to install Xcode's command line tools the first time: install them
+            and run it again. The build script installs <a href="https://brew.sh">Homebrew</a> and the rest. For <code>gh</code>, run
+            <code>brew install gh</code> in a new terminal.</p></div>
         <div><h4>Windows</h4>
 <pre><code>winget install --id Git.Git
 winget install --id GitHub.cli
@@ -296,7 +304,15 @@ gh pr create --fill</code></pre>
     <a class="btn" href="https://github.com/srlegrand/Aztek/releases">All releases</a>
   </div>
   <p class="small">Windows: run the installer, or unzip and run <code>aztek.exe</code>. Rocky Linux: <code>sudo dnf install ./aztek-*.rpm</code>
-    (Rocky 9 needs EPEL for Qt). Ubuntu: <code>sudo apt install ./aztek_*.deb</code>. Other Linux, x86_64 or 64-bit ARM: <code>chmod +x aztek-*.AppImage</code> and run it. macOS: <code>brew install python@3.13</code>, unzip, then right-click Aztek.app and Open the first time (it isn't notarized). Linux and Windows need a Vulkan driver. Aztek can tell you when a new version is out and install it: it asks on first start, and asks GitHub for nothing but the latest release.</p>
+    (Rocky 9 needs EPEL for Qt). Ubuntu: <code>sudo apt install ./aztek_*.deb</code>. Other Linux, x86_64 or 64-bit ARM: <code>chmod +x aztek-*.AppImage</code> and run it. macOS: unzip and open Aztek.app. Linux and Windows need a Vulkan driver. Aztek can tell you when a new version is out and install it: it asks on first start, and asks GitHub for nothing but the latest release.</p>
+  <h3 id="unsigned">Running unsigned builds</h3>
+  <p class="small">The Windows and macOS packages aren't signed with a paid certificate, so the system asks before running them the
+    first time, and again for each new download. Builds made from source are never asked about.</p>
+  <p class="small"><strong>Windows:</strong> at "Windows protected your PC", click More info, then Run anyway. Unblock the zip before
+    unzipping (right-click, Properties, tick Unblock), or in PowerShell: <code>Unblock-File .\aztek-windows-x86_64.zip</code>.</p>
+  <p class="small"><strong>macOS:</strong> once after unzipping, <code>xattr -dr com.apple.quarantine ~/Downloads/Aztek/Aztek.app</code>.
+    Or open it, close the warning, and click Open Anyway in System Settings &gt; Privacy &amp; Security (since macOS 15,
+    right-click and Open no longer gets past it).</p>
 </section>
 
 <section class="why" id="why">

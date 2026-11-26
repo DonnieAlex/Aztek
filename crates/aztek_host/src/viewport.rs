@@ -147,6 +147,15 @@ pub fn gather(g: &mut Graph) -> Vec<DrawItem> {
             }
             continue;
         }
+        // A GPU cache draws its file's meshes at the scene's time, under its own transform.
+        if n.ty().is_a(aztek_scene::gpu_cache::NODE_TYPE) && visible(g, id) {
+            let Some(at) = n.ty().attr_index("outMesh") else { continue };
+            if let Some(mesh) = n.data().mesh(at).cloned() {
+                let world = n.data().matrix(DagNode::WORLD_MATRIX);
+                out.push(DrawItem { shape: id, xf: aztek_scene::dag::transform_of(g, id), world, mesh, smooth: 0 });
+            }
+            continue;
+        }
         if !n.ty().is_a("mesh") || n.bool(DagNode::INTERMEDIATE_OBJECT) || !visible(g, id) {
             continue;
         }
@@ -387,6 +396,8 @@ pub enum Tool {
     /// The Interactive Groom tools on hair descriptions.
     Groom,
     InsertJoint,
+    /// IK Spline Handle Tool: click the start joint, then the end joint (then the curve, with Auto create curve off).
+    IkSplineHandle,
     MultiCut,
     InsertLoop,
     OffsetLoop,
@@ -1615,6 +1626,17 @@ impl Viewport {
             } else if self.tool == Tool::PaintSkin && s.paint_ctx.color_feedback && s.paint_ctx.skin_paint_mode != 0 {
                 // Select mode picks components on the plain shaded mesh, as the reference's (#104).
                 aztek_scene::skin::skin_of(g, it.shape).and_then(|sk| {
+                    // With Skin Tools layers: the current layer's paint target.
+                    if let Some(l) = aztek_scene::skin_layers::layers_of(g, sk) {
+                        if let Some(id) = l.current {
+                            if let Some(t) = aztek_scene::skin_layers::paint_target(g, sk, &l, id) {
+                                let v = aztek_scene::skin_layers::target_values(&l, id, t);
+                                let mut k = DefaultHasher::new();
+                                (id, format!("{t:?}"), v.iter().map(|x| x.to_bits()).fold(0u64, |a, b| a.rotate_left(5) ^ b)).hash(&mut k);
+                                return Some((v, k.finish(), false));
+                            }
+                        }
+                    }
                     let (bind, inf) = (aztek_scene::skin::bind_of(g, sk)?, aztek_scene::skin::paint_influence(s, sk)?);
                     Some((aztek_scene::skin::point_weights(&bind, inf), inf as u64, bind.locks.get(inf as usize).copied().unwrap_or(false)))
                 })

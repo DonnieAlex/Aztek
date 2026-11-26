@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Refuses a push carrying commits authored by an AI tool or with its attribution: tools/ci/check-authors.sh.
+# Turn it on once per clone: git config core.hooksPath tools/git-hooks
+set -euo pipefail
+root=$(git rev-parse --show-toplevel)
+while read -r _ local_sha _ remote_sha; do
+  [[ "$local_sha" =~ ^0+$ ]] && continue
+  if [[ "$remote_sha" =~ ^0+$ ]] || ! git cat-file -e "$remote_sha" 2>/dev/null; then
+    base=$(git merge-base "$local_sha" origin/main 2>/dev/null || true)
+  else
+    base=$remote_sha
+  fi
+  "$root/tools/ci/check-authors.sh" "$base" "$local_sha" | sed 's/^::error:://'
+done

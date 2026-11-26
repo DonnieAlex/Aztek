@@ -311,6 +311,9 @@ class _ApiImporter:
         "maya.internal.nodes": None,
         "maya.internal.nodes.proximitywrap": None,
         "maya.internal.nodes.proximitywrap.node_interface": "maya_misc",
+        # Skin Tools, built in: the reference's ngSkinTools2 package and its API.
+        "ngSkinTools2": "skin_tools_pkg",
+        "ngSkinTools2.api": "skin_tools_api",
     }
 
     @classmethod
@@ -320,7 +323,7 @@ class _ApiImporter:
     def find_spec(self, name, path=None, target=None):
         # Only names of ours: importing machinery for any other name would come back here.
         if name in self.EXTRA:
-            package = self.EXTRA[name] is None
+            package = self.EXTRA[name] is None or name == "ngSkinTools2"
         elif name in self.PACKAGES:
             package = True
         elif self.canonical(name) in self.SOURCES:

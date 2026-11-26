@@ -1797,9 +1797,10 @@ def _fn_chain(info):
 class MObject:
     """A handle on a node, an attribute, a component or a data value."""
 
-    __slots__ = ("_kind", "_id", "_attr", "_comp", "_data", "_fn")
+    __slots__ = ("_kind", "_id", "_attr", "_comp", "_data", "_fn", "_source")
 
     def __init__(self, src=None):
+        self._source = getattr(src, "_source", None) if isinstance(src, MObject) else None
         self._kind = None
         self._id = 0
         self._attr = None
@@ -1820,6 +1821,8 @@ class MObject:
         if k == "world":
             return [MFn.kWorld]
         if k == "attr":
+            if self._fn in (MFn.kAttribute3Double, MFn.kAttribute3Float, MFn.kAttribute2Double, MFn.kAttribute2Float):
+                return [self._fn, MFn.kCompoundAttribute, MFn.kNumericAttribute, MFn.kAttribute]
             return [self._fn, MFn.kAttribute]
         if k == "comp":
             return [self._fn] + _FN_BASES.get(self._fn, [MFn.kComponent])
@@ -2110,7 +2113,8 @@ class MObjectArray(_Array):
 
 
 def _attr_fn(type_name, long=""):
-    if long in _ANGLE_ATTRS:
+    # rotate is a compound of three angles: the compound is three doubles, its children unit attributes.
+    if long in _ANGLE_ATTRS and type_name != "vec3":
         return MFn.kUnitAttribute
     return {
         "enum": MFn.kEnumAttribute,
@@ -2118,7 +2122,9 @@ def _attr_fn(type_name, long=""):
         "string": MFn.kTypedAttribute,
         "mesh": MFn.kTypedAttribute,
         "data": MFn.kTypedAttribute,
-        "vec3": MFn.kNumericAttribute,
+        # A three-value attribute (translate, rotate, a colour) is a compound of three numbers, as the reference's.
+        "vec3": MFn.kAttribute3Double,
+        "compound": MFn.kCompoundAttribute,
     }.get(type_name, MFn.kNumericAttribute)
 
 
@@ -2439,6 +2445,8 @@ class MPlug:
         o = MObject()
         o._kind = "data"
         o._data = v
+        # Where the value came from, for geometry data asked about its components.
+        o._source = self.name()
         if i["type"] == "matrix":
             o._fn = MFn.kMatrixData
             o._data = MMatrix(v)

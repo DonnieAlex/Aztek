@@ -19,6 +19,17 @@ public:
     // The shelf tab of this name in front, if there is one (a workspace's shelf).
     void select_shelf(const QString& name);
     void open_editor();
+    // For scripts ($gShelfTopLevel): the shelves' names, the one in front, and buttons scripts put on a shelf, kept by
+    // the script's name for the button. A button whose command is a script function runs through fire_script; one
+    // with a command in text stays on the shelf between sessions.
+    QStringList shelf_names() const;
+    int current() const;
+    void add_script_button(const QString& shelf, const QString& path, const QJsonObject& props);
+    void remove_script_button(const QString& path);
+    std::function<void(const QString& path)> fire_script;
+signals:
+    void shelves_changed();
+public:
     // A widget at the far right of the tab row. Tabs that don't fit scroll; it stays.
     void set_corner(QWidget* w);
 protected:

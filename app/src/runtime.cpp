@@ -150,6 +150,7 @@ void MainWindow::build_runtime() {
     tool("ShortestEdgePathTool", "shortestPath", "Shortest Edge Path Tool");
     tool("JointTool", "joint", "Joint Tool");
     tool("InsertJointTool", "insertJoint", "Insert Joint Tool");
+    tool("IKSplineHandleTool", "ikSplineHandle", "IK Spline Handle Tool");
     tool("SculptMeshActivateBrushSculpt", "sculpt", "Sculpt brush");
     tool("MultiCutTool", "multiCut", "Multi-Cut");
     tool("SplitEdgeRingTool", "insertLoop", "Insert Edge Loop");
@@ -240,6 +241,7 @@ void MainWindow::build_runtime() {
     window("ChannelControlEditor", "channelControl", "Channel Control");
     window("ShapeEditor", "shapeEditor", "Shape Editor");
     window("HumanIK", "humanIK", "Humanoid IK");
+    window("SkinToolsWindow", "skinTools", "Skin Tools");
     window("HIKCharacterControlsTool", "humanIK", "Humanoid IK");
     window("ModelingToolkitWindow", "modelingToolkit", "Modeling Toolkit");
     window("GridOptions", "gridOptions", "Grid Options");

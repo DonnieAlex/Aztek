@@ -532,8 +532,24 @@ class MFnDagNode(MFnDependencyNode):
         return MFnDependencyNode.setObject(self, obj)
 
     def _check(self, obj):
+        # The world is a DAG node too: the parent of every top-level node.
+        if obj._kind == "world":
+            return
         if obj._kind != "node" or not _api("node.info", id=obj._id) or not _api("node.info", id=obj._id)["dag"]:
             _fail()
+
+    def _is_world(self):
+        return self._obj is not None and self._obj._kind == "world"
+
+    def _world_info(self):
+        return {"name": "world", "type": "world", "path": "", "full": "", "parent": None, "children": _api("node.roots"), "dag": True, "intermediate": False}
+
+    def name(self):
+        return "world" if self._is_world() else MFnDependencyNode.name(self)
+
+    @property
+    def typeName(self):
+        return _CStr("world") if self._is_world() else MFnDependencyNode.typeName.fget(self)
 
     def create(self, type_name, name=None, parent=None):
         if isinstance(type_name, MTypeId):
@@ -544,6 +560,8 @@ class MFnDagNode(MFnDependencyNode):
         return self.object()
 
     def _info(self):
+        if self._is_world():
+            return self._world_info()
         return _api("node.info", id=self._id())
 
     def getPath(self):
@@ -558,10 +576,10 @@ class MFnDagNode(MFnDependencyNode):
         return self._info()["path"]
 
     def parentCount(self):
-        return 1
+        return 0 if self._is_world() else 1
 
     def parent(self, index=0):
-        if index != 0:
+        if index != 0 or self._is_world():
             raise IndexError("MFnDagNode parent index out of range")
         p = self._info()["parent"]
         return _node_object(p) if p else _world_object()
@@ -1679,6 +1697,8 @@ class MFnAttribute(MFnBase):
                         keyable=i["keyable"], storable=i["storable"], hidden=i["hidden"], channelBox=i["channelBox"],
                         color=i["color"], nice=i["nice"] or "", dynamic=i["user"],
                     )
+                    if i.get("children"):
+                        spec["children"] = list(i["children"])
             s = spec
         return s
 
@@ -1985,13 +2005,18 @@ class MFnCompoundAttribute(MFnAttribute):
         return self
 
     def numChildren(self):
-        return len(self._spec()["children"])
+        return len(self._spec().get("children") or [])
 
     def child(self, index):
+        kids = self._spec().get("children") or []
+        if not 0 <= index < len(kids):
+            raise IndexError("MFnCompoundAttribute child index out of range")
         o = MObject()
         o._kind = "attr"
-        o._attr = self._spec()["children"][index]
-        o._fn = MFn.kNumericAttribute
+        o._attr = kids[index]
+        o._fn = _attr_fn(kids[index].get("type", "float") if isinstance(kids[index], dict) else "float", kids[index] if isinstance(kids[index], str) else "")
+        # A child of a node's own attribute is read from that node.
+        o._data = self._obj._data
         return o
 
     def getAddAttrCmds(self, useLongName=False):
@@ -2073,6 +2098,56 @@ def _mesh_value_object(key):
     o = MObject()
     o._kind, o._fn, o._data = "data", MFn.kMeshData, _MeshValue(key, _az.mesh_handoff_arrays(key))
     return o
+
+
+class MFnGeometryData(MFnBase):
+    """Geometry as a value: its component tags, resolved to components."""
+
+    def __init__(self, obj=None):
+        self._obj = obj if obj is not None else MObject()
+
+    def _node(self):
+        src = getattr(self._obj, "_source", None) or ""
+        return src.partition(".")[0]
+
+    def resolveComponentTagExpression(self, expression, componentType=None):
+        node = self._node()
+        if not node:
+            _fail(message="no geometry to resolve components on")
+        expr = (expression or "*").strip()
+        n = _cmds.polyEvaluate(node, vertex=True)
+        if expr in ("*", ""):
+            ids = list(range(int(n)))
+        else:
+            # A named tag: the points it holds.
+            got = _cmds.geometryAttrInfo(node + "." + expr, components=True) if hasattr(_cmds, "geometryAttrInfo") else []
+            ids = []
+            for c in got or []:
+                inner = c.rpartition("[")[2].rstrip("]")
+                if ":" in inner:
+                    a, b = inner.split(":")
+                    ids.extend(range(int(a), int(b) + 1))
+                elif inner == "*":
+                    ids.extend(range(int(n)))
+                elif inner:
+                    ids.append(int(inner))
+        fn = MFnSingleIndexedComponent()
+        comp = fn.create(MFn.kMeshVertComponent)
+        if expr in ("*", ""):
+            fn.setCompleteData(int(n))
+        else:
+            fn.addElements(ids)
+        return comp
+
+    def hasComponentTag(self, key):
+        return key in (self.componentTags() or [])
+
+    def componentTags(self):
+        node = self._node()
+        try:
+            return _cmds.geometryAttrInfo(node + ".outMesh", componentTagNames=True) or []
+        except Exception:
+            return []
 
 
 class MFnMeshData(MFnBase):

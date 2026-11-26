@@ -815,6 +815,8 @@ fn source(name: &str) -> Option<&'static str> {
         "omui" => include_str!("../python/omui.py"),
         "maya_mixin" => include_str!("../python/maya_mixin.py"),
         "maya_misc" => include_str!("../python/maya_misc.py"),
+        "skin_tools_api" => include_str!("../python/skin_tools_api.py"),
+        "skin_tools_pkg" => "def open_ui():\n    import maya.mel\n    maya.mel.eval('SkinToolsWindow;')\n",
         _ => return None,
     })
 }

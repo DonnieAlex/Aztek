@@ -45,6 +45,7 @@ pub mod hud;
 pub mod hotbox;
 pub mod ramp_controls;
 pub mod update;
+pub mod mgear;
 pub mod environment;
 pub mod user_folder;
 pub mod sys_host;
@@ -94,6 +95,9 @@ pub(crate) struct Host {
     views: HashMap<i32, Box<View>>,
     next_view: i32,
     shared: Option<Arc<Shared>>,
+    /// Why Vulkan could not start, once it has failed: it is tried once, so the history says it once, and the views
+    /// show it in place of a picture.
+    gpu_error: Option<String>,
 }
 
 thread_local! {
@@ -162,7 +166,7 @@ pub(crate) fn with<R>(f: impl FnOnce(&mut Host) -> R) -> R {
             if b.is_none() {
                 crate::core::install_logger();
                 crate::sys_host::install_crash_handler();
-                *b = Some(Host { core: Core::new(), views: HashMap::new(), next_view: 1, shared: None });
+                *b = Some(Host { core: Core::new(), views: HashMap::new(), next_view: 1, shared: None, gpu_error: None });
             }
             let host = b.as_mut().unwrap();
             LIVE.with(|l| l.set(host as *mut Host));
@@ -392,6 +396,12 @@ pub extern "C" fn aztek_update_progress(done: *mut u64, total: *mut u64) {
 #[no_mangle]
 pub extern "C" fn aztek_fetch_json(url: *const c_char) -> *mut c_char {
     out(update::get_json(&cstr(url)))
+}
+
+/// The newest mGear release for this Aztek, as mgear::release. Blocks: call it off the interface thread.
+#[no_mangle]
+pub extern "C" fn aztek_mgear_release() -> *mut c_char {
+    out_json(mgear::release())
 }
 
 #[no_mangle]
@@ -638,6 +648,14 @@ pub extern "C" fn aztek_ui_event(ev: *const c_char) {
     with(|h| h.core.ui_event(&ev));
 }
 
+/// The shelf bar's shelves, {"shelves": [names], "current": index}: scripts see them as $gShelfTopLevel's shelfLayouts.
+#[no_mangle]
+pub extern "C" fn aztek_ui_set_shelves(json: *const c_char) {
+    let v: Value = serde_json::from_str(&cstr(json)).unwrap_or(Value::Null);
+    let names: Vec<String> = v["shelves"].as_array().into_iter().flatten().filter_map(|x| x.as_str().map(str::to_string)).collect();
+    scriptui::set_builtin_shelves(&names, v["current"].as_u64().unwrap_or(0) as usize);
+}
+
 /// Script UI: how commands reach the shell for what must answer at once (dialogs, playblast).
 #[no_mangle]
 pub extern "C" fn aztek_ui_set_hook(hook: Option<scriptui::UiHook>) {
@@ -784,6 +802,9 @@ pub extern "C" fn aztek_view_create(
 ) -> i32 {
     let cam = camera::CamKind::from_name(&cstr(camera)).unwrap_or(camera::CamKind::Persp);
     with(|h| {
+        if h.gpu_error.is_some() {
+            return 0;
+        }
         let Some((dh, wh)) = handles(platform, display, window, extra) else {
             h.core.push("// Error: viewport: unsupported window system //", core::LineKind::Error);
             return 0;
@@ -796,6 +817,11 @@ pub extern "C" fn aztek_view_create(
                 }
                 Err(e) => {
                     h.core.push(format!("// Error: Vulkan: {e} //"), core::LineKind::Error);
+                    h.core.push(
+                        "// Warning: the viewport needs a Vulkan driver: install the latest driver for your graphics card. Everything else works without it. //",
+                        core::LineKind::Warning,
+                    );
+                    h.gpu_error = Some(e.to_string());
                     return 0;
                 }
             }
@@ -814,6 +840,15 @@ pub extern "C" fn aztek_view_create(
             }
         }
     })
+}
+
+/// Why the views can't draw, when Vulkan failed to start; null while it hasn't. Freed with aztek_free.
+#[no_mangle]
+pub extern "C" fn aztek_view_error() -> *mut c_char {
+    match with(|h| h.gpu_error.clone()) {
+        Some(e) => out(e),
+        None => std::ptr::null_mut(),
+    }
 }
 
 #[no_mangle]

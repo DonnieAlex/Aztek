@@ -242,6 +242,10 @@ pub mod types {
                 ty.attrs.push(a);
             }
         }
+        // Every DAG node has instObjGroups in the reference, transforms too: scripts find a node's sets through it.
+        if ty.dag && !ty.attrs.iter().any(|x| x.name == "instObjGroups") {
+            ty.attrs.push(AttrDef { category: EVERY_NODE.into(), ..crate::shading::inst_obj_groups() });
+        }
         if let Some(m) = given_message {
             ty.attrs.push(m);
         }

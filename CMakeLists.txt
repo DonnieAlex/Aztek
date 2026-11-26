@@ -103,6 +103,7 @@ add_executable(aztek WIN32
   app/src/panels.cpp
   app/src/animlayers.cpp
   app/src/hikwindow.cpp
+  app/src/skintools.cpp
   app/src/widgets.cpp
   app/src/toolsettings_xform.cpp
   app/src/markingmenu.cpp
@@ -139,6 +140,7 @@ add_executable(aztek WIN32
   app/src/pluginmanager.cpp
   app/src/feedback.cpp
   app/src/external.cpp
+  app/src/mgearinstall.cpp
   app/src/editors.cpp
   app/src/attreditor.cpp
   app/src/colorchooser.cpp
@@ -151,9 +153,16 @@ add_executable(aztek WIN32
   app/src/renderview.cpp
   app/src/rendersettings.cpp
   app/src/scriptui.cpp
+  app/src/examples.cpp
   app/src/resources.qrc
   $<$<PLATFORM_ID:Windows>:app/icons/aztek.rc>)
 add_dependencies(aztek aztek_host_build)
+# The examples built into the program as :/examples, so every copy has them even where no examples folder came with
+# it; examples.cpp writes them out to the user's data folder then. A new or removed file configures again.
+file(GLOB_RECURSE AZTEK_EXAMPLE_FILES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/examples/*)
+if(AZTEK_EXAMPLE_FILES)
+  qt_add_resources(aztek aztek_examples PREFIX "/" BASE ${CMAKE_SOURCE_DIR} FILES ${AZTEK_EXAMPLE_FILES})
+endif()
 if(APPLE)
   # Aztek.app: macdeployqt adds Qt, the release build adds MoltenVK and the icon.
   set_target_properties(aztek PROPERTIES MACOSX_BUNDLE TRUE

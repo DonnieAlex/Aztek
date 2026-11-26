@@ -13,21 +13,27 @@
 
     git clone https://github.com/srlegrand/Aztek.git
     cd Aztek
-    ./build.sh --deps --run          # Linux
+    ./build.sh --deps --run
 
 ## Build Windows
 
     git clone https://github.com/srlegrand/Aztek.git
     cd Aztek
-    .\build.bat -Run                 # Windows, from PowerShell, with Visual Studio 2022
+    .\build.bat -Run
+
+From PowerShell, with Visual Studio 2022.
 
 ## Build Mac
 
     git clone https://github.com/srlegrand/Aztek.git
     cd Aztek
-    ./build-macos.sh --deps --run    # macOS, with Homebrew
+    ./build-macos.sh --run
 
-Prebuilt packages are under [Install](#install).
+On a new Mac, `git clone` asks to install Xcode's command line tools first: install them, then run it again. The
+script installs whatever else is missing (Homebrew, which asks for your password, CMake, Ninja, MoltenVK and Rust).
+
+What you build yourself runs straight away: Windows and macOS only check programs that were downloaded. Prebuilt
+packages are under [Install](#install), and [Running unsigned builds](#running-unsigned-builds) says how to open them.
 
 <details>
 <summary>Build details for Linux, macOS and Windows</summary>
@@ -46,9 +52,15 @@ built for that Qt, into that Python, builds against all three and stages the res
 wheels need glibc 2.28, so the same versions build on Rocky 8. Nothing comes from the system's Qt or Python; later builds reuse the fetched ones, and
 `tools/bundle/versions.sh` holds the versions.
 
-**macOS**, with [Homebrew](https://brew.sh): `--deps` installs Xcode's command line tools, CMake, Ninja, MoltenVK and
-Rust. Every build fetches Qt 6.8.3, Python 3.13 and PySide6 6.8.3 and puts them, with MoltenVK, inside
-`build/aztek.app`, signed ad hoc. `--package` also makes `dist/aztek-macos-<arch>.zip`, and `--install` puts Aztek.app
+Run what was built with `build/Aztek/AppRun`, not `build/aztek`: AppRun points the program at its own Qt and Python.
+A build folder that was once configured against the system's Qt is configured again against the fetched one; to
+start completely afresh, `rm -rf build build-debug` and run the script again. For a crash, `./build.sh --debug` keeps
+its symbols in `build-debug/Aztek`, and `gdb -ex run -ex bt --args sh build-debug/Aztek/AppRun` prints a backtrace
+with Aztek's own functions named.
+
+**macOS.** The script installs what is missing before it builds: Xcode's command line tools, [Homebrew](https://brew.sh)
+(added to `~/.zprofile` when it isn't on the path), CMake, Ninja, MoltenVK and Rust; `--deps` also updates them. Every build fetches Qt 6.8.3, Python 3.13 and PySide6 6.8.3 and puts them, with MoltenVK, inside
+`build/aztek.app`, signed ad hoc, or with your Developer ID when `AZTEK_SIGN_IDENTITY` names one (docs/PACKAGING.md). `--package` also makes `dist/aztek-macos-<arch>.zip`, and `--install` puts Aztek.app
 in `~/Applications`. macOS is new: the viewport, menus and shortcuts haven't been checked there yet.
 
 **Windows**, from PowerShell or a command prompt: Visual Studio 2022 (or its Build Tools) with "Desktop development with
@@ -114,20 +126,22 @@ and what happens after you send it.
 
    Linux:
 
-       sudo apt install git        # or: sudo dnf install git, sudo pacman -S git
+       sudo apt install git
        git clone https://github.com/srlegrand/Aztek.git
        cd Aztek
        ./build.sh --deps --run
 
-   For `gh`, follow [its Linux instructions](https://github.com/cli/cli/blob/trunk/docs/install_linux.md): the `gh`
+   On Fedora or Rocky it is `sudo dnf install git`, on Arch `sudo pacman -S git`. For `gh`, follow [its Linux instructions](https://github.com/cli/cli/blob/trunk/docs/install_linux.md): the `gh`
    that Debian and Ubuntu ship themselves is too old to work with GitHub (as of 11/2025, by its maintainers' note).
 
-   macOS, with [Homebrew](https://brew.sh):
+   macOS:
 
-       brew install git gh
        git clone https://github.com/srlegrand/Aztek.git
        cd Aztek
-       ./build-macos.sh --deps --run
+       ./build-macos.sh --run
+
+   `git clone` asks to install Xcode's command line tools the first time: install them and run it again. The build
+   script installs Homebrew and the rest. For `gh`, run `brew install gh` in a new terminal.
 
    Windows, from PowerShell, with Visual Studio 2022 and Qt installed as [Build](#build) says:
 
@@ -475,7 +489,8 @@ Left to right: a Venom rig, whose download names no author; Toph, a fan art rig 
 ## Examples
 
 File > Examples opens over fifty scenes from the `examples` folder, a submenu per area, and the example scripts in the
-Script Editor. Every one opens without a warning; a test plays each.
+Script Editor. Every one opens without a warning; a test plays each. Every copy of Aztek has them: the packages carry
+the folder, and the program carries its own copy, which it writes to your data folder when no folder came with it.
 
 ![Twelve of the example scenes in the viewport](docs/examples.jpg)
 
@@ -626,16 +641,41 @@ source is pointed at `git pull`. It goes through the proxy in `HTTPS_PROXY`, min
 | Ubuntu 24.04, 26.04 | `aztek_<version>-1_ubuntu24.04_amd64.deb`, `..._ubuntu26.04_...` | `sudo apt install ./aztek_*.deb` |
 | Any other Linux, x86_64 | `aztek-<version>-x86_64.AppImage` | `chmod +x aztek-*.AppImage`, then run it (Qt, Python and PySide6 are inside) |
 | Linux on 64-bit ARM, glibc 2.34+ (early) | `aztek-<version>-aarch64.AppImage` | `chmod +x aztek-*.AppImage`, then run it. Needs a Vulkan driver (Mesa's on a Raspberry Pi 5, Asahi, Snapdragon laptops) |
-| Windows 10 and 11 | `aztek-<version>-setup-x64.exe`, or the zip | Run it. It isn't signed, so SmartScreen asks first. Its "Add Aztek to PATH" puts the install's `bin` on PATH, so `aztek`, `aztekpy` and `harold` work from any prompt |
-| macOS 14+, Apple silicon (early) | `aztek-macos-arm64.zip` | Unzip, then right-click Aztek.app and Open the first time: it isn't notarized |
+| Windows 10 and 11 | `aztek-<version>-setup-x64.exe`, or the zip | Run it. It isn't signed, so SmartScreen asks first: see [Running unsigned builds](#running-unsigned-builds). Its "Add Aztek to PATH" puts the install's `bin` on PATH, so `aztek`, `aztekpy` and `harold` work from any prompt |
+| macOS 14+, Apple silicon (early) | `aztek-macos-arm64.zip` | Unzip and open Aztek.app. It isn't notarized, so macOS blocks it the first time: see [Running unsigned builds](#running-unsigned-builds) |
 
 Every package carries Python 3.13 and Qt and PySide6/shiboken6 6.8.3, the VFX Reference Platform CY2027's versions.
 None needs Qt or Python installed. The ARM AppImage is the other exception: it uses
 Rocky 9's Qt and has no PySide6, as there is no arm64 Linux kit or wheel.
 
 The viewport needs a Vulkan driver: NVIDIA's own driver has one, and Mesa's `mesa-vulkan-drivers` covers AMD and Intel. On macOS it
-draws through MoltenVK, which comes inside Aztek.app.
+draws through MoltenVK, which comes inside Aztek.app. On Windows the graphics card's own driver brings it; Intel graphics
+older than the 6th generation have none on Windows, so on a laptop that also has an NVIDIA or AMD chip, choose that one
+for Aztek in Windows' graphics settings. Without a driver the viewport says why, and the rest of Aztek still works.
 [docs/PACKAGING.md](docs/PACKAGING.md) has the details, and how the packages are built.
+
+### Running unsigned builds
+
+The Windows and macOS packages aren't signed with a paid certificate, so the system asks before running them the first
+time. Each new download asks again. Builds made from source are never asked about.
+
+**Windows.** The installer and `aztek.exe` show "Windows protected your PC": click **More info**, then **Run anyway**.
+For the zip, unblock it before unzipping, so the files inside don't each ask: right-click the zip, Properties, tick
+**Unblock**, OK. Or in PowerShell:
+
+    Unblock-File .\aztek-windows-x86_64.zip
+
+Already unzipped, from inside the folder it went to:
+
+    Get-ChildItem -Recurse | Unblock-File
+
+**macOS.** Opening Aztek.app says it can't be checked. Either, once after unzipping:
+
+    xattr -dr com.apple.quarantine ~/Downloads/Aztek/Aztek.app
+
+or open it once, close the warning, go to System Settings > Privacy & Security, scroll down and click **Open Anyway**.
+Since macOS 15, right-click and Open no longer gets past it. To stop the check for every app on the Mac,
+`sudo spctl --global-disable`, then choose Anywhere under Privacy & Security; `sudo spctl --global-enable` turns it back on.
 
 ## Hotkeys
 

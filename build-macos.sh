@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 # Builds Aztek on macOS: ./build-macos.sh [--deps] [--debug] [--run] [--package] [--install]
-#   --deps     install the build tools with Homebrew first
+#   --deps     update the build tools with Homebrew even when they are already there
 #   --debug    debug build in build-debug/
 #   --run      start Aztek when the build is done
 #   --package  put Aztek.app and dist/aztek-macos-<arch>.zip together for release
 #   --install  copy Aztek.app to ~/Applications (implies --package)
+# Whatever is missing is installed first: Xcode's command line tools, Homebrew, CMake, Ninja, MoltenVK and Rust.
+# AZTEK_SIGN_IDENTITY signs with that Developer ID instead of ad hoc; with AZTEK_NOTARY_KEY, AZTEK_NOTARY_KEY_ID and
+# AZTEK_NOTARY_ISSUER as well, --package notarizes the app (packaging/macos/sign.sh, notarize.sh).
 # Every build is self-contained: Qt, Python and PySide6/shiboken6 are fetched into build/ when they are not there, and
 # are copied into Aztek.app, which runs with nothing else installed. tools/bundle/versions.sh holds the versions.
 set -euo pipefail
@@ -21,23 +24,53 @@ for a in "$@"; do
     --run) RUN=1 ;;
     --package) PACKAGE=1 ;;
     --install) INSTALL=1 PACKAGE=1 ;;
+    \#*) break ;; # the rest of a line pasted with its comment: zsh passes "# ..." on as arguments
     *) echo "unknown option $a"; exit 1 ;;
   esac
 done
 
-command -v brew >/dev/null || { echo "Install Homebrew first: https://brew.sh"; exit 1; }
-if [ "$DEPS" = 1 ]; then
-  xcode-select -p >/dev/null 2>&1 || { echo "Installing Xcode's command line tools; run this again when they're in."; xcode-select --install; exit 1; }
-  brew install cmake ninja molten-vk
-  [ -f "$HOME/.cargo/env" ] || command -v cargo >/dev/null || curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path
+# Xcode's command line tools: the compiler, git, codesign. Their installer is a window of its own.
+if ! xcode-select -p >/dev/null 2>&1; then
+  xcode-select --install 2>/dev/null || true
+  echo "Waiting for Xcode's command line tools: finish the installer window that just opened."
+  until xcode-select -p >/dev/null 2>&1; do sleep 10; done
 fi
 
-# Cargo from rustup's default place, for shells that haven't read ~/.cargo/env yet.
-[ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
-command -v cargo >/dev/null || { echo "Rust is missing: ./build-macos.sh --deps, or curl https://sh.rustup.rs -sSf | sh"; exit 1; }
+# Homebrew, from where its installer puts it even when this shell hasn't been told yet, or installed now.
+brew_env() {
+  local b
+  for b in /opt/homebrew/bin/brew /usr/local/bin/brew; do
+    [ -x "$b" ] && { PATH="$(dirname "$b"):$PATH"; export PATH; return 0; }
+  done
+  return 1
+}
+if ! command -v brew >/dev/null; then
+  if ! brew_env; then
+    echo "Installing Homebrew (it asks for your password)."
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    brew_env || { echo "Homebrew didn't install: see https://brew.sh"; exit 1; }
+  fi
+  # So that new terminals find it too, as Homebrew's installer asks.
+  if ! grep -qs 'brew shellenv' "$HOME/.zprofile"; then
+    printf '\neval "$(%s shellenv)"\n' "$(command -v brew)" >>"$HOME/.zprofile"
+    echo "Added Homebrew to ~/.zprofile for new terminals."
+  fi
+fi
+
+NEED=()
 for t in cmake ninja; do
-  command -v "$t" >/dev/null || { echo "$t is missing (./build-macos.sh --deps installs it)"; exit 1; }
+  { [ "$DEPS" = 1 ] || ! command -v "$t" >/dev/null; } && NEED+=("$t")
 done
+{ [ "$DEPS" = 1 ] || ! brew list --formula molten-vk >/dev/null 2>&1; } && NEED+=(molten-vk)
+if [ ${#NEED[@]} -gt 0 ]; then brew install "${NEED[@]}"; fi
+
+# Rust from rustup, in its default place, for shells that haven't read ~/.cargo/env yet.
+[ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
+if ! command -v cargo >/dev/null; then
+  echo "Installing Rust with rustup."
+  curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path
+  . "$HOME/.cargo/env"
+fi
 
 # Qt, Python and PySide6, fetched once into build/ and reused by later builds, debug ones too.
 CACHE=$PWD/build
@@ -48,13 +81,16 @@ if [ ! -x "$PY" ]; then
   PY=$PYBUNDLE/bin/python3.13
 fi
 QTDIR=$(tools/qt/fetch-qt.sh "$QT_VERSION" "$CACHE/qt" "$PY")
+# Qt before 6.9 links the AGL framework, which the macOS 26 SDK no longer has (QTBUG-137687); nothing uses it.
+WRAPGL="$QTDIR/lib/cmake/Qt6/FindWrapOpenGL.cmake"
+[ -f "$WRAPGL" ] && sed -i '' '/target_link_libraries.*__opengl_agl_fw_path/d' "$WRAPGL"
 SITE=$(PYTHONHOME= "$PY" -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')
 tools/python/fetch-pyside.sh "$PY" "$QT_VERSION" "$SITE"
 PYINC=$(PYTHONHOME= "$PY" -c 'import sysconfig; print(sysconfig.get_paths()["include"])')
 PYLIB=$PYBUNDLE/lib/libpython3.13.dylib
 [ -f "$PYLIB" ] || { echo "libpython3.13.dylib is missing from $PYBUNDLE/lib" >&2; exit 1; }
 MVK="$(brew --prefix molten-vk 2>/dev/null || true)/lib/libMoltenVK.dylib"
-[ -f "$MVK" ] || { echo "MoltenVK is missing (./build-macos.sh --deps installs it)"; exit 1; }
+[ -f "$MVK" ] || { echo "MoltenVK is missing from Homebrew: brew reinstall molten-vk"; exit 1; }
 
 EXTRA=(-DPython3_EXECUTABLE="$PY" -DPython3_INCLUDE_DIR="$PYINC" -DPython3_LIBRARY="$PYLIB" -DCMAKE_PREFIX_PATH="$QTDIR")
 # Conda's libraries would shadow Homebrew's and the bundle's.
@@ -67,9 +103,11 @@ APP="$DIR/aztek.app"
 echo "Built $APP"
 
 # Everything the app needs inside it: MoltenVK, the icon, Qt, Python with its standard library and PySide6, the plug-ins
-# that ship with Aztek, and Harold's renderer. The signature comes last: everything before it changes the bundle.
+# that ship with Aztek, Harold's renderer and the examples. The signature comes last: everything before it changes the bundle.
 mkdir -p "$APP/Contents/Frameworks" "$APP/Contents/Resources"
-cp "$MVK" "$APP/Contents/Frameworks/"
+# Homebrew's MoltenVK is read-only: -f replaces the copy a previous build left, and the copy is made writable.
+cp -f "$MVK" "$APP/Contents/Frameworks/"
+chmod u+w "$APP/Contents/Frameworks/libMoltenVK.dylib"
 ICONS="$DIR/aztek.iconset"
 rm -rf "$ICONS" && mkdir -p "$ICONS"
 for s in 16 32 128 256 512; do
@@ -87,7 +125,8 @@ rm -rf "$PRES/lib/python3.13"
 cp -R "$PYBUNDLE/lib/python3.13" "$PRES/lib/python3.13"
 rm -rf "$PRES/lib/python3.13/test" "$PRES/lib/python3.13/tests" "$PRES/lib/python3.13/idlelib" \
   "$PRES/lib/python3.13/tkinter" "$PRES/lib/python3.13/turtledemo"
-cp "$PYLIB" "$APP/Contents/Frameworks/"
+cp -f "$PYLIB" "$APP/Contents/Frameworks/"
+chmod u+w "$APP/Contents/Frameworks/libpython3.13.dylib"
 OLDID=$(otool -D "$PYLIB" | tail -1)
 install_name_tool -id "@rpath/libpython3.13.dylib" "$APP/Contents/Frameworks/libpython3.13.dylib"
 case "$OLDID" in
@@ -106,16 +145,21 @@ done
 install_name_tool -add_rpath "@executable_path/../Resources/python/lib/python3.13/site-packages/PySide6/Qt/lib" \
   "$APP/Contents/MacOS/aztek" 2>/dev/null || true
 
-# Harold's command-line renderer, beside the program.
-cp "$DIR/harold" "$APP/Contents/MacOS/"
-codesign --force --deep --sign - "$APP"
-codesign --verify --deep --strict "$APP"
+# Harold's command-line renderer, beside the program, and the example scenes, where File > Examples looks.
+cp -f "$DIR/harold" "$APP/Contents/MacOS/"
+rm -rf "$APP/Contents/Resources/examples"
+cp -R examples "$APP/Contents/Resources/examples"
+# Ad hoc, or with a Developer ID when AZTEK_SIGN_IDENTITY names one (packaging/macos/sign.sh).
+packaging/macos/sign.sh "$APP"
 
 if [ "$PACKAGE" = 1 ]; then
   ARCH="$(uname -m)"
   rm -rf dist/Aztek && mkdir -p dist/Aztek
   cp -R "$APP" dist/Aztek/Aztek.app
-  cp -R examples dist/Aztek/examples
+  # Notarized when there is a Developer ID signature and an App Store Connect API key, so Gatekeeper lets it open.
+  if [ -n "${AZTEK_SIGN_IDENTITY:-}" ] && [ -n "${AZTEK_NOTARY_KEY:-}" ]; then
+    packaging/macos/notarize.sh dist/Aztek/Aztek.app
+  fi
   rm -f "dist/aztek-macos-$ARCH.zip"
   ditto -c -k --keepParent dist/Aztek "dist/aztek-macos-$ARCH.zip"
   echo "Packaged dist/Aztek/Aztek.app and dist/aztek-macos-$ARCH.zip"

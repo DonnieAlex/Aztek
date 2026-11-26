@@ -18,7 +18,8 @@ public:
     explicit ViewportWidget(const QString& camera, QWidget* parent = nullptr);
     ~ViewportWidget() override;
     int id() const { return id_; }
-    QPaintEngine* paintEngine() const override { return nullptr; }
+    // Vulkan draws on the native window; Qt paints it only to say why there is no picture.
+    QPaintEngine* paintEngine() const override { return error_.isEmpty() ? nullptr : QWidget::paintEngine(); }
     void set(const QString& key, const QString& json);
     QString get(const QString& key) const;
     QString camera() const { return camera_; }
@@ -41,6 +42,8 @@ protected:
     void dropEvent(QDropEvent*) override;
 private:
     void ensure();
+    void paint_error();
+    QString error_;
     void render_frame();
 #ifdef Q_OS_MACOS
     bool render_queued_ = false;

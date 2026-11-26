@@ -63,12 +63,18 @@ class MQtUtil(object):
         if widgets is None or not name:
             return None
         app = widgets.QApplication.instance()
-        short = str(name).split("|")[-1]
+        name = str(name)
+        short = name.split("|")[-1]
+        by_name = None
         for w in app.allWidgets() if app else []:
             for a in w.actions():
-                if a.objectName() in (name, short):
+                path = a.property("azPath")
+                # The full path names one item; a short name, the first item so named.
+                if path == name or (path and "|" in name and str(path).endswith("|" + name)):
                     return int(shib.getCppPointer(a)[0])
-        return None
+                if by_name is None and "|" not in name and a.objectName() == short:
+                    by_name = int(shib.getCppPointer(a)[0])
+        return by_name
 
     @staticmethod
     def fullName(pointer):

@@ -93,6 +93,8 @@ ToolSettings::ToolSettings(QWidget* parent) : Panel(parent) {
     stack_->addWidget(transform_page_);
     stack_->addWidget(paint_page_);
     stack_->addWidget(joint_page_);
+    ik_spline_page_ = build_ik_spline_page();
+    stack_->addWidget(ik_spline_page_);
     attr_page_ = build_attr_page();
     stack_->addWidget(attr_page_);
     member_page_ = build_member_page();
@@ -557,6 +559,82 @@ QWidget* ToolSettings::build_joint_page() {
     }
     page->addStretch(1);
     push_joint_settings();
+    return scroll;
+}
+
+// The IK Spline Handle Tool's settings, in the reference's order and with its defaults, kept between sessions and
+// handed to ikSplineHandleContext, which the tool reads (#317).
+static const char* const ik_spline_bools[] = {"rootOnCurve", "createRootAxis", "parentCurve", "snapCurve", "createCurve", "simplifyCurve", "rootTwistMode"};
+
+void ToolSettings::push_ik_spline_settings() {
+    QSettings st;
+    st.beginGroup("tools/ikSplineHandle");
+    QJsonObject c{{"edit", true}, {"args", QJsonArray{"ikSplineHandleContext"}}};
+    for (const char* k : ik_spline_bools)
+        if (st.contains(k)) c[k] = st.value(k).toBool();
+    if (st.contains("numSpans")) c["numSpans"] = st.value("numSpans").toInt();
+    if (st.contains("twistType")) c["twistType"] = st.value("twistType").toString();
+    exec_quiet("ikSplineHandleCtx", c);
+}
+
+QWidget* ToolSettings::build_ik_spline_page() {
+    auto* scroll = new QScrollArea(this);
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    auto* w = new QWidget(scroll);
+    scroll->setWidget(w);
+    auto* page = new QVBoxLayout(w);
+    page->setContentsMargins(0, 0, 0, 0);
+    page->setSpacing(2);
+    auto value = [](const char* k, const QVariant& dflt) { return QSettings().value(QString("tools/ikSplineHandle/") + k, dflt); };
+    auto set = [](const QString& k, const QJsonValue& v) {
+        QSettings().setValue("tools/ikSplineHandle/" + k, v.toVariant());
+        QJsonObject c{{"edit", true}, {"args", QJsonArray{"ikSplineHandleContext"}}};
+        c[k] = v;
+        exec_quiet("ikSplineHandleCtx", c);
+    };
+    QFormLayout* form = nullptr;
+    fold(page, "IK Spline Handle Settings", form);
+    form->setLabelAlignment(Qt::AlignRight);
+    form->setRowWrapPolicy(QFormLayout::WrapLongRows);
+    auto check = [&](const char* flag, const QString& label, bool dflt) {
+        auto* cb = new QCheckBox(label, w);
+        cb->setChecked(value(flag, dflt).toBool());
+        connect(cb, &QCheckBox::toggled, this, [set, flag](bool on) { set(flag, on); });
+        form->addRow("", cb);
+        return cb;
+    };
+    QCheckBox* root = check("rootOnCurve", "Root on curve", true);
+    QCheckBox* axis = check("createRootAxis", "Auto create root axis", false);
+    check("parentCurve", "Auto parent curve", true);
+    QCheckBox* snap = check("snapCurve", "Snap curve to root", false);
+    QCheckBox* create = check("createCurve", "Auto create curve", true);
+    QCheckBox* simplify = check("simplifyCurve", "Auto simplify curve", true);
+    auto* spans = new QSpinBox(w);
+    spans->setRange(1, 4);
+    spans->setValue(value("numSpans", 1).toInt());
+    connect(spans, &QSpinBox::valueChanged, this, [set](int n) { set("numSpans", n); });
+    form->addRow("Number of spans:", spans);
+    check("rootTwistMode", "Root twist mode", false);
+    auto* twist = new QComboBox(w);
+    for (auto [label, v] : {std::pair{"Linear", "linear"}, {"Ease In", "easeIn"}, {"Ease Out", "easeOut"}, {"Ease In Out", "easeInOut"}}) twist->addItem(label, QString(v));
+    twist->setCurrentIndex(std::max(0, twist->findData(value("twistType", "linear").toString())));
+    connect(twist, &QComboBox::currentIndexChanged, this, [set, twist](int) { set("twistType", twist->currentData().toString()); });
+    form->addRow("Twist type:", twist);
+    // As in the reference: a root axis only when the root is free of the curve; snapping only for a curve of your own;
+    // simplifying and spans only for a curve the tool makes.
+    auto enable = [root, axis, create, snap, simplify, spans] {
+        axis->setEnabled(!root->isChecked());
+        snap->setEnabled(!create->isChecked());
+        simplify->setEnabled(create->isChecked());
+        spans->setEnabled(create->isChecked());
+    };
+    connect(root, &QCheckBox::toggled, this, enable);
+    connect(create, &QCheckBox::toggled, this, enable);
+    enable();
+    page->addStretch(1);
+    push_ik_spline_settings();
     return scroll;
 }
 
@@ -1100,6 +1178,10 @@ void ToolSettings::set_tool(const QString& tool) {
         title_->setText("Joint Tool");
         stack_->setCurrentWidget(joint_page_);
         push_joint_settings();
+    } else if (tool == "ikSplineHandle") {
+        title_->setText("IK Spline Handle Tool");
+        stack_->setCurrentWidget(ik_spline_page_);
+        push_ik_spline_settings();
     } else if (tool == "curveCv" || tool == "curveEp") {
         title_->setText(tool == "curveCv" ? "CV Curve Tool" : "EP Curve Tool");
         stack_->setCurrentWidget(curve_page_);
