@@ -4580,3 +4580,9 @@ Two display-layer edges stay: a one-pixel dashed rim on a sphere is MSAA coverag
 grid's smooth lines can read over a sphere at grazing angles. The parity capture hides the grid, and the motion script
 does too; both are guides rather than the shaded picture. The depth-of-field view is available to scripts through
 `modelEditor -depthOfField`, which is how the capture turns it on.
+
+The second pass re-ran the same four captures from a fresh session. Every frame was bit-identical to the first pass's
+frame at the same time, so the renderer has no cross-session variation and no temporal accumulation state to drift;
+the twelve still frames were identical again, and the frame-to-frame steps kept the same smooth profile. The wider
+shadow filter introduced no peter-panning: the contact shadow stays attached at the dolly's closest view, and the
+sweep's shadow boundary is the smoother of the two passes. No further change was needed.
