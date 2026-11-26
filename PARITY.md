@@ -470,7 +470,8 @@ Sculpting shelves. Windows: Attribute Spread Sheet, Component Editor with skin w
 Namespace Editor (listing only), Channel Control, Modeling Toolkit, Shape Editor,
 workspaces, main pane only, panel layouts, saved layouts, a panel holding an outliner or editor. Panel menus: cameras,
 `lookThru`, bookmarks, camera tools, gates, safe action; flat, bounding box, X-Ray and its joint and component kinds,
-backface culling; Show filters, `isolateSelect`. Heads up display and `headsUpDisplay`; `polyOptions`. In-View Editor and
+backface culling; Show filters, `isolateSelect`. The right-click component menu uses the meshes shown in its view (#325).
+Heads up display and `headsUpDisplay`; `polyOptions`. In-View Editor and
 the channel box's virtual slider on INPUTS. Attribute Editor sections by node type, sliders, Notes, Copy Tab. Outliner
 filters and icons. Layer editor V, P, T, R, colour, reorder. Script Editor tabs, highlighting, line numbers, save and
 source. File, Edit, Modify and Display menus; Preferences saved and `optionVar`; time units by name; playback speed and
