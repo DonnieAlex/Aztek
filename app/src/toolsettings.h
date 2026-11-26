@@ -49,8 +49,8 @@ private:
     QWidget* build_paint_page();
     QWidget* build_joint_page();
     void push_joint_settings();
-    QWidget* build_ik_spline_page();
-    void push_ik_spline_settings();
+    QWidget* build_ik_page(bool spline);
+    void push_ik_settings(bool spline);
     QWidget* build_curve_page();
     QWidget* build_sculpt_page();
     QWidget* build_groom_page();
@@ -84,6 +84,7 @@ private:
     QWidget* transform_page_ = nullptr;
     QWidget* paint_page_ = nullptr;
     QWidget* joint_page_ = nullptr;
+    QWidget* ik_page_ = nullptr;
     QWidget* ik_spline_page_ = nullptr;
     QWidget* curve_page_ = nullptr;
     QWidget* sculpt_page_ = nullptr;

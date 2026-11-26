@@ -774,8 +774,8 @@ QMenu* MainWindow::skeleton_menu() {
     cmd(hik, "Define Character from Selection", "hikCreateCharacter");
     hik->addAction("Create Control Rig", [] { exec("hikCreateControlRig"); });
     m->addSeparator();
-    cmd(m, "Create IK Handle", "ikHandle", {}, QString(), true);
-    // A tool, as in the reference: click the start joint, then the end joint. The option box is its tool settings (#317).
+    // The two IK tools: click the start joint, then the end joint; the option boxes open their tool settings (#317).
+    m->addAction(new OptionRow("Create IK Handle", QString(), [this] { set_tool("ikHandle"); }, [this] { set_tool("ikHandle"); show_tool_settings(); }, m));
     m->addAction(new OptionRow("Create IK Spline Handle", QString(), [this] { set_tool("ikSplineHandle"); }, [this] { set_tool("ikSplineHandle"); show_tool_settings(); }, m));
     cmd(m, "Enable Selected IK Handles", "ikHandle", QJsonObject{{"enableHandles", true}});
     cmd(m, "Disable Selected IK Handles", "ikHandle", QJsonObject{{"disableHandles", true}});
@@ -2005,6 +2005,7 @@ void MainWindow::set_tool(const QString& tool) {
         {"createTorus", "Polygon Torus: drag on the grid for the radius."},
         {"snapTogether", "Snap Together Tool: click a point on the object to move, then the point it goes to."},
         {"insertJoint", "Insert Joint: drag from a joint to add a joint along the bone."},
+        {"ikHandle", "IK Handle Tool: click the start joint, then the end joint."},
         {"ikSplineHandle", "IK Spline Handle Tool: click the start joint, then the end joint. With Auto create curve off, then click the curve."},
         {"multiCut", "Multi-Cut: click to place cut points, Shift snaps along edges by the snap step, Ctrl+Shift squares to the last edge, Ctrl-click inserts a loop (Ctrl+middle centred), middle-drag slices, Backspace takes the last back, Enter cuts."},
         {"insertLoop", "Insert Edge Loop: hover an edge to see the loop, click to insert it."},

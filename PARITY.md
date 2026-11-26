@@ -4557,14 +4557,20 @@ reference, so Ctrl+N then N starts a new scene. Escape cancels.
 
 ### What changed (26/11/2026, #317)
 
-Skeleton > Create IK Spline Handle is the reference's IK Spline Handle Tool rather than a command on the selection:
-click the start joint, then the end joint, and the handle and its curve are made; with Auto create curve off, the
-next click picks the curve to follow. Its option box is the tool's settings, in the reference's order (Root on curve,
-Auto create root axis, Auto parent curve, Snap curve to root, Auto create curve, Auto simplify curve, Number of spans,
-Root twist mode, Twist type), kept between sessions in ikSplineHandleContext, with the same rows greyed as the
-reference greys them. `IKSplineHandleTool` starts it. The defaults are those ikSplineHandleCtx documents; Snap curve
-to root off is unverified. Not yet: Create IK Handle is still a command on two selected joints, not the IK Handle
-Tool; Auto simplify curve and Root twist mode are passed on but don't change the solve.
+Skeleton > Create IK Handle and Create IK Spline Handle are tools, as in the reference (IKHandleTool,
+IKSplineHandleTool, ikHandleContext, ikSplineHandleContext): click the start joint, then the end joint, and the handle
+is made; with Auto create curve off the spline tool then takes a click on the curve. The tool stays on for the next
+handle. Their option boxes open the tools' own settings: the IK Handle Tool's solver, Autopriority, Solver enable, Snap
+enable, Sticky, Priority, Weight and POWeight, and the IK Spline Handle Tool's Root on curve, Auto create root axis,
+Auto parent curve, Snap curve to root, Auto create curve, Auto simplify curve, Number of spans, Root twist mode and
+Twist type, greyed where the reference greys them. The defaults are those ikSplineHandleCtx documents, Snap curve to root off among them. The Rigging shelf's IK Handle button starts the tool.
+
+`ikHandle`'s spline flags do what they say: `-parentCurve` (on) puts the made curve under the start joint's parent,
+`-simplifyCurve` off makes it through every joint, `-snapCurve` moves a given curve to the start joint, `-numSpans`
+defaults to 1 as the reference's does (it was 4), and `-twistType` and `-rootTwistMode` set the handle's new
+`twistType` and `rootTwistMode` attributes, which the solver uses. Unverified: Ease In, Ease Out and Ease In Out are
+spread as t squared, its mirror and a smoothstep, and Root twist mode as the twist starting a step before the start
+joint; the reference's exact curves are not documented.
 
 ### What changed (26/11/2026, emit)
 

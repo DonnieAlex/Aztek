@@ -1,6 +1,5 @@
 //! Issues of 26/11/2026.
 
-use aztek_host::tools::ik_spline_click;
 use aztek_host::Core;
 use serde_json::{json, Value};
 
@@ -11,58 +10,70 @@ fn mel(c: &mut Core, src: &str) -> Value {
     v
 }
 
-fn spine(c: &mut Core) {
-    mel(c, "select -cl;");
-    for (i, y) in [0.0, 2.0, 4.0, 6.0].iter().enumerate() {
-        mel(c, &format!("joint -p 0 {y} {} -n spine{};", if i == 2 { 0.5 } else { 0.0 }, i + 1));
-    }
-    mel(c, "select -cl;");
+fn chain(c: &mut Core) {
+    mel(c, "select -cl; joint -p 0 0 0; joint -p 1 0 0; joint -p 2 0 0; joint -p 3 0 0; joint -p 4 0 0; select -cl;");
 }
 
 #[test]
-fn the_spline_handle_tool_makes_the_handle_and_its_curve_on_the_end_joint_click() {
-    // #317: click the start joint, then the end joint, as in the reference.
+fn the_ik_tools_are_contexts_with_the_references_settings() {
+    // #317: Create IK Handle and Create IK Spline Handle are tools, with their own settings.
     let mut c = Core::new();
-    spine(&mut c);
-    let mut picked = Vec::new();
-    assert!(ik_spline_click(&mut c, &mut picked, Some("spine1".into()), None));
-    assert_eq!(mel(&mut c, "ls -sl;"), json!(["spine1"]));
-    assert_eq!(mel(&mut c, "ls -type ikHandle;"), json!([]));
-    assert!(ik_spline_click(&mut c, &mut picked, Some("spine4".into()), None));
-    assert!(picked.is_empty(), "the tool is ready for the next handle");
-    assert_eq!(mel(&mut c, "ls -type ikHandle;"), json!(["ikHandle1"]));
-    assert_eq!(mel(&mut c, "ikHandle -q -sj ikHandle1;"), json!("spine1"));
-    let curve = mel(&mut c, "ikHandle -q -c ikHandle1;");
-    assert!(curve.as_str().is_some_and(|s| !s.is_empty()), "a curve was made: {curve}");
-    // The tool's Number of spans: 1 by default, a curve of 4 CVs.
-    let shape = curve.as_str().unwrap().to_string();
-    assert_eq!(mel(&mut c, &format!("getAttr {shape}.spans;")), json!(1));
+    mel(&mut c, "setToolTo ikSplineHandleContext;");
+    assert_eq!(mel(&mut c, "currentCtx;"), json!("ikSplineHandleContext"));
+    assert_eq!(mel(&mut c, "ikSplineHandleCtx -q -ccv ikSplineHandleContext;"), json!(true));
+    assert_eq!(mel(&mut c, "ikSplineHandleCtx -q -roc ikSplineHandleContext;"), json!(true));
+    assert_eq!(mel(&mut c, "ikSplineHandleCtx -q -pcv ikSplineHandleContext;"), json!(true));
+    assert_eq!(mel(&mut c, "ikSplineHandleCtx -q -scv ikSplineHandleContext;"), json!(true));
+    assert_eq!(mel(&mut c, "ikSplineHandleCtx -q -cra ikSplineHandleContext;"), json!(false));
+    // Snap curve to root is off by default, as ikSplineHandleCtx documents it.
+    assert_eq!(mel(&mut c, "ikSplineHandleCtx -q -snc ikSplineHandleContext;"), json!(false));
+    assert_eq!(mel(&mut c, "ikSplineHandleCtx -q -rtm ikSplineHandleContext;"), json!(false));
+    assert_eq!(mel(&mut c, "ikSplineHandleCtx -q -ns ikSplineHandleContext;"), json!(1));
+    assert_eq!(mel(&mut c, "ikSplineHandleCtx -q -tws ikSplineHandleContext;"), json!("linear"));
+    mel(&mut c, "setToolTo ikHandleContext;");
+    assert_eq!(mel(&mut c, "currentCtx;"), json!("ikHandleContext"));
+    assert_eq!(mel(&mut c, "ikHandleCtx -q -stH ikHandleContext;"), json!("ikRPsolver"));
 }
 
 #[test]
-fn with_auto_create_curve_off_the_next_click_picks_the_curve() {
-    // #317: Auto create curve off: start joint, end joint, then the curve to follow.
+fn the_spline_tool_makes_its_handle_with_its_settings() {
+    // #317: the start and end joints clicked make a spline handle with what the tool settings say.
     let mut c = Core::new();
-    spine(&mut c);
-    mel(&mut c, "curve -n path -d 3 -p 0 0 0 -p 1 2 0 -p 1 4 0 -p 0 6 0;");
-    mel(&mut c, "ikSplineHandleCtx -e -ccv false ikSplineHandleContext;");
-    let mut picked = Vec::new();
-    ik_spline_click(&mut c, &mut picked, Some("spine1".into()), None);
-    ik_spline_click(&mut c, &mut picked, Some("spine4".into()), None);
-    assert_eq!(mel(&mut c, "ls -type ikHandle;"), json!([]));
-    // A click on nothing waits for the curve.
-    assert!(!ik_spline_click(&mut c, &mut picked, None, None));
-    assert!(ik_spline_click(&mut c, &mut picked, None, Some("path".into())));
-    assert_eq!(mel(&mut c, "ls -type ikHandle;"), json!(["ikHandle1"]));
-    let followed = mel(&mut c, "ikHandle -q -c ikHandle1;");
-    assert!(followed.as_str().is_some_and(|s| s.contains("path")), "{followed}");
+    chain(&mut c);
+    mel(&mut c, "ikSplineHandleCtx -e -ns 3 -tws easeOut -rtm 1 ikSplineHandleContext;");
+    let call = aztek_host::tools::ik_handle_call("joint1", "joint5", None, true);
+    assert_eq!(call["solver"], json!("ikSplineSolver"));
+    assert_eq!(call["numSpans"], json!(3));
+    let r = c.exec("ikHandle", call).unwrap();
+    assert_eq!(r.as_array().unwrap().len(), 3, "{r}");
+    assert_eq!(mel(&mut c, "getAttr curve1.spans;"), json!(3));
+    assert_eq!(mel(&mut c, "getAttr ikHandle1.twistType;"), json!(2));
+    assert_eq!(mel(&mut c, "getAttr ikHandle1.rootTwistMode;"), json!(true));
 }
 
 #[test]
-fn the_spline_tool_settings_have_the_references_defaults() {
-    // #317: the IK Spline Handle Tool's settings, as ikSplineHandleCtx documents them.
+fn the_spline_tool_takes_a_clicked_curve_when_it_makes_none() {
+    // #317: Auto create curve off, the third click names the curve.
     let mut c = Core::new();
-    for (flag, want) in [("roc", json!(true)), ("cra", json!(false)), ("pcv", json!(true)), ("snc", json!(false)), ("ccv", json!(true)), ("scv", json!(true)), ("ns", json!(1)), ("rtm", json!(false)), ("tws", json!("linear"))] {
-        assert_eq!(mel(&mut c, &format!("ikSplineHandleCtx -q -{flag} ikSplineHandleContext;")), want, "{flag}");
-    }
+    chain(&mut c);
+    mel(&mut c, "curve -d 3 -n path -p 0 1 0 -p 1 1 0 -p 2 1 0 -p 3 1 0 -p 4 1 0;");
+    mel(&mut c, "ikSplineHandleCtx -e -ccv 0 -snc 1 ikSplineHandleContext;");
+    let call = aztek_host::tools::ik_handle_call("joint1", "joint5", Some("path"), true);
+    assert_eq!(call["createCurve"], json!(false));
+    c.exec("ikHandle", call).unwrap();
+    assert_eq!(mel(&mut c, "ikHandle -q -c ikHandle1;"), json!("path"));
+    // Snap curve to root on: the curve came down to the start joint.
+    let t = mel(&mut c, "getAttr path.ty;");
+    assert!((t.as_f64().unwrap() + 1.0).abs() < 1e-6, "{t}");
+}
+
+#[test]
+fn the_ik_handle_tool_makes_its_handle_with_its_solver() {
+    // #317: the IK Handle Tool's current solver.
+    let mut c = Core::new();
+    chain(&mut c);
+    mel(&mut c, "ikHandleCtx -e -stH ikSCsolver ikHandleContext;");
+    let call = aztek_host::tools::ik_handle_call("joint1", "joint3", None, false);
+    c.exec("ikHandle", call).unwrap();
+    assert_eq!(mel(&mut c, "ikHandle -q -sol ikHandle1;"), json!("ikSCsolver"));
 }
