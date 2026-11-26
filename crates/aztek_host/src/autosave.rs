@@ -23,9 +23,9 @@ const SETTINGS: &[(&str, &str, &str, fn() -> Value)] = &[
     ("prompt", "prm", "autoSavePrompt", || json!(false)),
 ];
 
-fn get(flag: &str) -> Value {
+fn get(s: &Session, flag: &str) -> Value {
     let (_, _, var, def) = SETTINGS.iter().find(|x| x.0 == flag).unwrap();
-    option_var(var).unwrap_or_else(def)
+    option_var(s, var).unwrap_or_else(def)
 }
 
 fn truthy(v: &Value) -> bool {
@@ -35,9 +35,9 @@ fn truthy(v: &Value) -> bool {
 /// Where autosaves go: the project's autosave folder (0), the folder named (1), or the folder MAYA_AUTOSAVE_FOLDER or
 /// AZTEK_AUTOSAVE_FOLDER names (2); the first when the others give nothing.
 pub fn folder(s: &mut Session) -> PathBuf {
-    match get("destination").as_i64().unwrap_or(0) {
+    match get(s, "destination").as_i64().unwrap_or(0) {
         1 => {
-            let f = get("folder").as_str().unwrap_or("").to_string();
+            let f = get(s, "folder").as_str().unwrap_or("").to_string();
             if !f.is_empty() {
                 return PathBuf::from(f);
             }
@@ -89,8 +89,8 @@ pub fn perform(s: &mut Session) -> CmdResult<String> {
     let path = dir.join(format!("{stem}.{next:04}.ma"));
     let p = path.to_string_lossy().replace('\\', "/");
     s.run("file", json!({"args": [p.clone()], "exportAll": true, "type": "mayaAscii", "force": true}))?;
-    if truthy(&get("limitBackups")) {
-        let keep = get("maxBackups").as_i64().unwrap_or(10).max(1) as usize;
+    if truthy(&get(s, "limitBackups")) {
+        let keep = get(s, "maxBackups").as_i64().unwrap_or(10).max(1) as usize;
         let all = existing(&dir, &stem);
         if all.len() > keep {
             for (_, old) in &all[..all.len() - keep] {
@@ -132,7 +132,7 @@ pub fn register(s: &mut Session) {
                 }
                 for (flag, ..) in SETTINGS {
                     if asked(flag) {
-                        let v = get(flag);
+                        let v = get(s, flag);
                         return Ok(match *flag {
                             "enable" | "limitBackups" | "prompt" => json!(truthy(&v)),
                             _ => v,
@@ -155,7 +155,7 @@ pub fn register(s: &mut Session) {
                 }
             }
             if !set.is_empty() {
-                set_option_vars(&set);
+                set_option_vars(s, &set);
             }
             if a.bool("perform") {
                 return Ok(json!(perform(s)?));
