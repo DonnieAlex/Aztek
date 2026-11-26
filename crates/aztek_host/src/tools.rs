@@ -77,6 +77,8 @@ pub struct ToolState {
     /// picked points, with where it last stepped.
     pub normal_drag: Option<crate::tools_quad::NormalDrag>,
     pub relax_picked: Option<DVec2>,
+    /// IK Spline Handle Tool: the start and end joints clicked so far (#317).
+    pub ik_joints: Vec<String>,
 }
 
 /// Screen-space hit on any drawn mesh.
@@ -154,6 +156,57 @@ pub fn ring_preview(m: &Mesh, e: Index, t: f64) -> Vec<(DVec3, DVec3)> {
     out
 }
 
+/// The IK Spline Handle Tool's click, as the reference's: the start joint, then the end joint. With Auto create curve
+/// on (the default) the handle and its curve are made on that second click; with it off, the next click on a curve
+/// makes the handle along it. `picked` holds the joints clicked so far; the tool stays for the next handle. Its
+/// settings are ikSplineHandleContext's (#317).
+pub fn ik_spline_click(core: &mut Core, picked: &mut Vec<String>, joint: Option<String>, curve: Option<String>) -> bool {
+    let setting = |k: &str| crate::ctx_cmds::prop("ikSplineHandleContext", k);
+    let on = |k: &str| match setting(k) {
+        Value::Bool(b) => b,
+        Value::String(s) => s == "true" || s == "1",
+        Value::Number(n) => n.as_f64().unwrap_or(0.0) != 0.0,
+        _ => false,
+    };
+    let own_curve = !on("createCurve");
+    if picked.len() < 2 {
+        let Some(j) = joint else { return false };
+        picked.push(j);
+        let _ = core.exec("select", json!({"args": picked.clone()}));
+        if picked.len() == 1 || own_curve {
+            return true;
+        }
+    }
+    let mut call = json!({"startJoint": picked[0], "endEffector": picked[1], "solver": "ikSplineSolver"});
+    if own_curve {
+        // Anything but a curve waits for one.
+        let Some(c) = curve else { return false };
+        call["curve"] = json!(c);
+        call["createCurve"] = json!(false);
+        call["snapCurve"] = json!(on("snapCurve"));
+    } else {
+        let spans = setting("numSpans");
+        let spans = spans.as_i64().or_else(|| spans.as_str().and_then(|s| s.parse().ok())).unwrap_or(1).clamp(1, 4);
+        call["createCurve"] = json!(true);
+        call["numSpans"] = json!(spans);
+        call["simplifyCurve"] = json!(on("simplifyCurve"));
+    }
+    let root = on("rootOnCurve");
+    call["rootOnCurve"] = json!(root);
+    // Auto create root axis only with Root on curve off, as in the reference.
+    if !root && on("createRootAxis") {
+        call["createRootAxis"] = json!(true);
+    }
+    call["parentCurve"] = json!(on("parentCurve"));
+    call["rootTwistMode"] = json!(on("rootTwistMode"));
+    if let Some(t) = setting("twistType").as_str().filter(|t| !t.is_empty()) {
+        call["twistType"] = json!(t);
+    }
+    picked.clear();
+    let _ = core.exec("ikHandle", call);
+    true
+}
+
 impl View {
     pub(crate) fn tool_preview_clear(&mut self) {
         self.vp.tool_lines.clear();
@@ -184,6 +237,7 @@ impl View {
     pub fn tool_mouse(&mut self, core: &mut Core, kind: i32, button: i32, px: DVec2, mods: i32, items: &[DrawItem]) -> Option<bool> {
         match self.vp.tool {
             Tool::InsertJoint => Some(self.insert_joint(core, kind, button, px)),
+            Tool::IkSplineHandle => Some(self.ik_spline_handle(core, kind, button, px, items)),
             Tool::MultiCut => Some(self.multi_cut(core, kind, button, px, mods, items)),
             Tool::InsertLoop => Some(self.insert_loop(core, kind, button, px, items)),
             Tool::OffsetLoop => Some(self.offset_loop(core, kind, button, px, items)),
@@ -252,6 +306,26 @@ impl View {
         self.ts.cut_world.pop();
         self.ts.dots.pop();
         self.tool_preview_clear();
+    }
+
+    /// IK Spline Handle Tool: what the click is on goes to [`ik_spline_click`].
+    fn ik_spline_handle(&mut self, core: &mut Core, kind: i32, button: i32, px: DVec2, items: &[DrawItem]) -> bool {
+        if kind != 0 || button != 1 {
+            return false;
+        }
+        let g = &core.s.graph;
+        let joint = self.vp.pick_rig(g, px).filter(|&j| aztek_scene::rig::is_joint(g, j)).map(|j| g.path(j));
+        let curve = if joint.is_none() && self.ts.ik_joints.len() == 2 {
+            let picked = self.vp.pick(&core.s, items, px);
+            let g = &core.s.graph;
+            picked.into_iter().find(|n| g.find(n).ok().flatten().is_some_and(|id| aztek_scene::curves::as_curve(g, id).is_some()))
+        } else {
+            None
+        };
+        let mut picked = std::mem::take(&mut self.ts.ik_joints);
+        let r = ik_spline_click(core, &mut picked, joint, curve);
+        self.ts.ik_joints = picked;
+        r
     }
 
     /// Insert Joint Tool: a drag from a joint places a new one on the way to its child, sliding along the bone.

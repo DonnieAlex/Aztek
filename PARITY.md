@@ -4554,3 +4554,14 @@ on Windows) draws there and not here.
 
 Save Changes (New Scene, Open, Exit and the rest): S saves and N doesn't, on their own without Alt, as in the
 reference, so Ctrl+N then N starts a new scene. Escape cancels.
+
+### What changed (26/11/2026, #317)
+
+Skeleton > Create IK Spline Handle is the reference's IK Spline Handle Tool rather than a command on the selection:
+click the start joint, then the end joint, and the handle and its curve are made; with Auto create curve off, the
+next click picks the curve to follow. Its option box is the tool's settings, in the reference's order (Root on curve,
+Auto create root axis, Auto parent curve, Snap curve to root, Auto create curve, Auto simplify curve, Number of spans,
+Root twist mode, Twist type), kept between sessions in ikSplineHandleContext, with the same rows greyed as the
+reference greys them. `IKSplineHandleTool` starts it. The defaults are those ikSplineHandleCtx documents; Snap curve
+to root off is unverified. Not yet: Create IK Handle is still a command on two selected joints, not the IK Handle
+Tool; Auto simplify curve and Root twist mode are passed on but don't change the solve.

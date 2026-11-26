@@ -150,6 +150,7 @@ void MainWindow::build_runtime() {
     tool("ShortestEdgePathTool", "shortestPath", "Shortest Edge Path Tool");
     tool("JointTool", "joint", "Joint Tool");
     tool("InsertJointTool", "insertJoint", "Insert Joint Tool");
+    tool("IKSplineHandleTool", "ikSplineHandle", "IK Spline Handle Tool");
     tool("SculptMeshActivateBrushSculpt", "sculpt", "Sculpt brush");
     tool("MultiCutTool", "multiCut", "Multi-Cut");
     tool("SplitEdgeRingTool", "insertLoop", "Insert Edge Loop");

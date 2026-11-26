@@ -107,6 +107,7 @@ fn tool_of(kind: &str) -> Option<&'static str> {
         "curveCVCtx" => "curveCv",
         "curveEPCtx" => "curveEp",
         "insertJointCtx" => "insertJoint",
+        "ikSplineHandleCtx" => "ikSplineHandle",
         "polySplitCtx" | "polySplitCtx2" => "multiCut",
         "polyCreateFacetCtx" => "createPolygon",
         "polyAppendFacetCtx" => "appendPolygon",
@@ -176,6 +177,7 @@ fn context_of_tool(tool: &str) -> &'static str {
         "curveCv" => "curveContext",
         "curveEp" => "curveEPContext",
         "insertJoint" => "insertJointContext",
+        "ikSplineHandle" => "ikSplineHandleContext",
         "multiCut" => "polySplitContext",
         "createPolygon" => "polyCreateFacetContext",
         "appendPolygon" => "polyAppendFacetContext",
@@ -575,6 +577,11 @@ fn default_prop(kind: &str, key: &str) -> Value {
         ("jointCtx", "symmetryAxis") => json!("x"),
         ("jointCtx", "stickyH") => json!("off"),
         ("jointCtx", "weightH" | "poWeightH") => json!(1.0),
+        // The IK Spline Handle Tool's, as the reference's ikSplineHandleCtx documents them (#317).
+        ("ikSplineHandleCtx", "rootOnCurve" | "parentCurve" | "createCurve" | "simplifyCurve") => json!(true),
+        ("ikSplineHandleCtx", "createRootAxis" | "snapCurve" | "rootTwistMode") => json!(false),
+        ("ikSplineHandleCtx", "numSpans") => json!(1),
+        ("ikSplineHandleCtx", "twistType") => json!("linear"),
         _ => Value::Null,
     }
 }

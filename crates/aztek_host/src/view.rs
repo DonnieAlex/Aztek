@@ -2360,6 +2360,7 @@ impl View {
                     "sculpt" => Tool::Sculpt,
                     "groom" => Tool::Groom,
                     "insertJoint" => Tool::InsertJoint,
+                    "ikSplineHandle" => Tool::IkSplineHandle,
                     "curveCv" => Tool::CurveCv,
                     "curveEp" => Tool::CurveEp,
                     "multiCut" => Tool::MultiCut,

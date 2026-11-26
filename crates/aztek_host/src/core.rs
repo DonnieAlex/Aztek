@@ -974,6 +974,7 @@ pub const UI_COMMANDS: &[(&str, &str)] = &[
     ("PlaybackToggle", "Start or stop playback."),
     ("JointTool", "The joint tool: click to place joints."),
     ("InsertJointTool", "The insert joint tool: drag from a joint to add one on the bone."),
+    ("IKSplineHandleTool", "The IK spline handle tool: click the start joint, then the end joint."),
     ("SculptMeshActivateBrushSculpt", "The sculpt brush."),
     ("MultiCutTool", "The Multi-Cut tool."),
     ("SplitEdgeRingTool", "The Insert Edge Loop tool."),
