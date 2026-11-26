@@ -250,8 +250,10 @@ impl Realtime {
             let sampler = d
                 .create_sampler(
                     &vk::SamplerCreateInfo::default()
-                        .mag_filter(vk::Filter::NEAREST)
-                        .min_filter(vk::Filter::NEAREST)
+                        // Bilinear, so the percentage-closer comparison reads a filtered depth and the shadow edge is
+                        // smooth instead of a stair-step of texels.
+                        .mag_filter(vk::Filter::LINEAR)
+                        .min_filter(vk::Filter::LINEAR)
                         .address_mode_u(vk::SamplerAddressMode::CLAMP_TO_EDGE)
                         .address_mode_v(vk::SamplerAddressMode::CLAMP_TO_EDGE)
                         .address_mode_w(vk::SamplerAddressMode::CLAMP_TO_EDGE),

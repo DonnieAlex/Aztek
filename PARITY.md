@@ -4559,3 +4559,24 @@ screen-space variant of that idea: the bounce rays are clamped and decorrelated,
 blurred along each axis in quad passes and read with a linear sample, so the shading sees a smooth irradiance field
 rather than the sample points. Temporal reprojection would be the next step if the screen-space field is not enough;
 the clamp, the low-discrepancy sequence and the filtered lookup are the parts that matter for the blocks today.
+
+### A moving check of the realtime viewport (26/11/2026, #302)
+
+`tools/render_parity/motion_capture.py` runs one session with lights, shadows, ambient occlusion, bounce light,
+textures and depth of field on, and writes four keyframed playblasts: a full 360-degree orbit, a dolly from far to
+close and back, a low sweep from the lit side to the dark side, and twelve frames of an unmoving camera to catch
+temporal instability. The app's `playblast` sets each frame and renders the live viewport, so the motion is smooth and
+one launch serves a whole pass.
+
+The moving capture found the bounce and reflection work stable: twelve still frames were bit-identical, and the
+orbit, dolly and sweep had no frame-to-frame step above 1.6 times its neighbours' mean. There was no speckle, no tier
+pop and no reflection offset at any angle. What did show was the shadow map's cast edge: at a close view one texel is
+many pixels, so the sphere's shadow on the floor was a hard, chunky boundary that crawled as the camera moved. The
+percentage-closer filter now gathers 5 by 5 texels and the shadow sampler is bilinear, so that edge is a soft
+penumbra. The cost is 25 taps instead of 9 in the shadowed fragment; with this scene the capture still ran at about
+20 frames a second at 734 by 708 including the PNG write, and the app's own draw timing stayed at about 0.2 ms.
+
+Two display-layer edges stay: a one-pixel dashed rim on a sphere is MSAA coverage quantisation, not shading, and the
+grid's smooth lines can read over a sphere at grazing angles. The parity capture hides the grid, and the motion script
+does too; both are guides rather than the shaded picture. The depth-of-field view is available to scripts through
+`modelEditor -depthOfField`, which is how the capture turns it on.

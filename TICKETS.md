@@ -36,6 +36,12 @@ Requests waiting or in progress, newest detail kept. Move to Done with the date 
   score, planar/alpha coverage, a roughness-to-level prefiltered gather, and a filtered screen-space irradiance field
   for the bounce instead of raw stochastic samples. Left of that design: EEVEE's world clip plane at the probe's plane
   (the suite's geometry never crosses it) and temporal reprojection of the indirect term.
+- Realtime motion polish (#302, 26/11/2026): `tools/render_parity/motion_capture.py` checks one session with every
+  feature on over an orbit, a dolly, a low terminator sweep and twelve still frames. The bounce, reflection and AO
+  terms are temporally stable (still frames are bit-identical, no frame-diff spikes) and show no speckle or tier pop.
+  Pass one widened the shadow map's PCF to 5 by 5 with a bilinear sampler, which softens the cast edge that crawled
+  at close range. Left: a one-pixel MSAA rim on a silhouette, the grid's smooth lines reading over a sphere at
+  grazing angles, and the reflection's sharp horizon on a smooth sphere, which is the scene's own image.
   Left: the sky dome is still not drawn as the viewport's background, the viewport frames about 12% tighter than the
   Render View, only the widest flat ground mesh is mirrored, and a point light close to a large floor can leave a cube
   shadow seam.

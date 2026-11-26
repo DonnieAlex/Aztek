@@ -166,6 +166,7 @@ const DISP: &[(&str, &str)] = &[
     ("shadows", "shadows"),
     ("bounceLight", "bounceLight"),
     ("ambientOcclusion", "ambientOcclusion"),
+    ("depthOfField", "depthOfField"),
     ("manipulators", "manipulators"),
     ("xray", "xray"),
     ("xrayJoints", "jointXray"),
@@ -251,7 +252,7 @@ fn get_panel(a: &Args) -> CmdResult {
     })
 }
 
-const EDITOR_FLAGS: &str = "activeOnly:ao:b activeView:av:b allObjects:alo:b ambientOcclusion:aoc:b backfaceCulling:bfc:b bounceLight:bl:b camera:cam:a cameras:ca:b clipGhosts:cg:b controlVertices:cv:b controllers:ctrl:b deformers:df:b dimensions:dim:b displayAppearance:da:a displayLights:dl:a displayTextures:dtx:b dynamicConstraints:dc:b dynamics:dy:b fluids:fl:b follicles:fo:b fogging:fg:b grid:gr:b hairSystems:hs:b handles:ha:b headsUpDisplay:hud:b hulls:hu:b ikHandles:ikh:b imagePlane:imp:b joints:j:b jointXray:jx:b lights:lt:b locators:lc:b lockMainConnection:lck:b lowQualityLighting:lql:b manipulators:m:b motionTrails:mt:b nCloths:ncl:b nParticles:npa:b nRigids:nr:b nurbsCurves:nc:b nurbsSurfaces:ns:b objectFilterShowInHUD:ofs:b panel:pnl:a parent:p:a pivots:pv:b planes:pl:b pluginObjects:po:a2 pluginShapes:ps:b polymeshes:pm:b rendererName:rnm:a selectionHiliteDisplay:sel:b shadows:sdw:b smoothWireframe:swf:b sortTransparent:st:b strokes:str:b subdivSurfaces:sds:b textures:tx:b twoSidedLighting:tsl:b useDefaultMaterial:udm:b viewObjects:vo:b viewSelected:vs:b wireframeBackingStore:wbs:b wireframeOnShaded:wos:b xray:xr:b activeComponentsXray:acx:b exists:ex:b query:q:b edit:e:b queried::a";
+const EDITOR_FLAGS: &str = "activeOnly:ao:b activeView:av:b allObjects:alo:b ambientOcclusion:aoc:b backfaceCulling:bfc:b bounceLight:bl:b depthOfField:dof:b camera:cam:a cameras:ca:b clipGhosts:cg:b controlVertices:cv:b controllers:ctrl:b deformers:df:b dimensions:dim:b displayAppearance:da:a displayLights:dl:a displayTextures:dtx:b dynamicConstraints:dc:b dynamics:dy:b fluids:fl:b follicles:fo:b fogging:fg:b grid:gr:b hairSystems:hs:b handles:ha:b headsUpDisplay:hud:b hulls:hu:b ikHandles:ikh:b imagePlane:imp:b joints:j:b jointXray:jx:b lights:lt:b locators:lc:b lockMainConnection:lck:b lowQualityLighting:lql:b manipulators:m:b motionTrails:mt:b nCloths:ncl:b nParticles:npa:b nRigids:nr:b nurbsCurves:nc:b nurbsSurfaces:ns:b objectFilterShowInHUD:ofs:b panel:pnl:a parent:p:a pivots:pv:b planes:pl:b pluginObjects:po:a2 pluginShapes:ps:b polymeshes:pm:b rendererName:rnm:a selectionHiliteDisplay:sel:b shadows:sdw:b smoothWireframe:swf:b sortTransparent:st:b strokes:str:b subdivSurfaces:sds:b textures:tx:b twoSidedLighting:tsl:b useDefaultMaterial:udm:b viewObjects:vo:b viewSelected:vs:b wireframeBackingStore:wbs:b wireframeOnShaded:wos:b xray:xr:b activeComponentsXray:acx:b exists:ex:b query:q:b edit:e:b queried::a";
 
 fn add_spec(mut c: Cmd, spec: &str) -> Cmd {
     for t in spec.split_whitespace() {
@@ -309,7 +310,7 @@ fn editor_default(flag: &str) -> Value {
         "displayLights" => json!("default"),
         "rendererName" => json!("vp2Renderer"),
         "headsUpDisplay" | "selectionHiliteDisplay" | "twoSidedLighting" | "bounceLight" => json!(true),
-        "ambientOcclusion" => json!(false),
+        "ambientOcclusion" | "depthOfField" => json!(false),
         "displayTextures" | "wireframeOnShaded" | "xray" | "jointXray" | "activeComponentsXray" | "backfaceCulling" | "useDefaultMaterial" | "activeOnly" | "viewSelected" | "shadows" => json!(false),
         k if OBJECT_FLAGS.contains(&k) => json!(true),
         _ => Value::Null,

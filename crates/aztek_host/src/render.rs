@@ -523,13 +523,15 @@ float shadow_at(vec3 p, vec3 n) {
     if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0 || q.z > 1.0 || q.z < 0.0) return 1.0;
     float texel = lt.shadow.y;
     float sum = 0.0;
-    for (int y = -1; y <= 1; y += 1) {
-        for (int x = -1; x <= 1; x += 1) {
-            float d = texture(sampler2D(t_shadow, s_shadow), q.xy + vec2(float(x), float(y)) * texel * 1.5).r;
+    // A 5 by 5 gather, bilinearly read: the map's edge is chunky at a close view where one texel is many pixels, and
+    // it crawls as the camera moves. The wider filtered kernel turns that into a soft penumbra.
+    for (int y = -2; y <= 2; y += 1) {
+        for (int x = -2; x <= 2; x += 1) {
+            float d = texture(sampler2D(t_shadow, s_shadow), q.xy + vec2(float(x), float(y)) * texel).r;
             sum += q.z - 0.0015 <= d ? 1.0 : 0.0;
         }
     }
-    return sum / 9.0;
+    return sum / 25.0;
 }
 // What a rectangle of light sends to a matte surface at x facing n, as its radiance times this: the exact integral of
 // the cosines over the distance squared across it (Lambert's polygon formula). Corners p0..p3 go round it so that
