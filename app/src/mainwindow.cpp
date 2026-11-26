@@ -2113,8 +2113,10 @@ bool MainWindow::confirm_unsaved() {
     if (no_prompts_ || !state()["modified"].toBool()) return true;
     QString file = state()["file"].toString();
     QMessageBox box(QMessageBox::Warning, "Save Changes", file.isEmpty() ? "Save changes to the untitled scene?" : QString("Save changes to %1?").arg(file), QMessageBox::NoButton, this);
-    QPushButton* save = box.addButton("Save", QMessageBox::AcceptRole);
-    QPushButton* discard = box.addButton("Don't Save", QMessageBox::DestructiveRole);
+    // As in the reference, S saves and N doesn't, without Alt: a message box clicks the button whose mnemonic is
+    // pressed on its own, and Escape cancels (#318).
+    QPushButton* save = box.addButton("&Save", QMessageBox::AcceptRole);
+    QPushButton* discard = box.addButton("Do&n't Save", QMessageBox::DestructiveRole);
     box.addButton("Cancel", QMessageBox::RejectRole);
     box.setDefaultButton(save);
     box.exec();

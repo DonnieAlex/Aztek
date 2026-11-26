@@ -4549,3 +4549,8 @@ install the graphics card's driver) instead of once a repaint, and each view pai
 place of a black panel. The rest of the application already worked without it. Not yet: the reference's viewport also
 draws through OpenGL and DirectX 11, so a graphics chip with no Vulkan driver at all (Intel before the 6th generation,
 on Windows) draws there and not here.
+
+### What changed (26/11/2026, #318)
+
+Save Changes (New Scene, Open, Exit and the rest): S saves and N doesn't, on their own without Alt, as in the
+reference, so Ctrl+N then N starts a new scene. Escape cancels.
