@@ -19,8 +19,8 @@ Import and File > Export list a format while its plug-in is loaded.
 mGear's plug-ins don't ship with Aztek. Help > Install > mGear installs mGear built for Aztek: the release of
 https://github.com/srlegrand/mgear for this Aztek's plug-in ABI and platform, with mGear's scripts and icons and its
 plug-ins compiled with the kit, as a module in the `modules` folder of the user folder chosen at the first start
-(`~/aztek`, or a Maya user folder): `aztek-mGear.mod` and `mGear-aztek/`. The module's block is for `MAYAVERSION:aztek`,
-so Maya passes over it, and Aztek takes it before a Maya build of mGear in the same folder, whose plug-ins can't load
+(`~/aztek`, or the reference's user folder): `aztek-mGear.mod` and `mGear-aztek/`. The module's block is for `MAYAVERSION:aztek`,
+so the reference passes over it, and Aztek takes it before the reference's build of mGear in the same folder, whose plug-ins can't load
 here. `aztekMgear -install` does the same from a script, `-installFile` installs a release's zip, `-query` says what is
 installed.
 

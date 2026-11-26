@@ -1048,7 +1048,7 @@ Still not done:
 One renderer, named Harold everywhere in the interface: a CPU path tracer in Rust (`crates/aztek_render`), translated
 from the scene by `aztek_scene::harold`, with its commands, Render View, Render Settings, Attribute Editor frames,
 Create > Harold, a Rendering shelf and batch rendering with no display. [docs/HAROLD.md](docs/HAROLD.md) has what it does,
-the checks with their numbers, and timings. Nothing was compared with a running Maya or any other renderer: the furnace,
+the checks with their numbers, and timings. Nothing was compared with a running reference or any other renderer: the furnace,
 point and quad light, clamp and Cornell box checks compare against closed forms and against Harold's own high sample
 renders.
 
@@ -1059,7 +1059,7 @@ and NURBS surfaces. `render`, `hrender` with `arnoldRender` as a second name, `r
 
 From older renderers, not honoured (each named in a warning when a scene uses it):
 
-- lambert family: translucence, glow, reflected colour (ambient colour is added as the viewport adds it); Maya's highlight shapes are approximated by a
+- lambert family: translucence, glow, reflected colour (ambient colour is added as the viewport adds it); the reference's highlight shapes are approximated by a
   roughness (blinn's eccentricity, phong's cosine power, phongE's roughness, anisotropic's spreads).
 - rampShader: its colour, specular and transparency ramps.
 - layeredShader: textures as layers, glow.
@@ -2230,8 +2230,8 @@ in the global scope: a global variable reads and sets there without a `global` d
 ### User folder at start, the welcome screen after an unclean end, announcements (17/11/2026)
 
 Start-up asks about the user folder whenever there is none to use, not only on the first start: when Aztek's own
-folder (`~/aztek`, `Documents/aztek` on Windows) has been deleted, or a linked folder has gone. With a Maya folder
-found, the choices are to copy it into a new `~/aztek`, to use it directly (marked risky: a Maya script run in Aztek
+folder (`~/aztek`, `Documents/aztek` on Windows) has been deleted, or a linked folder has gone. With the reference's folder
+found, the choices are to copy it into a new `~/aztek`, to use it directly (marked risky: a script for the reference run in Aztek
 can write into it), or to create an empty `~/aztek`; with none, whether to create `~/aztek`. Choosing Aztek's own
 folder makes it, with `scripts`, `plug-ins`, `modules` and `prefs`. `aztekUserFolder -q` reports `needsChoice`.
 
@@ -4165,7 +4165,7 @@ animated properties, several takes (FBXExportSplitAnimationIntoTakes is held), a
 
 ### Shifter builds an mGear 4 guide (23/11/2026)
 
-Checked with mGear 5.4.8 (plug-ins built with the kit) on the Kaneda character: its rig (mGear 4, Maya 2022) opens
+Checked with mGear 5.4.8 (plug-ins built with the kit) on the Kaneda character: its rig (mGear 4, the reference's 2022 release) opens
 with its plug-ins and no unknown node but an `envBall` texture, its arm follows the IK control and the FK control, and
 its guide updates (Shifter's Update Guide) and builds: 540 joints, 532 controls. What the build asked for and was
 fixed:

@@ -68,7 +68,7 @@ lives in files beside the scene.
 - Python API `xgenm` (`import xgenm as xg`): creation and deletion, object access (`palettes`, `descriptions`,
   `objects`, `getActive`, `setActive`), attributes (`getAttr`, `setAttr`, `attrs`, custom attributes), FX modules
   (`fxModules`, `addFXModule`, `moveFXModule`), culling, binding, file IO (`importPalette`, `exportPalette`, deltas,
-  `importDescription`, `exportDescription`), callbacks, messages, repositories; the Maya extension (guides, patches,
+  `importDescription`, `exportDescription`), callbacks, messages, repositories; the reference's extension (guides, patches,
   `modifyFaceBinding`, `bakedGroomManagerBake`); commands `xgmGuideGeom`, `xgmPatchInfo`, `xgmBakeGuideVertices`.
 - Generate menu: XGen Editor, XGen Library, Create Description, Import and Export Collections or Descriptions, Export
   Selection as Archive(s), Batch Convert Scene to XGen Archive(s), Convert XGen Primitives to Polygons, Convert to
