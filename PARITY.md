@@ -4771,3 +4771,8 @@ a Python call has no order, so it takes one attribute, its vectors then its numb
 position, velocity, rgbPP, opacityPP, lifespanPP, radiusPP and mass, by their long names. Differs: not undoable yet.
 Unverified (WANTED.md): what happens before the start frame (here a warning and an empty array), short attribute
 names, Python with several attributes.
+
+### What changed (26/11/2026, #323)
+
+Viewport menus and shelf tabs use the interface font size. Changing that preference refreshes the fonts the theme
+has already applied. Checked at 9 and 14 pt under Xvfb on Linux. macOS still needs a visual check.

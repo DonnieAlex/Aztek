@@ -5,7 +5,7 @@ QToolBar#toolbox { background: @chrome; }
 QMenuBar { background: @window; }
 QMenuBar::item { padding: 3px 8px; background: transparent; }
 QMenuBar::item:selected { background: @hi; }
-QMenuBar#panelMenus { background: @chrome; font-size: 8pt; }
+QMenuBar#panelMenus { background: @chrome; }
 QMenuBar#panelMenus::item { padding: 1px 6px; }
 QToolBar#panelBar { background: @chrome; }
 QMenu { background: @menu; border: 1px solid @border; }
@@ -19,7 +19,7 @@ QDockWidget::title { background: @chrome; padding: 3px 6px; }
 QTabWidget::pane { border: none; }
 QTabBar::tab { background: @chrome; padding: 3px 10px; border: 1px solid @border; border-bottom: none; }
 QTabBar::tab:selected { background: @button; }
-QTabWidget#shelfTabs QTabBar::tab { padding: 1px 8px; font-size: 8pt; }
+QTabWidget#shelfTabs QTabBar::tab { padding: 1px 8px; }
 QPushButton#feelButton { background: #ff8a00; color: #101010; font-weight: bold; font-size: 16px; border: 1px solid #ffc27a; border-radius: 3px; padding: 10px 18px; border-radius: 4px; }
 QPushButton#feelButton:hover { background: #ffa533; }
 QPushButton#feelButton:pressed { background: #e07400; }
