@@ -734,6 +734,8 @@ pub struct Viewport {
     pub planar: Option<DMat4>,
     /// The mesh that is the reflector, left out of the mirrored draw.
     pub planar_skip: NodeId,
+    /// A flat colour for the mirrored pass instead of the material, for measuring its image (#302).
+    pub planar_debug_color: Option<[f32; 3]>,
     /// Drawing the scene without its transmissive surfaces, for glass to see what it lets through (#302).
     pub back: bool,
     /// The sky dome the Realtime renderer lights from.
@@ -842,6 +844,7 @@ impl Viewport {
             environment: None,
             planar: None,
             planar_skip: NO_NODE,
+            planar_debug_color: None,
             back: false,
             rt_shadow_set: None,
             contact: None,
@@ -1220,11 +1223,10 @@ impl Viewport {
         lit.write_block(mode, &chosen, &view, &proj, self.disp.two_sided, self.cam.orthographic, shadow_plan.map(|p| p.block(&view)));
     }
 
-    /// This frame's lights again, in another view space: the ground plane's reflection is drawn from a mirrored view
-    /// (#302), and its lights must be in that space too. No shadow map, which is the one drawn for the camera's view.
-    pub fn write_lights_for(&mut self, s: &mut Session, items: &[DrawItem], view: DMat4, proj: DMat4) {
+    /// This frame's lights again, in the planar reflection's own buffer: the same view and lights as the camera's, with
+    /// no shadow map, since the mirrored geometry would sample it at the wrong place (#302).
+    pub fn write_lights_for(&mut self, s: &mut Session, items: &[DrawItem], view: DMat4, proj: DMat4, mode: crate::lighting::LightMode) {
         let Some(lit) = self.lit.as_mut() else { return };
-        let mode = self.disp.light_mode;
         let mut chosen = crate::lighting::chosen(&mut s.graph, mode, visible);
         if !chosen.is_empty() {
             // The mirrored scene has no bounce light of its own: a plain fill stands in for the floor sending light
@@ -1252,10 +1254,8 @@ impl Viewport {
             });
             let used: Vec<NodeId> = chosen.iter().map(|l| l.shape).collect();
             lit.update_masks(&s.graph, &used, items.iter().map(|i| i.shape));
-            // Every surface takes the fill, whatever its links: it stands for light bounced off the floor.
-            lit.masks.clear();
         }
-        lit.write_block(mode, &chosen, &view, &proj, self.disp.two_sided, self.cam.orthographic, None);
+        lit.write_planar_block(mode, &chosen, &view, &proj, self.disp.two_sided, self.cam.orthographic);
     }
 
     pub fn draw(&mut self, gpu: &mut Gpu, r: &Renderer, s: &mut Session, items: &[DrawItem], scale: f64, realtime: bool) {
@@ -1266,7 +1266,8 @@ impl Viewport {
         }
         r.set_viewport(gpu, x as f32, y as f32, w as f32, h as f32);
         let planar = self.planar.is_some();
-        let view = self.planar.unwrap_or_else(|| self.cam.view());
+        // The planar pass keeps the main camera: the models are mirrored instead.
+        let view = self.cam.view();
         let vp = self.cam.proj((w / h.max(1.0)).max(1e-6)) * view;
         let colors = GridStyle::colors();
         // An orthographic view's grid follows what it shows.
@@ -1295,6 +1296,9 @@ impl Viewport {
             if planar && it.shape == self.planar_skip {
                 continue;
             }
+            // The planar pass mirrors the model, not the camera: positions and normals follow, the view and lights
+            // stay the main pass's (#302).
+            let world = self.planar.map_or(it.world, |m| m * it.world);
             let entry = self.meshes.entry(it.shape).or_insert_with(|| GpuMesh {
                 drawn: None,
                 mesh_gen: 0,
@@ -1501,7 +1505,7 @@ impl Viewport {
                     // Soft selection's falloff in false colour, by softSelect's colour ramp: yellow at the selection
                     // through red to black, to begin with.
                     let pts = components::convert(&it.mesh, mode, comps, ComponentMode::Vertex, false);
-                    let w = aztek_scene::mesh_edit::transform::soft_weights(g, &it.mesh, &it.world, &pts);
+                    let w = aztek_scene::mesh_edit::transform::soft_weights(g, &it.mesh, &world, &pts);
                     let ramp = aztek_scene::soft_select::FalseColors::current();
                     let mut pv = Vec::new();
                     for p in 0..it.mesh.point_capacity() {
@@ -1627,7 +1631,7 @@ impl Viewport {
                 entry.batch_faces = faces;
                 entry.batches = batches;
             }
-            let mvp = vp * it.world;
+            let mvp = vp * world;
             // Paint skin weights: the painted influence's weight in grey, white for 1, as the reference's colour feedback.
             let mut painted = false;
             // The values in grey, white for 1, as the reference's colour feedback; a held influence reads blue.
@@ -1687,7 +1691,7 @@ impl Viewport {
                 }
                 if let Some((vb, ib, n)) = &entry.weight_tris {
                     r.bind(gpu, Kind::ColorTris);
-                    r.push(gpu, &push(mvp, it.world, view, [1.0; 4], 0.0, 1.0));
+                    r.push(gpu, &push(mvp, world, view, [1.0; 4], 0.0, 1.0));
                     r.draw(gpu, vb, Some((ib, *n)), 0);
                     painted = true;
                 }
@@ -1721,7 +1725,7 @@ impl Viewport {
                 let b = gpu.buffer_with(vk::BufferUsageFlags::VERTEX_BUFFER, &v);
                 r.bind(gpu, Kind::Lines);
                 r.set_line_width(gpu, 1.0);
-                r.push(gpu, &push(mvp, it.world, view, [1.0; 4], 1e-3, 1.0));
+                r.push(gpu, &push(mvp, world, view, [1.0; 4], 1e-3, 1.0));
                 r.draw(gpu, &b, None, v.len() as u32);
                 gpu.drop_buffer(b);
                 continue;
@@ -1763,7 +1767,7 @@ impl Viewport {
                     if on_live && self.disp.highlight && self.live.color.is_some() {
                         r.bind(gpu, Kind::Tint);
                         let c = self.live.color.unwrap_or([0.2, 0.42, 0.95]);
-                        let mut pc = push(mvp, it.world, view, [c[0], c[1], c[2], self.live.alpha.unwrap_or(1.0)], retopo, 1.0);
+                        let mut pc = push(mvp, world, view, [c[0], c[1], c[2], self.live.alpha.unwrap_or(1.0)], retopo, 1.0);
                         pc.n2[3] = self.disp.flat as i32 as f32;
                         flip(&mut pc);
                         r.push(gpu, &pc);
@@ -1771,14 +1775,14 @@ impl Viewport {
                     } else if self.disp.xray || obj_xray {
                         // X-Ray: see-through, no sorting.
                         r.bind(gpu, Kind::Tint);
-                        let mut pc = push(mvp, it.world, view, [0.55, 0.55, 0.55, 0.45], retopo, 1.0);
+                        let mut pc = push(mvp, world, view, [0.55, 0.55, 0.55, 0.45], retopo, 1.0);
                         pc.n2[3] = self.disp.flat as i32 as f32;
                         flip(&mut pc);
                         r.push(gpu, &pc);
                         r.draw(gpu, vb, Some((ib, *n)), 0);
                     } else if self.disp.default_material && (self.disp.light_mode == crate::lighting::LightMode::Default || !r.materials) && !(checker_set.is_some() && checkered) {
                         r.bind(gpu, if self.disp.backface || obj_cull { Kind::ShadedCull } else { Kind::Shaded });
-                        let mut pc = push(mvp, it.world, view, [0.5, 0.5, 0.5, 1.0], retopo, 1.0);
+                        let mut pc = push(mvp, world, view, [0.5, 0.5, 0.5, 1.0], retopo, 1.0);
                         pc.n2[3] = self.disp.flat as i32 as f32;
                         flip(&mut pc);
                         r.push(gpu, &pc);
@@ -1810,7 +1814,7 @@ impl Viewport {
                             None if partial.is_some() => (None, &[]),
                             None => (entry.batch_ib.as_ref(), &batches),
                         };
-                        let depth = (view * it.world.w_axis).z;
+                        let depth = (view * world.w_axis).z;
                         for (bi, b) in draw_list.iter().enumerate() {
                             let green = no_material();
                             let grey = default_grey();
@@ -1826,10 +1830,16 @@ impl Viewport {
                             } else {
                                 self.mats.materials.get(&b.group).or(self.mats.fallback.as_ref()).unwrap_or(&green)
                             };
+                            // A flat colour for measuring the mirrored pass; not used for the normal picture.
+                            let flat = if planar { self.planar_debug_color.map(|c| DrawMaterial { unlit: true, color: c, ..no_material() }) } else { None };
+                            let m = flat.as_ref().unwrap_or(m);
                             if self.back && m.pbr.transmission_weight > 0.5 {
                                 continue;
                             }
-                            let mut pc = push(mvp, it.world, view, [m.color[0], m.color[1], m.color[2], 1.0], retopo, 1.0);
+                            // The mirrored vertex keeps the real model's normal: the planar image is the real scene's
+                            // shading, mirrored about the floor, which is what the floor shows (#302).
+                            let shade = if planar { it.world } else { world };
+                            let mut pc = push(mvp, shade, view, [m.color[0], m.color[1], m.color[2], 1.0], retopo, 1.0);
                             pc.n2[3] = self.disp.flat as i32 as f32;
                             flip(&mut pc);
                             let (mut mp, clear) = material_push(pc, m, if checker_sets.is_some() { checker_sets.as_ref() } else if plain { None } else { self.mats.sets.get(&b.group).filter(|_| style.textured) });
@@ -1839,7 +1849,7 @@ impl Viewport {
                             let refractive = realtime && r.realtime && m.pbr.transmission_weight > 0.5;
                             // The isolated draws are for this frame only, so see-through ones go now rather than later.
                             if clear && !refractive && shown_batches.is_none() && r.materials {
-                                transparent.push(Clear { shape: it.shape, world: it.world, batch: bi, depth, retopo });
+                                transparent.push(Clear { shape: it.shape, world, batch: bi, depth, retopo });
                                 continue;
                             }
                             let (Some(ib), Some(uvs)) = (draw_ib, entry.uvs.as_ref()) else { continue };
@@ -1853,7 +1863,8 @@ impl Viewport {
                                     (false, false) => Kind::MaterialBlend,
                                     (false, true) => Kind::MaterialBlendCull,
                                 };
-                                let lights = self.lit.as_ref().map_or(vk::DescriptorSet::null(), |l| l.set);
+                                // The planar draw has no shadow map: its shadow would be sampled at the mirrored point.
+                                let lights = self.lit.as_ref().map_or(vk::DescriptorSet::null(), |l| if planar { l.planar_set } else { l.set });
                                 if realtime && r.realtime {
                                     let env = self.lit.as_ref().and_then(|l| l.env_set).unwrap_or(white);
                                     let shadow = self.rt_shadow_set.unwrap_or(white);
@@ -1885,12 +1896,12 @@ impl Viewport {
                     if !planar && !self.back {
                     if let Some((ti, tn)) = &entry.mirror_tint {
                         r.bind(gpu, Kind::Tint);
-                        r.push(gpu, &push(mvp, it.world, view, [0.2, 0.6, 1.0, 0.45], 2e-4, 1.0));
+                        r.push(gpu, &push(mvp, world, view, [0.2, 0.6, 1.0, 0.45], 2e-4, 1.0));
                         r.draw(gpu, vb, Some((ti, *tn)), 0);
                     }
                     if let Some((ti, tn)) = &entry.tint {
                         r.bind(gpu, Kind::Tint);
-                        r.push(gpu, &push(mvp, it.world, view, [1.0, 0.45, 0.05, 0.45], 2e-4, 1.0));
+                        r.push(gpu, &push(mvp, world, view, [1.0, 0.45, 0.05, 0.45], 2e-4, 1.0));
                         r.draw(gpu, vb, Some((ti, *tn)), 0);
                     }
                     }
@@ -1915,7 +1926,7 @@ impl Viewport {
                     let b = gpu.buffer_with(vk::BufferUsageFlags::VERTEX_BUFFER, &lv);
                     r.bind(gpu, Kind::Lines);
                     r.set_line_width(gpu, 1.0);
-                    r.push(gpu, &push(mvp, it.world, view, [1.0; 4], 1.5e-3 + retopo, 1.0));
+                    r.push(gpu, &push(mvp, world, view, [1.0; 4], 1.5e-3 + retopo, 1.0));
                     r.draw(gpu, &b, None, lv.len() as u32);
                     gpu.drop_buffer(b);
                 }
@@ -1923,13 +1934,13 @@ impl Viewport {
             if let Some((lb, ln)) = entry.lines.as_ref().filter(|_| overlay.is_none() && !planar && !self.back) {
                 r.bind(gpu, if self.disp.xray_active && hilited { Kind::LinesOnTop } else { Kind::Lines });
                 r.set_line_width(gpu, if selected && mode == ComponentMode::Object { 1.5 } else { 1.0 });
-                r.push(gpu, &push(mvp, it.world, view, [1.0; 4], 1.5e-3 + retopo, 1.0));
+                r.push(gpu, &push(mvp, world, view, [1.0; 4], 1.5e-3 + retopo, 1.0));
                 r.draw(gpu, lb, None, *ln);
             }
             if !planar && !self.back {
                 if let Some((pb, pn)) = &entry.points {
                     r.bind(gpu, if self.disp.xray_active && hilited { Kind::PointsOnTop } else { Kind::Points });
-                    r.push(gpu, &push(mvp, it.world, view, [1.0; 4], 2e-3, (5.0 * scale) as f32));
+                    r.push(gpu, &push(mvp, world, view, [1.0; 4], 2e-3, (5.0 * scale) as f32));
                     r.draw(gpu, pb, None, *pn);
                 }
             }

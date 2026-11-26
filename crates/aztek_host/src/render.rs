@@ -1163,7 +1163,13 @@ impl Renderer {
                             .color_write_mask(vk::ColorComponentFlags::RGBA)];
                         let cb = vk::PipelineColorBlendStateCreateInfo::default().attachments(&blend);
                         let ms = vk::PipelineMultisampleStateCreateInfo::default().rasterization_samples(vk::SampleCountFlags::TYPE_1);
-                        let info = info.color_blend_state(&cb).multisample_state(&ms).render_pass(gpu.planar_pass);
+                        // The mirror flips the winding: both sides are drawn, the shader turns the normal to the eye.
+                        let rs = vk::PipelineRasterizationStateCreateInfo::default()
+                            .polygon_mode(vk::PolygonMode::FILL)
+                            .cull_mode(vk::CullModeFlags::NONE)
+                            .front_face(vk::FrontFace::CLOCKWISE)
+                            .line_width(1.0);
+                        let info = info.color_blend_state(&cb).multisample_state(&ms).rasterization_state(&rs).render_pass(gpu.planar_pass);
                         let p = d.create_graphics_pipelines(vk::PipelineCache::null(), &[info], None).map_err(|e| e.1).unwrap()[0];
                         rt_planar_pipelines.push((kind, p));
                     }

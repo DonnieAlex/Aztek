@@ -349,9 +349,9 @@ impl View {
         // The post pass reads the scene's images, its material and the sky dome the reflections fall back on.
         let (env, env_rot, env_set) = self.vp.lit.as_ref().map(|l| l.environment()).unwrap_or(([0.0; 4], [0.0, 0.0, 0.0, 1.0], None));
         self.post.bind_images(&self.gpu, env_set);
-        let proj_now = self.vp.cam.proj(self.vp.aspect());
-        let (reflector, reflector_up) = ground_reflector(&items);
-        let planar_on = realtime && reflector != aztek_scene::plug::NO_NODE && self.vp.needs_planar();
+        let (reflector, reflector_up, reflector_point) = ground_reflector(&items);
+        let planar_on = realtime && reflector != aztek_scene::plug::NO_NODE;
+        self.vp.planar_debug_color = std::env::var("AZTEK_PLANAR_DEBUG_COLOR").ok().map(|_| [0.0, 1.0, 0.0]);
         // What glass lets through: the scene without its transmissive surfaces, drawn from the camera's own view
         // and lights (#302). Nothing is drawn when no material transmits.
         if realtime && self.vp.needs_back() {
@@ -364,17 +364,25 @@ impl View {
         // The ground plane's reflection: the scene mirrored below the world's ground, drawn before the camera's own view
         // so the floor can read what it reflects (#302).
         if planar_on {
-            let mirror = if reflector_up[2].abs() > 0.5 { DMat4::from_scale(DVec3::new(1.0, 1.0, -1.0)) } else { DMat4::from_scale(DVec3::new(1.0, -1.0, 1.0)) };
-            let planar_view = self.vp.cam.view() * mirror;
+            let up = DVec3::new(reflector_up[0] as f64, reflector_up[1] as f64, reflector_up[2] as f64);
+            let point = DVec3::new(reflector_point[0], reflector_point[1], reflector_point[2]);
+            let mut r = DMat4::IDENTITY;
+            for i in 0..3 {
+                for j in 0..3 {
+                    r.col_mut(i)[j] = if i == j { 1.0 } else { 0.0 } - 2.0 * up[i] * up[j];
+                }
+            }
+            let mirror = DMat4::from_translation(point) * r * DMat4::from_translation(-point);
             self.vp.planar_skip = reflector;
-            self.vp.planar = Some(planar_view);
-            self.vp.write_lights_for(&mut core.s, &items, planar_view, proj_now);
+            self.vp.planar = Some(mirror);
+            // The mirrored side facing the floor is the real underside, which the main light does not reach: a plain
+            // fill stands in for the floor's bounce. The view stays the main one.
+            let proj_main = self.vp.cam.proj(self.vp.aspect());
+            self.vp.write_lights_for(&mut core.s, &items, self.vp.cam.view(), proj_main, self.vp.disp.light_mode);
             self.gpu.begin_planar();
             self.vp.draw(&mut self.gpu, &self.r, &mut core.s, &items, self.dpr, realtime);
             self.gpu.end_planar();
             self.vp.planar = None;
-            // The camera's own lights and shadow map, for the view that follows.
-            self.vp.prepare_lights(&self.gpu, &self.r, &mut core.s, &items, realtime);
         }
         // The shadow map is drawn before the scene's pass, with the lights read.
         if realtime {
@@ -2777,8 +2785,8 @@ pub fn finish_joint_chain(core: &mut Core) {
 /// Component names with their mirror images, on meshes whose symmetry is on.
 /// The mesh a ground plane's reflection is for: the widest flat one at the world's ground, along either up axis, and
 /// that axis. Its own image would hide everything the mirrored scene puts below it (#302).
-fn ground_reflector(items: &[crate::viewport::DrawItem]) -> (aztek_scene::plug::NodeId, [f32; 3]) {
-    let mut best = (aztek_scene::plug::NO_NODE, [0.0, 1.0, 0.0], 0.0);
+fn ground_reflector(items: &[crate::viewport::DrawItem]) -> (aztek_scene::plug::NodeId, [f32; 3], [f64; 3]) {
+    let mut best = (aztek_scene::plug::NO_NODE, [0.0, 1.0, 0.0], 0.0, [0.0; 3]);
     for it in items {
         let b = it.mesh.bounds();
         let (lo, hi) = (it.world.transform_point3(b.min), it.world.transform_point3(b.max));
@@ -2791,11 +2799,13 @@ fn ground_reflector(items: &[crate::viewport::DrawItem]) -> (aztek_scene::plug::
             let (a, c) = if axis == 1 { (0, 2) } else { (0, 1) };
             let area = ((hi[a] - lo[a]) * (hi[c] - lo[c])).abs();
             if area > best.2 {
-                best = (it.shape, up, area);
+                let mut point = [(lo.x + hi.x) * 0.5, (lo.y + hi.y) * 0.5, (lo.z + hi.z) * 0.5];
+                point[axis] = hi[axis];
+                best = (it.shape, up, area, point);
             }
         }
     }
-    (best.0, best.1)
+    (best.0, best.1, best.3)
 }
 
 fn with_mirror_images(core: &mut Core, picked: Vec<String>) -> Vec<String> {

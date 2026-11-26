@@ -1339,11 +1339,16 @@ impl Gpu {
     /// Begins the ground plane's reflection pass: the scene mirrored below the plane, into `planar_image` (#302).
     pub fn begin_planar(&mut self) {
         unsafe {
+            let clears = [
+                vk::ClearValue { color: vk::ClearColorValue { float32: [0.0; 4] } },
+                vk::ClearValue { depth_stencil: vk::ClearDepthStencilValue { depth: 0.0, stencil: 0 } },
+            ];
             self.device.cmd_begin_render_pass(
                 self.cmd,
                 &vk::RenderPassBeginInfo::default()
                     .render_pass(self.planar_pass)
                     .framebuffer(self.planar_framebuffer)
+                    .clear_values(&clears)
                     .render_area(vk::Rect2D { offset: vk::Offset2D::default(), extent: self.extent }),
                 vk::SubpassContents::INLINE,
             );
