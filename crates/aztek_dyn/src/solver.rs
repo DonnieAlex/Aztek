@@ -523,6 +523,18 @@ impl Solver {
         }
     }
 
+    /// Particles added to a body between frames, as the emit command adds them: laid out at once, the living ones
+    /// kept as they are. Returns the places in the particle arrays of those added, in the order given.
+    pub fn emit_now(&mut self, b: usize, points: &[(DVec3, DVec3)]) -> Vec<usize> {
+        let Some(body) = self.bodies.get(b) else { return Vec::new() };
+        let first = body.next_id;
+        self.add_particles_now(b, points);
+        self.layout(false, 0.0);
+        self.learn_all_sides();
+        let body = &self.bodies[b];
+        (body.start..body.start + body.count).filter(|&i| self.pt.id[i] >= first).collect()
+    }
+
     pub fn positions(&self, b: usize) -> &[DVec3] {
         let body = &self.bodies[b];
         if body.kind == BodyKind::Collider {

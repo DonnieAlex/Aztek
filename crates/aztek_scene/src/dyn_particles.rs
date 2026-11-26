@@ -1,6 +1,6 @@
 //! Particle, emitter, field and cache commands, under the old systems' names so their scripts run: `particle`,
 //! `nParticle`, `emitter`, `gravity`, `air`, `drag`, `newton`, `radial`, `turbulence`, `uniform`, `vortex`,
-//! `volumeAxis`, `connectDynamic`, `getParticleAttr`, `setParticleAttr`, `dynExpression`; and `dynCache` for disk
+//! `volumeAxis`, `connectDynamic`, `emit`, `getParticleAttr`, `setParticleAttr`, `dynExpression`; and `dynCache` for disk
 //! caches.
 
 use aztek_ops::{fail, ArgType, Args, CmdResult, Commands};
@@ -347,6 +347,130 @@ fn write_particles_with(g: &mut Graph, p: NodeId, at: &str, ids: Option<Vec<usiz
     }
     drop(st);
     Ok(changed)
+}
+
+/// One value given to emit: a number or a vector.
+#[derive(Clone, Copy)]
+enum Given {
+    Float(f64),
+    Vector(DVec3),
+}
+
+/// The per particle attributes emit can set here, and whether each is a vector.
+const EMIT_ATTRS: &[(&str, bool)] = &[("position", true), ("velocity", true), ("rgbPP", true), ("opacityPP", false), ("lifespanPP", false), ("radiusPP", false), ("mass", false)];
+
+/// emit -o particle1 -pos 1 1 1 -pos 2 2 2 -at velocity -vv 1 2 3: particles added to particles that exist, at the
+/// positions given, one each. The values after an -attribute go to the new particles in turn; the rest take the last.
+/// An -attribute given again picks up where it left off. Returns the new particles' ids.
+fn emit(s: &mut Session, a: &Args) -> CmdResult {
+    // The object is named with -object; the selection is not used.
+    let Some(object) = a.get("object").and_then(Value::as_str).map(str::to_string) else { fail!("emit: name the particles with -object") };
+    let g = &mut s.graph;
+    let p = particles_named(g, &object)?;
+    let Some(sv) = solver_of(g, p) else { fail!("emit: {object} is in no solver") };
+    let positions = uses(a, "position", 3);
+    let attrs: Vec<String> = match a.get("attribute") {
+        Some(Value::String(t)) => vec![t.clone()],
+        Some(Value::Array(list)) => list.iter().filter_map(Value::as_str).map(str::to_string).collect(),
+        _ => Vec::new(),
+    };
+    let floats: Vec<f64> = uses(a, "floatValue", 1).into_iter().map(|v| v[0]).collect();
+    let vectors: Vec<DVec3> = uses(a, "vectorValue", 3).into_iter().map(|v| DVec3::new(v[0], v[1], v[2])).collect();
+    // Each attribute's values in the order given. MEL passes the flags' order; without it (Python) one attribute
+    // takes the vectors, then the numbers.
+    let mut streams: Vec<(String, Vec<Given>)> = Vec::new();
+    let order: Vec<String> = match a.get("flagOrder") {
+        Some(Value::Array(list)) => list.iter().filter_map(Value::as_str).map(str::to_string).collect(),
+        _ => Vec::new(),
+    };
+    let stream = |streams: &mut Vec<(String, Vec<Given>)>, at: &str| -> usize {
+        match streams.iter().position(|(n, _)| n == at) {
+            Some(k) => k,
+            None => {
+                streams.push((at.to_string(), Vec::new()));
+                streams.len() - 1
+            }
+        }
+    };
+    if !order.is_empty() {
+        let (mut na, mut nf, mut nv) = (0, 0, 0);
+        let mut current: Option<usize> = None;
+        for flag in &order {
+            match flag.as_str() {
+                "attribute" => {
+                    if let Some(at) = attrs.get(na) {
+                        current = Some(stream(&mut streams, at));
+                    }
+                    na += 1;
+                }
+                "floatValue" | "vectorValue" => {
+                    let given = if flag == "floatValue" {
+                        nf += 1;
+                        floats.get(nf - 1).map(|&x| Given::Float(x))
+                    } else {
+                        nv += 1;
+                        vectors.get(nv - 1).map(|&v| Given::Vector(v))
+                    };
+                    let Some(k) = current else { fail!("emit: -{flag} needs an -attribute before it") };
+                    if let Some(v) = given {
+                        streams[k].1.push(v);
+                    }
+                }
+                _ => {}
+            }
+        }
+    } else if !floats.is_empty() || !vectors.is_empty() {
+        if attrs.len() != 1 {
+            fail!("emit: without the flags' order, give one -attribute with its values");
+        }
+        let k = stream(&mut streams, &attrs[0]);
+        streams[k].1.extend(vectors.iter().map(|&v| Given::Vector(v)).chain(floats.iter().map(|&x| Given::Float(x))));
+    } else {
+        for at in &attrs {
+            stream(&mut streams, at);
+        }
+    }
+    for (at, _) in &streams {
+        if !EMIT_ATTRS.iter().any(|(n, _)| n == at) {
+            fail!("emit: {at} is not a per particle attribute of {object} that emit can set");
+        }
+    }
+    // Lengths and speeds come in the current unit from a script; the solver works in metres.
+    let mpu = crate::dyn_solve::metres(g, sv);
+    let user = if aztek_ops::units::user_call() { aztek_ops::units::cm_per_unit() } else { 1.0 };
+    let list: Vec<crate::dyn_solve::Emitted> = positions
+        .iter()
+        .enumerate()
+        .map(|(k, pos)| {
+            let values = streams
+                .iter()
+                .filter_map(|(at, vals)| {
+                    let v = vals.get(k).or(vals.last())?;
+                    let vector = EMIT_ATTRS.iter().any(|(n, vec)| n == at && *vec);
+                    // A number for a vector goes on each axis; a vector for a number gives its length.
+                    let v = match (*v, vector) {
+                        (Given::Float(x), _) => DVec3::splat(x),
+                        (Given::Vector(v), true) => v,
+                        (Given::Vector(v), false) => DVec3::splat(v.length()),
+                    };
+                    let scale = if matches!(at.as_str(), "position" | "velocity" | "radiusPP") { user * mpu } else { 1.0 };
+                    Some((at.clone(), v * scale))
+                })
+                .collect();
+            crate::dyn_solve::Emitted { body: p, position: DVec3::new(pos[0], pos[1], pos[2]) * mpu, values }
+        })
+        .collect();
+    if list.is_empty() {
+        return Ok(json!([]));
+    }
+    match crate::dyn_solve::emit(g, p, list) {
+        Ok(Some(ids)) => Ok(json!(ids)),
+        Ok(None) => {
+            log::warn!("emit: {object} takes particles only from its start frame on");
+            Ok(json!([]))
+        }
+        Err(e) => fail!("emit: {e}"),
+    }
 }
 
 /// Per particle attributes the reference lists for -perParticleDouble and -perParticleVector, those this solver keeps.
@@ -830,6 +954,16 @@ pub fn register(c: &mut Commands<Session>) {
             .flag(f("solver", "sv", ArgType::String, "The solver a body with none joins."))
             .flag(f("addScriptHandler", "ash", ArgType::Any, "A Python function that may handle the calls instead, given fields, emitters, collisionObjects and objects as keywords; True says it did. Alone; returns a number for -rsh."))
             .flag(f("removeScriptHandler", "rsh", ArgType::Int, "Take away the handler of this number; an unknown one does nothing. Alone.")),
+    );
+    c.register(
+        Cmd::new("emit", "Add particles to particles that exist: -o the particles, -pos x y z for each new one, then -at an attribute followed by its values, -vv x y z or -fv n, one per new particle in turn. Returns their ids.", emit)
+            .flag(f("object", "o", ArgType::String, "The particle shape, or its transform, to add to. Needed: the selection is not used."))
+            .flag(f("position", "pos", ArgType::List, "Where one new particle goes, in the particles' space (world): x y z. Repeat it, once for each.").multi(3))
+            .flag(f("attribute", "at", ArgType::Any, "The per particle attribute the values after it set: position, velocity, rgbPP, opacityPP, lifespanPP, radiusPP or mass. Repeat it for another.").multi(1))
+            .flag(f("floatValue", "fv", ArgType::Any, "A number for the next new particle's attribute; on each axis of a vector attribute.").multi(1))
+            .flag(f("vectorValue", "vv", ArgType::List, "A vector for the next new particle's attribute; its length for a number attribute.").multi(3))
+            .flag(f("flagOrder", "", ArgType::List, "The flags' order, one name per use: MEL passes it, as the values pair with the attributes by it."))
+            .undoable(false),
     );
     c.register(
         Cmd::new("getParticleAttr", "Per particle values: -at position -a true gives every one; without -a, the mean then the spread.", get_particle_attr)

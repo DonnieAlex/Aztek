@@ -100,6 +100,7 @@ pub const FLAGS: &[Row] = &[
     ("circle", &[("center", Linear), ("centerX", Linear), ("centerY", Linear), ("centerZ", Linear), ("radius", Linear), ("sweep", Angle), ("first", Linear), ("firstPointX", Linear), ("firstPointY", Linear), ("firstPointZ", Linear), ("tolerance", Linear)]),
     ("angleBetween", &[("vector1", Linear), ("vector1X", Linear), ("vector1Y", Linear), ("vector1Z", Linear), ("vector2", Linear), ("vector2X", Linear), ("vector2Y", Linear), ("vector2Z", Linear)]),
     ("nurbsSquare", &[("center", Linear), ("sideLength1", Linear)]),
+    ("emit", &[("position", Linear)]),
     ("sphere", &[("pivot", Linear), ("radius", Linear), ("startSweep", Angle), ("endSweep", Angle)]),
     ("cone", &[("pivot", Linear), ("radius", Linear), ("startSweep", Angle), ("endSweep", Angle)]),
     ("cylinder", &[("pivot", Linear), ("radius", Linear), ("startSweep", Angle), ("endSweep", Angle)]),

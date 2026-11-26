@@ -10768,16 +10768,16 @@ effector	n	done	auto
 effector	name	done	auto
 effector	q	done	auto
 effector	query	done	auto
-emit	at	missing	
-emit	attribute	missing	
-emit	floatValue	missing	
-emit	fv	missing	
-emit	o	missing	
-emit	object	missing	
-emit	pos	missing	
-emit	position	missing	
-emit	vectorValue	missing	
-emit	vv	missing	
+emit	at	done	auto
+emit	attribute	done	auto
+emit	floatValue	done	auto
+emit	fv	done	auto
+emit	o	done	auto
+emit	object	done	auto
+emit	pos	done	auto
+emit	position	done	auto
+emit	vectorValue	done	auto
+emit	vv	done	auto
 emitter	afc	missing	
 emitter	afx	missing	
 emitter	alongAxis	missing	

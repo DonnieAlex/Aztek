@@ -118,6 +118,8 @@
     {"id": "smooth.attr", "area": "smooth", "setup": "polyCube;", "call": "getAttr pCubeShape1.displaySmoothMesh;", "expect": 0},
     {"id": "smooth.level", "area": "smooth", "setup": "polyCube;", "call": "getAttr pCubeShape1.smoothLevel;", "expect": 2},
     {"id": "smooth.query", "area": "smooth", "setup": "polyCube; displaySmoothness -po 3 pCube1;", "call": "displaySmoothness -q -po pCube1;", "expect": [3]},
-    {"id": "smooth.query.attr", "area": "smooth", "setup": "polyCube; displaySmoothness -po 3 pCube1;", "call": "getAttr pCubeShape1.displaySmoothMesh;", "expect": 2}
+    {"id": "smooth.query.attr", "area": "smooth", "setup": "polyCube; displaySmoothness -po 3 pCube1;", "call": "getAttr pCubeShape1.displaySmoothMesh;", "expect": 2},
+    {"id": "emit.ids", "area": "emit", "setup": "particle; currentTime 1;", "call": "emit -o particle1 -pos 1 1 1 -pos 2 2 2;", "expect": [0, 1]},
+    {"id": "emit.before_start", "area": "emit", "setup": "particle; currentTime -5;", "call": "emit -o particle1 -pos 1 1 1;", "expect": []}
   ]
 }
