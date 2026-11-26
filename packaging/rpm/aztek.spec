@@ -17,7 +17,7 @@ Version:        %{aztek_version}
 Release:        1%{?dist}
 Summary:        Modelling, UV, rigging and animation application
 License:        MIT-0
-URL:            https://github.com/srlegrand/AKA-Crest-Aztek
+URL:            https://github.com/srlegrand/Aztek
 ExclusiveArch:  x86_64
 
 BuildRequires:  cmake >= 3.21

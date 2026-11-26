@@ -122,7 +122,7 @@ and what happens after you send it.
 <summary><h3>By hand: build it, change it, send a patch or a pull request</h3></summary>
 
 1. **Get the tools, the source, and build it.** You need `git`, and `gh` (GitHub's command line tool) if you will
-   send a pull request. What the build itself needs is under [Build](#build).
+   send a pull request. What the build itself needs is under [Build Linux](#build-linux).
 
    Linux:
 
@@ -143,7 +143,7 @@ and what happens after you send it.
    `git clone` asks to install Xcode's command line tools the first time: install them and run it again. The build
    script installs Homebrew and the rest. For `gh`, run `brew install gh` in a new terminal.
 
-   Windows, from PowerShell, with Visual Studio 2022 and Qt installed as [Build](#build) says:
+   Windows, from PowerShell, with Visual Studio 2022 installed as [Build Windows](#build-windows) says:
 
        winget install --id Git.Git
        winget install --id GitHub.cli
@@ -637,16 +637,16 @@ source is pointed at `git pull`. It goes through the proxy in `HTTPS_PROXY`, min
 | System | Package | Install |
 | --- | --- | --- |
 | Rocky Linux 8 | `aztek-<version>-1.el8.x86_64.rpm` | `sudo dnf install ./aztek-*.el8.x86_64.rpm` |
-| Rocky Linux 9 | `aztek-<version>-1.el9.x86_64.rpm` | `sudo dnf install epel-release`, then `sudo dnf install ./aztek-*.el9.x86_64.rpm` |
+| Rocky Linux 9 | `aztek-<version>-1.el9.x86_64.rpm` | `sudo dnf install ./aztek-*.el9.x86_64.rpm` |
 | Ubuntu 24.04, 26.04 | `aztek_<version>-1_ubuntu24.04_amd64.deb`, `..._ubuntu26.04_...` | `sudo apt install ./aztek_*.deb` |
 | Any other Linux, x86_64 | `aztek-<version>-x86_64.AppImage` | `chmod +x aztek-*.AppImage`, then run it (Qt, Python and PySide6 are inside) |
 | Linux on 64-bit ARM, glibc 2.34+ (early) | `aztek-<version>-aarch64.AppImage` | `chmod +x aztek-*.AppImage`, then run it. Needs a Vulkan driver (Mesa's on a Raspberry Pi 5, Asahi, Snapdragon laptops) |
 | Windows 10 and 11 | `aztek-<version>-setup-x64.exe`, or the zip | Run it. It isn't signed, so SmartScreen asks first: see [Running unsigned builds](#running-unsigned-builds). Its "Add Aztek to PATH" puts the install's `bin` on PATH, so `aztek`, `aztekpy` and `harold` work from any prompt |
 | macOS 14+, Apple silicon (early) | `aztek-macos-arm64.zip` | Unzip and open Aztek.app. It isn't notarized, so macOS blocks it the first time: see [Running unsigned builds](#running-unsigned-builds) |
 
-Every package carries Python 3.13 and Qt and PySide6/shiboken6 6.8.3, the VFX Reference Platform CY2027's versions.
-None needs Qt or Python installed. The ARM AppImage is the other exception: it uses
-Rocky 9's Qt and has no PySide6, as there is no arm64 Linux kit or wheel.
+Every package except the ARM AppImage carries Python 3.13 and Qt and PySide6/shiboken6 6.8.3, the VFX Reference
+Platform CY2027's versions. None needs Qt or Python installed. The ARM AppImage is the exception: it carries Rocky 9's
+Qt and has no PySide6, as there is no arm64 Linux kit or wheel.
 
 The viewport needs a Vulkan driver: NVIDIA's own driver has one, and Mesa's `mesa-vulkan-drivers` covers AMD and Intel. On macOS it
 draws through MoltenVK, which comes inside Aztek.app. On Windows the graphics card's own driver brings it; Intel graphics
