@@ -64,6 +64,17 @@ pub struct State {
     pub results: usize,
     /// Collisions each particle has had since the start, by particles node and particle id, for collision events.
     pub collisions: HashMap<(NodeId, u64), u32>,
+    /// Particles emit added at the start frame: added again each time the start is laid out, until the solve moves on.
+    pub start_emits: Vec<Emitted>,
+}
+
+/// One particle the emit command adds: its body, where it is (in the solver's metres) and its other values by
+/// attribute, in the solver's units.
+#[derive(Clone, Debug)]
+pub struct Emitted {
+    pub body: NodeId,
+    pub position: DVec3,
+    pub values: Vec<(String, DVec3)>,
 }
 
 /// A hash of which points each face uses: the same for a mesh rebuilt the same way, as a smooth under a skin is
@@ -761,6 +772,17 @@ fn run(g: &mut Graph, s: NodeId) {
                 solver.layout_now();
             }
         }
+        // Particles emit added here are added again, after those, in the same order and so with the same ids.
+        for b in st.bodies.iter().filter(|b| b.kind == Kind::Particles) {
+            let mine: Vec<&Emitted> = st.start_emits.iter().filter(|e| e.body == b.node).collect();
+            if !mine.is_empty() {
+                let pts: Vec<(DVec3, DVec3)> = mine.iter().map(|e| (e.position, DVec3::ZERO)).collect();
+                let at = solver.emit_now(b.index, &pts);
+                for (e, i) in mine.iter().zip(at) {
+                    set_emitted(&mut solver.pt, i, &e.values);
+                }
+            }
+        }
         st.cache.clear();
         st.collisions.clear();
         st.last = Some(frame_no);
@@ -771,6 +793,8 @@ fn run(g: &mut Graph, s: NodeId) {
     } else if let Some(f) = st.cache.get(&key(frame_no)) {
         Some(f.clone())
     } else if frame_no > st.last.unwrap() && !g.sampling() {
+        // Emitted particles are in the solve from here on; back at the start they are gone.
+        st.start_emits.clear();
         feed(g, &mut st, mpu);
         let fps = crate::anim::fps().max(1e-6);
         let dt = (frame_no - st.last.unwrap()).min(1.0) / fps * num(g, s, "timeScale", 1.0);
@@ -815,6 +839,98 @@ fn run(g: &mut Graph, s: NodeId) {
         publish(g, &f);
         g.touch(s);
     }
+}
+
+/// Sets the values emit gives a new particle, in the solver's units.
+fn set_emitted(pt: &mut aztek_dyn::solver::Particles, i: usize, values: &[(String, DVec3)]) {
+    for (at, v) in values {
+        match at.as_str() {
+            "position" => {
+                pt.x[i] = *v;
+                pt.p[i] = *v;
+            }
+            "velocity" => pt.v[i] = *v,
+            "rgbPP" => pt.rgb[i] = *v,
+            "opacityPP" => pt.opacity[i] = v.x,
+            "lifespanPP" => pt.life[i] = v.x,
+            "radiusPP" => pt.radius[i] = v.x,
+            "mass" => pt.inv_mass[i] = if v.x > 0.0 { 1.0 / v.x } else { 0.0 },
+            _ => {}
+        }
+    }
+}
+
+/// Adds particles to a particle body now, as the emit command does, and returns their ids. Before the solver's start
+/// frame nothing is added (None). At the start frame they are kept and laid out with the start each time, until the
+/// solve moves on; later, they join the solve where it is. Either way going back to the start loses them.
+pub fn emit(g: &mut Graph, body: NodeId, list: Vec<Emitted>) -> Result<Option<Vec<u64>>, String> {
+    let name = g.path(body);
+    let Some(sv) = crate::dyn_cmds::solver_of(g, body) else { return Err(format!("{name} is in no solver")) };
+    g.evaluate();
+    let frame_no = crate::anim::frame(g);
+    let start = num(g, sv, "startFrame", 1.0);
+    if frame_no < start - 1e-6 {
+        return Ok(None);
+    }
+    let mpu = metres(g, sv);
+    let keeps_frames = flag(g, body, "cacheData", true);
+    let Some(n) = g.node(sv).and_then(|n| n.behavior().as_any().downcast_ref::<SolverNode>()) else { return Err(format!("{name} has no solver")) };
+    let mut st = std::mem::take(&mut *n.state.lock().unwrap());
+    let put_back = |g: &mut Graph, st: State| {
+        if let Some(n) = g.node(sv).and_then(|n| n.behavior().as_any().downcast_ref::<SolverNode>()) {
+            *n.state.lock().unwrap() = st;
+        }
+    };
+    let Some(b) = st.bodies.iter().find(|b| b.node == body).map(|b| b.index) else {
+        put_back(g, st);
+        return Err(format!("{name} has not been solved yet"));
+    };
+    if st.solver.is_none() {
+        put_back(g, st);
+        return Err(format!("{name} has not been solved yet"));
+    }
+    let count = list.len();
+    if frame_no <= start + 1e-6 || st.last.is_none() {
+        // At the start: kept, and the start laid out again with them.
+        st.start_emits.extend(list);
+        st.shown = None;
+        put_back(g, st);
+        g.touch(sv);
+        g.evaluate();
+        let ids = with_state(g, sv, |st| {
+            let s = st.solver.as_ref().unwrap();
+            let body = &s.bodies[b];
+            let r = body.start..body.start + body.count;
+            let ids = &s.pt.id[r];
+            ids[ids.len().saturating_sub(count)..].to_vec()
+        });
+        return Ok(Some(ids.unwrap_or_default()));
+    }
+    if st.last.is_some_and(|l| (l - frame_no).abs() > 1e-6) {
+        let at = st.last.unwrap_or(frame_no);
+        put_back(g, st);
+        return Err(format!("the solve of {name} is at frame {at}: emit there, or after it"));
+    }
+    let solver = st.solver.as_mut().unwrap();
+    let pts: Vec<(DVec3, DVec3)> = list.iter().map(|e| (e.position, DVec3::ZERO)).collect();
+    let at = solver.emit_now(b, &pts);
+    for (e, &i) in list.iter().zip(&at) {
+        set_emitted(&mut solver.pt, i, &e.values);
+    }
+    let ids: Vec<u64> = at.iter().map(|&i| solver.pt.id[i]).collect();
+    // Shown at once: this frame's result made again, and kept in place of the old one.
+    let f = Arc::new(outputs(g, &st, false, mpu));
+    st.results += 1;
+    let k = key(frame_no);
+    st.cache.retain(|&c, _| c < k);
+    if keeps_frames {
+        st.cache.insert(k, f.clone());
+    }
+    st.shown = Some((k, st.results));
+    put_back(g, st);
+    publish(g, &f);
+    g.touch(sv);
+    Ok(Some(ids))
 }
 
 /// Runs a solver's state through `f`, for commands that read it.

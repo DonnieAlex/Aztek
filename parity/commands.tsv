@@ -309,7 +309,7 @@ editRenderLayerMembers	missing
 editor	missing	
 editorTemplate	done	auto
 effector	done	auto
-emit	missing	
+emit	done	auto
 emitter	done	auto
 enableDevice	missing	
 encodeString	done	auto

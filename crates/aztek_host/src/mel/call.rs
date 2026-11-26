@@ -364,6 +364,9 @@ pub fn build(cmds: &Commands<Session>, typed: &str, toks: &[Tok]) -> Result<(Str
     let e_own = short_is_own(def, "e", "edit");
     let edit = !e_own && toks.iter().any(|t| matches!(flag_of(t), Some("e" | "edit")));
     let mut asked = Vec::new();
+    // A command whose values pair with other flags by their order (emit -at velocity -vv ..) is given that order.
+    let keep_order = def.flags.iter().any(|d| d.name == "flagOrder");
+    let mut order = Vec::new();
     let mut i = 0;
     while i < toks.len() {
         let t = &toks[i];
@@ -476,6 +479,9 @@ pub fn build(cmds: &Commands<Session>, typed: &str, toks: &[Tok]) -> Result<(Str
         i += 1;
         let own = |w: &str| def.flags.iter().any(|d| d.name == w || d.short_name == w) || matches!(w, "q" | "query" | "e" | "edit");
         let v = flag_value(fd, &name, toks, &mut i, &own)?;
+        if keep_order {
+            order.push(json!(fd.name.clone()));
+        }
         if fd.arity > 0 {
             // A multi-use flag gathers its uses into one flat list.
             if let (Some(Value::Array(have)), Value::Array(more)) = (flags.get_mut(&fd.name), &v) {
@@ -492,6 +498,9 @@ pub fn build(cmds: &Commands<Session>, typed: &str, toks: &[Tok]) -> Result<(Str
         flags.insert(if rel { "by" } else { "to" }.into(), Value::Array(v));
     }
     flags.remove("_relative");
+    if keep_order && !order.is_empty() {
+        flags.insert("flagOrder".into(), Value::Array(order));
+    }
     if !args.is_empty() {
         flags.insert("args".into(), Value::Array(args));
     }

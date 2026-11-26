@@ -4565,3 +4565,17 @@ Root twist mode, Twist type), kept between sessions in ikSplineHandleContext, wi
 reference greys them. `IKSplineHandleTool` starts it. The defaults are those ikSplineHandleCtx documents; Snap curve
 to root off is unverified. Not yet: Create IK Handle is still a command on two selected joints, not the IK Handle
 Tool; Auto simplify curve and Root twist mode are passed on but don't change the solve.
+
+### What changed (26/11/2026, emit)
+
+`emit`, as the reference's documentation describes it: particles added to a particle object that exists, one for
+each `-position`, with `-attribute` and the `-vectorValue` and `-floatValue` after it giving each new particle its
+value in turn. Particles past the last value take the last one; an `-attribute` given again picks up where it left
+off; a number for a vector attribute goes on each axis and a vector for a number attribute gives its length.
+`-object` (shape or transform) is needed, as the selection is not used. It returns the new particles' ids. Added at
+the start frame they stay until the solve moves on; added later they join the solve where it is; either way going
+back to the start loses them, as they are not part of the initial state. MEL passes the flags' order to the command;
+a Python call has no order, so it takes one attribute, its vectors then its numbers. Attributes it can set here:
+position, velocity, rgbPP, opacityPP, lifespanPP, radiusPP and mass, by their long names. Differs: not undoable yet.
+Unverified (WANTED.md): what happens before the start frame (here a warning and an empty array), short attribute
+names, Python with several attributes.
