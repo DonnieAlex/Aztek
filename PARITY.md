@@ -4541,3 +4541,11 @@ compare API and are listed under the running version's "-- not released yet" hea
 the release it names. A build whose commit isn't on GitHub, one from a fork say, still shows the upstream's releases.
 A 403 names GitHub's hourly limit for unsigned requests and asks for a wait, rather than reading as a broken server.
 
+
+### What changed (26/11/2026, #315)
+
+A machine with no Vulkan driver: Vulkan is tried once, the Script Editor says so once (the error and a line saying to
+install the graphics card's driver) instead of once a repaint, and each view paints the reason and what to do in
+place of a black panel. The rest of the application already worked without it. Not yet: the reference's viewport also
+draws through OpenGL and DirectX 11, so a graphics chip with no Vulkan driver at all (Intel before the 6th generation,
+on Windows) draws there and not here.

@@ -95,6 +95,9 @@ pub(crate) struct Host {
     views: HashMap<i32, Box<View>>,
     next_view: i32,
     shared: Option<Arc<Shared>>,
+    /// Why Vulkan could not start, once it has failed: it is tried once, so the history says it once, and the views
+    /// show it in place of a picture.
+    gpu_error: Option<String>,
 }
 
 thread_local! {
@@ -163,7 +166,7 @@ pub(crate) fn with<R>(f: impl FnOnce(&mut Host) -> R) -> R {
             if b.is_none() {
                 crate::core::install_logger();
                 crate::sys_host::install_crash_handler();
-                *b = Some(Host { core: Core::new(), views: HashMap::new(), next_view: 1, shared: None });
+                *b = Some(Host { core: Core::new(), views: HashMap::new(), next_view: 1, shared: None, gpu_error: None });
             }
             let host = b.as_mut().unwrap();
             LIVE.with(|l| l.set(host as *mut Host));
@@ -799,6 +802,9 @@ pub extern "C" fn aztek_view_create(
 ) -> i32 {
     let cam = camera::CamKind::from_name(&cstr(camera)).unwrap_or(camera::CamKind::Persp);
     with(|h| {
+        if h.gpu_error.is_some() {
+            return 0;
+        }
         let Some((dh, wh)) = handles(platform, display, window, extra) else {
             h.core.push("// Error: viewport: unsupported window system //", core::LineKind::Error);
             return 0;
@@ -811,6 +817,11 @@ pub extern "C" fn aztek_view_create(
                 }
                 Err(e) => {
                     h.core.push(format!("// Error: Vulkan: {e} //"), core::LineKind::Error);
+                    h.core.push(
+                        "// Warning: the viewport needs a Vulkan driver: install the latest driver for your graphics card. Everything else works without it. //",
+                        core::LineKind::Warning,
+                    );
+                    h.gpu_error = Some(e.to_string());
                     return 0;
                 }
             }
@@ -829,6 +840,15 @@ pub extern "C" fn aztek_view_create(
             }
         }
     })
+}
+
+/// Why the views can't draw, when Vulkan failed to start; null while it hasn't. Freed with aztek_free.
+#[no_mangle]
+pub extern "C" fn aztek_view_error() -> *mut c_char {
+    match with(|h| h.gpu_error.clone()) {
+        Some(e) => out(e),
+        None => std::ptr::null_mut(),
+    }
 }
 
 #[no_mangle]

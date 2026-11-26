@@ -649,7 +649,9 @@ None needs Qt or Python installed. The ARM AppImage is the other exception: it u
 Rocky 9's Qt and has no PySide6, as there is no arm64 Linux kit or wheel.
 
 The viewport needs a Vulkan driver: NVIDIA's own driver has one, and Mesa's `mesa-vulkan-drivers` covers AMD and Intel. On macOS it
-draws through MoltenVK, which comes inside Aztek.app.
+draws through MoltenVK, which comes inside Aztek.app. On Windows the graphics card's own driver brings it; Intel graphics
+older than the 6th generation have none on Windows, so on a laptop that also has an NVIDIA or AMD chip, choose that one
+for Aztek in Windows' graphics settings. Without a driver the viewport says why, and the rest of Aztek still works.
 [docs/PACKAGING.md](docs/PACKAGING.md) has the details, and how the packages are built.
 
 ### Running unsigned builds

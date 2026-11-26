@@ -87,6 +87,8 @@ enum { AZTEK_XCB = 1, AZTEK_XLIB = 2, AZTEK_WIN32 = 3, AZTEK_WAYLAND = 4, AZTEK_
 
 int aztek_view_create(int platform, void* display, uint64_t window, void* extra, int width, int height, double dpr,
                       const char* camera);
+// Why views can't draw (Vulkan failed to start), or null.
+char* aztek_view_error(void);
 void aztek_view_destroy(int id);
 void aztek_view_resize(int id, int width, int height);
 void aztek_view_render(int id);

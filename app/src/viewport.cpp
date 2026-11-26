@@ -24,6 +24,7 @@
 #include <QVBoxLayout>
 #include <QWheelEvent>
 #include <QWindow>
+#include <QPainter>
 #include <cmath>
 #include <QtGui/qguiapplication_platform.h>
 
@@ -129,6 +130,16 @@ void ViewportWidget::ensure() {
     // winId() is the widget's NSView; Vulkan draws to a Metal layer on it through MoltenVK.
     id_ = aztek_view_create(AZTEK_APPKIT, nullptr, quint64(winId()), nullptr, w, h, dpr, cam.constData());
 #endif
+    if (!id_ && error_.isEmpty()) {
+        // Vulkan didn't start: paint the reason with Qt instead of leaving the panel black.
+        QString e = take(aztek_view_error());
+        if (!e.isEmpty()) {
+            error_ = e;
+            setAttribute(Qt::WA_PaintOnScreen, false);
+            setAttribute(Qt::WA_NoSystemBackground, false);
+            update();
+        }
+    }
     if (id_) {
         for (auto it = pending_.begin(); it != pending_.end(); ++it) aztek_view_set(id_, it.key().section(':', 0, 0).toUtf8().constData(), it.value().toUtf8().constData());
         pending_.clear();
@@ -140,7 +151,27 @@ void ViewportWidget::showEvent(QShowEvent*) {
     ensure();
 }
 
+void ViewportWidget::paint_error() {
+    QPainter p(this);
+    p.fillRect(rect(), QColor(64, 64, 64));
+    p.setPen(QColor(220, 220, 220));
+    QFont f = font();
+    p.setFont(f);
+    const QString text = tr("No picture: Vulkan could not start (%1).\n\n"
+                            "The viewport draws with Vulkan, which comes with your graphics card's own driver. "
+                            "Installing the latest driver from the card's maker (NVIDIA, AMD or Intel) usually fixes it. "
+                            "On a laptop with two graphics chips, choose the NVIDIA or AMD one for Aztek in the system's graphics settings.\n\n"
+                            "Everything else works without it: the Outliner, Channel Box, Attribute Editor, Script Editor and the menus.")
+                             .arg(error_);
+    const int m = 16;
+    p.drawText(rect().adjusted(m, m, -m, -m), Qt::AlignCenter | Qt::TextWordWrap, text);
+}
+
 void ViewportWidget::paintEvent(QPaintEvent*) {
+    if (!id_ && !error_.isEmpty()) {
+        paint_error();
+        return;
+    }
 #ifdef Q_OS_MACOS
     // Cocoa can paint synchronously while committing a layer transaction. Submit Metal frames after it returns,
     // otherwise presenting the frame can keep that transaction painting and starve the application's event loop.
