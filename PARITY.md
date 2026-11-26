@@ -4772,6 +4772,14 @@ position, velocity, rgbPP, opacityPP, lifespanPP, radiusPP and mass, by their lo
 Unverified (WANTED.md): what happens before the start frame (here a warning and an empty array), short attribute
 names, Python with several attributes.
 
+### Up axis preferences keep their one store (26/11/2026)
+
+The up axis chosen in Preferences > Settings now survives a restart. The interface kept a second copy of the
+optionVars in memory and wrote it over `optionVars.json` when autosave settings were saved, putting back the axis
+the session started with. There is now one copy, the session's `option_vars`: the `optionVar` command, the
+Preferences window and the autosave settings all read and write it, and the core saves it after each command. A
+regression test reads the saved file after `autoSave` follows `upAxis`, as the Preferences Save does.
+
 ### What changed (26/11/2026, #323)
 
 Viewport menus and shelf tabs use the interface font size. Changing that preference refreshes the fonts the theme
