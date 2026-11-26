@@ -4458,10 +4458,6 @@ treated as before.
 A Move drag with Snap to Curve enabled follows the nearest point on the curve even when the cursor moves farther
 than 40 pixels away. This applies to the C shortcut and the Snap to Curves toggle.
 
-filtered by language; Command Completion, Object Path Completion, Show Tooltip Help and Show quick help are greyed
-because the editor has no completion, so the Quick Help side bar they would show is not built; the MEL tab icon is
-drawn from the reference's file name, as the reference's `mel_tab.png` is not on disk.
-
 ### mGear's menus, run item by item (25/11/2026)
 
 Every item of mGear 5.4.8's menus (136) was triggered in the running application, with nothing selected, with a rig
@@ -4571,6 +4567,196 @@ defaults to 1 as the reference's does (it was 4), and `-twistType` and `-rootTwi
 `twistType` and `rootTwistMode` attributes, which the solver uses. Unverified: Ease In, Ease Out and Ease In Out are
 spread as t squared, its mirror and a smoothstep, and Root twist mode as the twist starting a step before the start
 joint; the reference's exact curves are not documented.
+
+### What changed (25/11/2026, #302)
+
+The viewport reflects and refracts as the Render View does. Until now it shaded direct light and the sky dome only: a
+red sphere standing on a grey floor lit a red patch into the floor through bounce light, but no image of the sphere
+appeared in it.
+
+The Realtime renderer writes a material image beside its picture and surface colour: the fresnel-weighted reflection
+colour and the roughness it is looked up with, then transmission, IOR and metalness. The material shader no longer adds
+the sky's reflection itself; a post pass works out the reflection from that material before the picture is put
+together.
+
+- Screen-space reflections march the view's own colour and depth, so objects reflect objects. Where a ray leaves the
+  view or meets nothing, the sky dome stands in. The march is jittered by a fixed per-pixel pattern, never by time, so
+  it does not flicker while the camera moves.
+- The widest flat mesh at the ground plane is drawn a second time mirrored below the plane, without the reflector
+  itself, and the floor reads that image. A screen-space march cannot reflect the underside of a sphere standing on
+  the floor, which is most of what the floor sees; the mirrored draw can. Where the surface is the plane and near it,
+  the planar image replaces the screen-space one; a raised or sloped surface keeps the screen-space result.
+- Reflections are blurred by the composite over the reflection image, with a radius that grows with the square of the
+  roughness: a mirror one ray, a rough metal gathers its neighbourhood, and neighbouring pixels on another surface are
+  left out so an edge stays an edge. Metals tint their reflection through the material's fresnel colour; dielectrics
+  keep the sky's.
+- Glass is drawn solid so it has depth and a material, and the post pass takes it apart. The scene is drawn once more
+  without its transmissive surfaces; each glass pixel reads that image bent out towards the rim as a lens bends it and
+  tinted by its transmission colour, fading with the distance the lookup travels. Two glass spheres at different IOR
+  bend the wall behind them differently.
+- The examples get a lighting suite for parity: `examples/rendering/reflections.ma`,
+  `metal_roughness_sweep.ma`, `dielectric_glass.ma`, `tinted_glass.ma`, `emissive_object.ma`, `area_lights.ma`,
+  `environment_hdri.ma` and `checker_sphere.ma`, built by `examples/tools/make_rendering_parity.py`. Each has a
+  reference render (the Render View's path) and a viewport capture under `examples/rendering/reference` and
+  `examples/rendering/viewport`, taken by `tools/render_parity/capture.sh`, which is documented in
+  `tools/render_parity/README.md`.
+- `tools/render_parity/capture.sh` renders each scene through `shotCam` at 640 by 360 and captures the realtime
+  viewport through the same camera with `--viewport-screenshot`, cropping the taller panel to the render's 16:9 field.
+  The capture hides the grid, ViewCube, light and camera icons, handles and selection highlights and keeps textures and
+  the camera's depth of field on.
+- Tests without a GPU in `crates/aztek_host/src/post.rs`: the reflection and refraction directions, the roughness
+  blur radius, the planar ground cover, the material and post bindings the shaders declare, and the eight example
+  scenes with their two pictures. The existing shader compile tests cover the new reflection shader for one sample and
+  for several.
+
+Not done: a reflection of what the view does not show anywhere falls back to the sky; only the widest flat mesh at the
+world's ground is mirrored; Aztek has no transmission depth, so the lookup distance stands in for it and the glass is
+bent as a lens rather than traced through its back surface; the viewport does not draw the sky dome as a background
+(it lights and reflects from it); and at the same focal length the viewport frames about 12% tighter than the Render
+View. Harold reflects a single large floor face onto itself, so the suite's floors are subdivided. The depth of field
+of #300 still works: a camera with `depthOfField` on blurs the viewport after the reflections are added, and the
+guides stay over the finished picture.
+
+### Reflection filtering and the two tiers (25/11/2026, #302)
+
+The reflection image is low-passed over three pixels and then copied down a six-level mip chain. The composite picks a
+level from the surface's roughness and gathers a fixed 8-tap disc inside the ray's footprint, with an eight pixel
+minimum, clamping each tap at 8 and hashing the pixel for its offset rather than the frame. The metal roughness
+sweep's floor went from a grid of bright texels that shimmered while orbiting to soft blobs that are steady idle or
+moving.
+
+The ground plane's planar image and the screen-space reflection now share one brightness scale and the same filtered
+copy. The planar side gets a three by three sample so its silhouette hands over gradually; the weight is the surface's
+planarity, its roughness and the planar image's own coverage, read from its alpha, and the two are mixed by one minus
+that weight, so the weights sum to one. The reflections example's key is a directional light: a point light close to
+the floor left a cube shadow face seam across it, which read as a second reflection.
+
+What still differs from the Render View: the HDRI scene's sky is still not drawn as the viewport's background, the
+viewport frames about 12% tighter than the render at the same focal length, only the widest flat ground mesh is
+mirrored, and a point light near a large floor can still show a cube shadow seam. The new captures are in
+`examples/rendering/reference` and `examples/rendering/viewport`.
+
+### The mirrored pass and the floor's top (26/11/2026, #302)
+
+The planar pass used to mirror the camera and rewrite the light block for that view. The geometry drew, but the
+fragment shader shaded it in the mirrored view's light space while its normal matrix and the main pass did not agree,
+so a mirrored sphere came out black except for one lit crescent, and it sat away from the sphere at most angles. The
+pass now keeps the main camera, projection and lights and mirrors the model instead: each item is drawn with the
+reflection matrix about the reflector's actual top plane (`translate(point) * reflect(up) * translate(-point)`), not
+about the world origin, so a floor slab whose top is not at zero works too. Normals are recomputed from the real
+model, so the planar image is the real scene's shading mirrored about the floor; culling is off because the mirror
+turns the winding. The planar pass has its own light buffer without the camera's shadow map, which would be sampled at
+the mirrored point.
+
+The composite reads the planar image's alpha, not its lightness, as the weight. The planar pass clears to transparent
+black, so alpha is exactly the mirrored scene's coverage: a sphere's own shadowed side is dark and still a reflection,
+where reading lightness treated it as empty and let the sky stand in, which cut the mirror into a bright cap and a
+separate lower disc. Measured at the persp camera before the fix, the lit planar image of the red mirrored sphere was
+only rows 313 to 337 (a crescent); with a flat unlit colour it projects to rows 307 to 422, the real red sphere's 111
+rows mirrored about its contact row, and the white mirrored sphere to rows 314 to 435 for the real 110 rows.
+
+### The bounce light's filtering and the reflection's level (26/11/2026, #302)
+
+The viewport's Bounce Light (the indirect light) drew the spheres with scattered square texels. The bounce pass shoots
+a dozen stochastic rays a pixel and stores their mean in the bounce image; a ray that met a specular highlight came
+back as a bright texel, and the composite then spread each one over a hard 9x9 square. The old per-pixel hash also
+left a diagonal weave, so the noise was spatially correlated. The pass now clamps each ray's radiance (the offline
+renderer clamps its indirect samples for the same reason), uses a decorrelated integer hash for its sequences, and the
+composite no longer filters the bounce at the sampling point. Instead the bounce image is low-passed by a separable
+Gaussian quad pass along each axis (sigma 3.5 physical pixels, 19 taps a pass) and the composite reads that filtered
+image with one linear sample. That is where the denoise belongs, after the rasterized passes and before the shading
+uses it. The two passes reuse the occlusion and bounce images, so they add no render target and no VRAM; they replace
+the old 81-tap spread and its 81 depth fetches, so the frame does slightly less work. The openness and contact shadow
+share the buffer and are low-passed with the light, because a sharp alpha against the soft light made the contact
+shadow's steps show on the sphere's dark side.
+
+The reflection gather's prefilter level was the blocky edge: the composite looked the gather up from an
+eighth-resolution mip (level 3) for even a mirror, so every reflection edge stepped at about eight pixels. The gather
+now starts two levels sharper (half resolution for a mirror, quarter and eighth only as the roughness grows), while
+the gather's disc radius stays 8 to 32 pixels at a 720-line view and grows with the buffer, so a rough surface keeps
+the same softness at any window size or pixel ratio; the planar image is read with linear filtering too. The reflection and planar targets were already at the viewport's full
+resolution, so no target grew and no memory changed. Net cost is slightly lower: two 19-tap bounce passes replace the
+9x9 (81-tap) composite spread, and the reflection reads a higher mip. `modelEditor -bounceLight` and
+`-ambientOcclusion` now drive those two lighting toggles from scripts as well.
+
+Measured with the indirect debug view: before, the bounce was a sparse field of bright texels that the 9x9 box turned
+into square blocks; now it is a smooth field. The four viewpoints, with the bounce on and off and reflections on and
+off, show no square texels, and the mirrored edge against the floor is smooth and continuous.
+
+EEVEE is the reference for the shape of these two effects. Its planar probes (`eevee_lightprobe_planar.cc`,
+`PlanarProbe::set_view`, and `shaders/eevee_lightprobe_plane.bsl.hh`) render one full-viewport mirrored image per flat
+plane, with a depth image of its own and a world clip plane at the probe's plane (`world_clip_buf_.plane`), and its
+`select_probe` scores a surface with `saturate(dot(N, probe_normal)) * inside_bounds`. Aztek's mirrored-model pass is
+the same probe: full-viewport radiance and `planar_depth`, the main camera and lights, and the real model's normals.
+Our `planar_cover` is the `saturate(dot(N, up))` score and the height fade is the `inside_bounds` test; the planar
+alpha is the stand-in for EEVEE's `planar_depth_tx == reverse_z::read(1.0)` background rejection in
+`eevee_forward_lib.bsl.hh`, and the composite blends the planar and screen-space tiers by roughness the way EEVEE
+mixes its planar probe with the screen trace. Because the models are mirrored and the camera is not, the image is
+right-side up at the same screen UV, so EEVEE's NDC flip for its upside-down probes does not apply, and the planar
+tier is used only on the plane, where the `parallax()` term is the identity. The reflection gather reads a prefiltered
+chain and chooses the level from the roughness, as `roughness_to_lod` does for the sphere probes
+(`eevee_lightprobe_sphere.bsl.hh`). The one EEVEE detail not mirrored yet is the world clip plane: the suite's
+geometry never crosses the probe plane and the reflector itself is skipped, so it is left for a scene that does.
+
+For the indirect term EEVEE never shades from a raw stochastic trace: `eevee_lightprobe_volume.cc` bakes irradiance
+into a 3D grid of spherical harmonics and the forward pass samples it with a filtered lookup. Aztek keeps a
+screen-space variant of that idea: the bounce rays are clamped and decorrelated, then the finished bounce image is
+blurred along each axis in quad passes and read with a linear sample, so the shading sees a smooth irradiance field
+rather than the sample points. Temporal reprojection would be the next step if the screen-space field is not enough;
+the clamp, the low-discrepancy sequence and the filtered lookup are the parts that matter for the blocks today.
+
+### A moving check of the realtime viewport (26/11/2026, #302)
+
+`tools/render_parity/motion_capture.py` runs one session with lights, shadows, ambient occlusion, bounce light,
+textures and depth of field on, and writes four keyframed playblasts: a full 360-degree orbit, a dolly from far to
+close and back, a low sweep from the lit side to the dark side, and twelve frames of an unmoving camera to catch
+temporal instability. The app's `playblast` sets each frame and renders the live viewport, so the motion is smooth and
+one launch serves a whole pass.
+
+The moving capture found the bounce and reflection work stable: twelve still frames were bit-identical, and the
+orbit, dolly and sweep had no frame-to-frame step above 1.6 times its neighbours' mean. There was no speckle, no tier
+pop and no reflection offset at any angle. What did show was the shadow map's cast edge: at a close view one texel is
+many pixels, so the sphere's shadow on the floor was a hard, chunky boundary that crawled as the camera moved. The
+percentage-closer filter now gathers 5 by 5 texels and the shadow sampler is bilinear, so that edge is a soft
+penumbra. The cost is 25 taps instead of 9 in the shadowed fragment; with this scene the capture still ran at about
+20 frames a second at 734 by 708 including the PNG write, and the app's own draw timing stayed at about 0.2 ms.
+
+Two display-layer edges stay: a one-pixel dashed rim on a sphere is MSAA coverage quantisation, not shading, and the
+grid's smooth lines can read over a sphere at grazing angles. The parity capture hides the grid, and the motion script
+does too; both are guides rather than the shaded picture. The depth-of-field view is available to scripts through
+`modelEditor -depthOfField`, which is how the capture turns it on.
+
+The second pass re-ran the same four captures from a fresh session. Every frame was bit-identical to the first pass's
+frame at the same time, so the renderer has no cross-session variation and no temporal accumulation state to drift;
+the twelve still frames were identical again, and the frame-to-frame steps kept the same smooth profile. The wider
+shadow filter introduced no peter-panning: the contact shadow stays attached at the dolly's closest view, and the
+sweep's shadow boundary is the smoother of the two passes. No further change was needed.
+
+### Point-light shadows and the glass that cast them (26/11/2026, #302)
+
+The dielectric_glass floor was covered in dark polygonal patches under the glass spheres. A point light is a cube
+shadow map: six 2048-texel faces, all six rewritten every frame, with near and far from the scene's distance to the
+light. The shader compared a single cube texel against a constant world-space slack. A floor seen at a grazing angle
+from a light close to it needs the bias to follow the texel footprint over the cosine to the light, and one texel
+gives a hard polygonal edge with a mottled fill wherever the comparison flips. The cube path now uses a depth slack
+that grows with the texel footprint and the surface's slope to the light, and fixed bilinear cube taps at a
+four-texel radius: a 4 by 4 grid for a point light, and a golden-angle disc of sixteen taps for an area light's wider
+penumbra. Nothing is rotated per pixel or per frame. The directional and spot path
+keeps its 5 by 5 bilinear PCF, and the cube faces stay at 2048, all six every frame.
+
+The deeper cause was that the glass spheres were drawn into the shadow map. A transmissive shape laid down an opaque
+shadow, the floor under it went black, and the glass refracted that black floor, so it read black inside the shadow.
+Transmissive casters are now left out of the shadow map, so the floor under the glass is lit and the behind-glass
+image is not black; the glass also keeps a floor of its own transmission colour where the background behind it is
+dark, so it never reads blacker than what it lets through. The debug view of the behind-glass image shows the glass
+shadows gone.
+
+Verified at the dielectric scene's far, mid and close distances, two angles at each, and a grazing view. The far views
+push the floor until it fills the frame, where the shadow-map footprint is worst: before, the far floor had the blocky
+glass shadows with a mottled fill; after, they are gone, the remaining cast shadows are smooth, and the glass reads
+red rather than black. The metal roughness sweep and area lights recapture without a regression; the area light's soft
+shadow is smoother for the fixed tap pattern. The point-light shadow costs sixteen bilinear taps instead of one; the
+area-light path is unchanged at twelve blocker plus sixteen taps, and the shadow map's memory is unchanged.
 
 ### What changed (26/11/2026, emit)
 

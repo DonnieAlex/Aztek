@@ -415,9 +415,11 @@ fn scene_bounds(items: &[crate::viewport::DrawItem]) -> (DVec3, DVec3) {
 /// A view's lighting buffers and descriptor set.
 pub struct ViewLights {
     block: Buffer,
+    planar_block: Buffer,
     speculars: Buffer,
     pool: vk::DescriptorPool,
     pub set: vk::DescriptorSet,
+    pub planar_set: vk::DescriptorSet,
     /// Indices into the highlight table, by shading group. 0 is no highlight.
     pub index: HashMap<NodeId, u32>,
     /// The shapes whose mask isn't all lights.
@@ -454,27 +456,34 @@ impl ViewLights {
             lights: [GpuLight::zeroed(); MAX_LIGHTS],
         };
         let block = gpu.buffer_with(vk::BufferUsageFlags::UNIFORM_BUFFER, std::slice::from_ref(&start));
+        let planar_block = gpu.buffer_with(vk::BufferUsageFlags::UNIFORM_BUFFER, std::slice::from_ref(&start));
         let speculars = gpu.buffer_with(vk::BufferUsageFlags::UNIFORM_BUFFER, &vec![[[0.0f32; 4]; 2]; MAX_SPECULARS]);
         unsafe {
             let d = &gpu.device;
-            let sizes = [vk::DescriptorPoolSize::default().ty(vk::DescriptorType::UNIFORM_BUFFER).descriptor_count(2)];
-            let pool = d.create_descriptor_pool(&vk::DescriptorPoolCreateInfo::default().max_sets(1).pool_sizes(&sizes), None).expect("light pool");
-            let layouts = [r.light_layout];
-            let set = d.allocate_descriptor_sets(&vk::DescriptorSetAllocateInfo::default().descriptor_pool(pool).set_layouts(&layouts)).expect("light set")[0];
+            let sizes = [vk::DescriptorPoolSize::default().ty(vk::DescriptorType::UNIFORM_BUFFER).descriptor_count(4)];
+            let pool = d.create_descriptor_pool(&vk::DescriptorPoolCreateInfo::default().max_sets(2).pool_sizes(&sizes), None).expect("light pool");
+            let layouts = [r.light_layout, r.light_layout];
+            let sets = d.allocate_descriptor_sets(&vk::DescriptorSetAllocateInfo::default().descriptor_pool(pool).set_layouts(&layouts));
+            let (set, planar_set) = (sets.as_ref().expect("light sets")[0], sets.as_ref().expect("light sets")[1]);
             let infos = [
                 [vk::DescriptorBufferInfo::default().buffer(block.buffer).offset(0).range(std::mem::size_of::<LightBlock>() as u64)],
                 [vk::DescriptorBufferInfo::default().buffer(speculars.buffer).offset(0).range((MAX_SPECULARS * 32) as u64)],
+                [vk::DescriptorBufferInfo::default().buffer(planar_block.buffer).offset(0).range(std::mem::size_of::<LightBlock>() as u64)],
             ];
             let writes = [
                 vk::WriteDescriptorSet::default().dst_set(set).dst_binding(0).descriptor_type(vk::DescriptorType::UNIFORM_BUFFER).buffer_info(&infos[0]),
                 vk::WriteDescriptorSet::default().dst_set(set).dst_binding(1).descriptor_type(vk::DescriptorType::UNIFORM_BUFFER).buffer_info(&infos[1]),
+                vk::WriteDescriptorSet::default().dst_set(planar_set).dst_binding(0).descriptor_type(vk::DescriptorType::UNIFORM_BUFFER).buffer_info(&infos[2]),
+                vk::WriteDescriptorSet::default().dst_set(planar_set).dst_binding(1).descriptor_type(vk::DescriptorType::UNIFORM_BUFFER).buffer_info(&infos[1]),
             ];
             d.update_descriptor_sets(&writes, &[]);
             ViewLights {
                 block,
+                planar_block,
                 speculars,
                 pool,
                 set,
+                planar_set,
                 index: HashMap::new(),
                 masks: HashMap::new(),
                 mask_key: None,
@@ -536,27 +545,36 @@ impl ViewLights {
     /// This frame's block. `lights` are what the mode chose; `shadow` the light and its world-to-clip matrix when the
     /// Realtime renderer draws one.
     pub fn write_block(&mut self, mode: LightMode, lights: &[SceneLight], view: &DMat4, proj: &DMat4, two_sided: bool, ortho: bool, shadow: Option<ShadowBlock>) {
+        self.write_block_at(false, mode, lights, view, proj, two_sided, ortho, shadow);
+    }
+
+    /// The block the planar reflection draws with, in the planar buffer: the main view and lights, and no shadow map.
+    pub fn write_planar_block(&mut self, mode: LightMode, lights: &[SceneLight], view: &DMat4, proj: &DMat4, two_sided: bool, ortho: bool) {
+        self.write_block_at(true, mode, lights, view, proj, two_sided, ortho, None);
+    }
+
+    fn write_block_at(&mut self, planar: bool, mode: LightMode, lights: &[SceneLight], view: &DMat4, proj: &DMat4, two_sided: bool, ortho: bool, shadow: Option<ShadowBlock>) {
+        let target = if planar { &self.planar_block } else { &self.block };
         let path = mode.shader_mode();
-        // The default path reads nothing of the block but its head.
+        // The default path reads only its head and the inverse projection, which the view's position and size change
+        // every frame; writing it is cheap.
         if path == 0 {
-            if !self.written_default {
-                write(
-                    &self.block,
-                    std::slice::from_ref(&LightBlock {
-                        inv_proj: DMat4::IDENTITY.as_mat4().to_cols_array(),
-                        head: [0; 4],
-                        shadow_matrix: DMat4::IDENTITY.as_mat4().to_cols_array(),
-                        shadow: [-1.0; 4],
-                        shadow_pos: [0.0; 4],
-                        shadow_range: [0.0; 4],
-                        env: [0.0; 4],
-                        env_rot: [0.0, 0.0, 0.0, 1.0],
-                        view_to_world: DMat4::IDENTITY.as_mat4().to_cols_array(),
-                        lights: [GpuLight::zeroed(); MAX_LIGHTS],
-                    }),
-                );
-                self.written_default = true;
-            }
+            write(
+                target,
+                std::slice::from_ref(&LightBlock {
+                    inv_proj: proj.inverse().as_mat4().to_cols_array(),
+                    head: [0; 4],
+                    shadow_matrix: DMat4::IDENTITY.as_mat4().to_cols_array(),
+                    shadow: [-1.0; 4],
+                    shadow_pos: [0.0; 4],
+                    shadow_range: [0.0; 4],
+                    env: [0.0; 4],
+                    env_rot: [0.0, 0.0, 0.0, 1.0],
+                    view_to_world: view.inverse().as_mat4().to_cols_array(),
+                    lights: [GpuLight::zeroed(); MAX_LIGHTS],
+                }),
+            );
+            self.written_default = true;
             return;
         }
         self.written_default = false;
@@ -585,7 +603,7 @@ impl ViewLights {
             }
             block.lights[i] = g;
         }
-        write(&self.block, std::slice::from_ref(&block));
+        write(target, std::slice::from_ref(&block));
     }
 
     /// Which lights each drawn shape takes, when the scene or the lights have changed. Empty, and cheap, while every light
@@ -613,9 +631,16 @@ impl ViewLights {
         self.masks.get(&shape).copied().unwrap_or(ALL_LIGHTS)
     }
 
+    /// The sky dome the frame's reflection pass falls back on: its colour and strength (w 1 with an image), its rotation,
+    /// and the descriptor set holding the image.
+    pub fn environment(&self) -> ([f32; 4], [f32; 4], Option<vk::DescriptorSet>) {
+        (self.env, self.env_rot, self.env_set)
+    }
+
     pub fn release(self, gpu: &mut Gpu) {
         unsafe { gpu.device.destroy_descriptor_pool(self.pool, None) };
         gpu.drop_buffer(self.block);
+        gpu.drop_buffer(self.planar_block);
         gpu.drop_buffer(self.speculars);
     }
 }

@@ -36,6 +36,8 @@ thread_local! {
     static HOMES: RefCell<HashMap<String, Camera>> = RefCell::new(HashMap::new());
     /// Set Current View as Front's turn, degrees.
     static FRONT: RefCell<f64> = const { RefCell::new(0.0) };
+    /// Hidden for a capture of the scene alone; a capture run has one view.
+    static HIDDEN: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
 fn setting(key: &str) -> Value {
@@ -68,7 +70,12 @@ pub fn flag(key: &str) -> bool {
 }
 
 pub fn visible() -> bool {
-    setting("visible").as_bool().unwrap_or(true)
+    setting("visible").as_bool().unwrap_or(true) && !HIDDEN.with(|h| h.get())
+}
+
+/// Hides the cube for a capture of the scene alone.
+pub fn set_hidden(hidden: bool) {
+    HIDDEN.with(|h| h.set(hidden));
 }
 
 pub fn front() -> f64 {

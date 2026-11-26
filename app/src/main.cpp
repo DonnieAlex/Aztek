@@ -17,11 +17,14 @@
 #include "widgets.h"
 #include <QCommandLineParser>
 #include <QFile>
+#include <QImage>
 #include <QScreen>
 #include <QJsonObject>
 #include <QJsonDocument>
 #include <QPalette>
 #include <QStyleFactory>
+#include <QTimer>
+#include "viewport.h"
 #ifdef Q_OS_WIN
 #include <windows.h>
 #endif
@@ -130,9 +133,11 @@ int main(int argc, char** argv) {
     args.addHelpOption();
     QCommandLineOption script({"s", "script"}, "Run a MEL file at start.", "file");
     QCommandLineOption shot("screenshot", "Save a screenshot of the window after start-up and quit.", "png");
+    QCommandLineOption viewport("viewport-screenshot", "Save the first visible viewport after start-up and quit.", "png");
     QCommandLineOption batch("batch", "No window: run the scene and scripts given, then exit with their status.");
     args.addOption(script);
     args.addOption(shot);
+    args.addOption(viewport);
     args.addOption(batch);
     args.addPositionalArgument("scene", "Scene to open.");
     args.process(app);
@@ -156,11 +161,15 @@ int main(int argc, char** argv) {
     aztek_set_main_window(static_cast<QMainWindow*>(&w));
     // The saved size and panels before the window is shown. Restoring them after show resized the window under the splash,
     // and under XWayland on a scaled screen the parts drawn at the old size stayed on screen (#225).
-    if (!args.isSet(shot)) w.restore_saved_window();
+    if (!args.isSet(shot) && !args.isSet(viewport)) w.restore_saved_window();
+    // A viewport capture is compared with a render frame: a fixed window keeps its size the same every time.
+    if (args.isSet(viewport)) w.resize(1280, 800);
     // Keep the viewport hidden while the first-run dialog processes events. On macOS, presenting a frame here can
     // block the dialog while Metal waits for a drawable. Script and screenshot runs skip the prompt.
-    if (!args.isSet(script) && !args.isSet(shot)) az::ask_user_folder_at_first_start(&w, splash);
+    if (!args.isSet(script) && !args.isSet(shot) && !args.isSet(viewport)) az::ask_user_folder_at_first_start(&w, splash);
     w.show();
+    // A parity capture is one view, made before the start-up script so the script's lookThru reaches it.
+    if (args.isSet(viewport)) w.panels()->set_layout(0);
     if (splash) {
         splash->finish(&w);
         delete splash;
@@ -174,6 +183,32 @@ int main(int argc, char** argv) {
     aztek_startup_scripts();
     if (!args.positionalArguments().isEmpty()) w.open_file(args.positionalArguments().first());
     w.run_startup(args.value(script), args.value(shot));
+    if (!args.value(viewport).isEmpty()) {
+        const QString path = args.value(viewport);
+        QTimer::singleShot(1500, &w, [&w, path] {
+            for (az::ViewportWidget* v : w.panels()->views()) {
+                if (!v->isVisible()) continue;
+                // A parity capture is the picture alone: the Realtime renderer, no grid over it.
+                v->set("renderer", "\"realtime\"");
+                v->set("grid", "false");
+                v->set("viewCubeVisible", "false");
+                // The picture alone: no light or camera icons, handles or selection highlights over it. Textures show,
+                // as the Render View draws them.
+                v->set("disp", "{\"lights\":false,\"cameras\":false,\"manipulators\":false,\"highlight\":false,\"filmGate\":false,\"resGate\":false,\"safeAction\":false,\"textured\":true,\"depthOfField\":true}");
+                // The Render View clears to black; the viewport's own background is grey, so a parity capture clears to
+                // black too.
+                v->set("background", "0.0");
+                // The host writes a PPM; the picture is kept as the format the path names.
+                QString tmp = path + ".ppm";
+                if (v->capture(tmp)) {
+                    QImage(tmp).save(path);
+                    QFile::remove(tmp);
+                }
+                break;
+            }
+            qApp->quit();
+        });
+    }
     int rc = app.exec();
     aztek_exiting();
     return rc;

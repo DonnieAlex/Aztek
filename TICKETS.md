@@ -16,6 +16,43 @@ Requests waiting or in progress, newest detail kept. Move to Done with the date 
 - C++ plug-in kit (agent).
 
 ## Waiting
+- Viewport reflections and refraction (#302, 25/11/2026): screen-space reflections for objects, a mirrored draw for the
+  widest flat ground mesh, roughness blur, and glass read from a behind-glass draw. Left: a reflection of something the
+  view does not show falls back to the sky; only the widest flat mesh at the world's ground is mirrored; no
+  transmission depth (the lookup distance stands in, and the glass is bent as a lens rather than traced through its
+  back faces); the sky dome is not drawn as the viewport's background; the viewport frames about 12% tighter than the
+  Render View at the same focal length; and Harold reflects one large single-face floor onto itself, so the parity
+  floors are subdivided. The suite and its capture steps are in `tools/render_parity/README.md`. 25/11/2026: the
+  reflection gather is a low-passed mip chain with a fixed disc and outlier clamp, and the planar and screen-space
+  tiers share a brightness and blur with weights that sum to one. 26/11/2026: the planar pass now mirrors the models
+  about the floor's top plane with the main camera and lights, shades them with the real model's normals, and the
+  composite uses the planar image's alpha rather than its lightness, so the mirror is a complete lit sphere anchored
+  under the real one at the shot, low, high and off-axis views instead of a black crescent away from the shot camera.
+  26/11/2026: the bounce light clamps its ray radiance, decorrelates its sequence and is low-passed along each axis in
+  its own quad passes before the picture reads it, and the reflection gather starts from a half-resolution mip instead
+  of an eighth with linear planar sampling; the square texels are gone in every bounce/reflection combination and the
+  mirrored edge is smooth. `modelEditor -bounceLight` and `-ambientOcclusion` drive the two lighting toggles from
+  scripts. The shape follows EEVEE: a full-viewport planar probe with its own depth, a `select_probe`-style normal
+  score, planar/alpha coverage, a roughness-to-level prefiltered gather, and a filtered screen-space irradiance field
+  for the bounce instead of raw stochastic samples. Left of that design: EEVEE's world clip plane at the probe's plane
+  (the suite's geometry never crosses it) and temporal reprojection of the indirect term.
+- Point-light shadows and glass (#302, 26/11/2026): the cube path now has a slope-scaled depth slack and fixed
+  bilinear taps instead of one texel (a 4 by 4 grid for a point light, a sixteen-tap disc for an area light), and
+  transmissive shapes no longer cast an opaque shadow, so the
+  dielectric_glass floor's blocky glass shadows and the black glass behind them are gone; the glass keeps a floor of
+  its own colour where the background is dark. Verified far, mid and close, two angles each, and grazing; the far
+  view is clean. Left: the glass refraction is still a lens-bend approximation, so its transparency is flatter than
+  the Render View's, and a point light's shadow is still small-penumbra because the light has no size.
+- Realtime motion polish (#302, 26/11/2026): `tools/render_parity/motion_capture.py` checks one session with every
+  feature on over an orbit, a dolly, a low terminator sweep and twelve still frames. The bounce, reflection and AO
+  terms are temporally stable (still frames are bit-identical, no frame-diff spikes) and show no speckle or tier pop.
+  Pass one widened the shadow map's PCF to 5 by 5 with a bilinear sampler, which softens the cast edge that crawled
+  at close range. Pass two re-ran all four captures from a fresh session: every frame was bit-identical to pass one's
+  and the contact shadow stayed attached, so nothing remained to fix. Left: a one-pixel MSAA rim on a silhouette, the grid's smooth lines reading over a sphere at
+  grazing angles, and the reflection's sharp horizon on a smooth sphere, which is the scene's own image.
+  Left: the sky dome is still not drawn as the viewport's background, the viewport frames about 12% tighter than the
+  Render View, only the widest flat ground mesh is mirrored, and a point light close to a large floor can leave a cube
+  shadow seam.
 - Script Editor completion (25/11/2026): the feature is in (PARITY.md, docs/SCRIPT_EDITOR_COMPLETION.md). Left: object
   path completion; a Quick Help side bar; completion across a multi-line expression; type inference for an arbitrary
   expression before a dot; docstrings for the Python API's members, which the embedded modules do not carry;
