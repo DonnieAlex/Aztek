@@ -640,8 +640,9 @@ source is pointed at `git pull`. It goes through the proxy in `HTTPS_PROXY`, min
 | Rocky Linux 9 | `aztek-<version>-1.el9.x86_64.rpm` | `sudo dnf install ./aztek-*.el9.x86_64.rpm` |
 | Ubuntu 24.04, 26.04 | `aztek_<version>-1_ubuntu24.04_amd64.deb`, `..._ubuntu26.04_...` | `sudo apt install ./aztek_*.deb` |
 | Any other Linux, x86_64 | `aztek-<version>-x86_64.AppImage` | `chmod +x aztek-*.AppImage`, then run it (Qt, Python and PySide6 are inside) |
+| Linux, x86_64, built on Ubuntu 24.04 | `aztek-linux-x86_64.tar.gz` | `tar -xzf aztek-linux-x86_64.tar.gz`, then run `Aztek/AppRun` |
 | Linux on 64-bit ARM, glibc 2.34+ (early) | `aztek-<version>-aarch64.AppImage` | `chmod +x aztek-*.AppImage`, then run it. Needs a Vulkan driver (Mesa's on a Raspberry Pi 5, Asahi, Snapdragon laptops) |
-| Windows 10 and 11 | `aztek-<version>-setup-x64.exe`, or the zip | Run it. It isn't signed, so SmartScreen asks first: see [Running unsigned builds](#running-unsigned-builds). Its "Add Aztek to PATH" puts the install's `bin` on PATH, so `aztek`, `aztekpy` and `harold` work from any prompt |
+| Windows 10 and 11 | `aztek-<version>-setup-x64.exe`, or `aztek-windows-x86_64.zip` | Run it. It isn't signed, so SmartScreen asks first: see [Running unsigned builds](#running-unsigned-builds). Its "Add Aztek to PATH" puts the install's `bin` on PATH, so `aztek`, `aztekpy` and `harold` work from any prompt |
 | macOS 14+, Apple silicon (early) | `aztek-macos-arm64.zip` | Unzip and open Aztek.app. It isn't notarized, so macOS blocks it the first time: see [Running unsigned builds](#running-unsigned-builds) |
 
 Every package except the ARM AppImage carries Python 3.13 and Qt and PySide6/shiboken6 6.8.3, the VFX Reference

@@ -108,12 +108,12 @@ fn an_existing_folder_is_linked_copied_and_its_plug_ins_told_apart() {
     let rows = c.mel("aztekPlugins;");
     let row = |name: &str| rows.as_array().unwrap().iter().find(|r| r["name"] == name).cloned().unwrap_or(Value::Null);
     assert_eq!(row("theirTool")["kind"], json!("foreign"), "{rows}");
-    assert!(row("theirTool")["note"].as_str().unwrap().contains("compiled for Maya"));
+    assert!(row("theirTool")["note"].as_str().unwrap().contains("compiled for the reference"));
     assert_eq!(row("ufPy")["kind"], json!("python"), "{rows}");
     assert_eq!(row("toolPlug")["kind"], json!("python"), "{rows}");
     assert_eq!(row("notes"), Value::Null);
     let err = c.mel_checked("loadPlugin \"theirTool\";").unwrap_err();
-    assert!(err.contains("compiled for Maya") && err.contains("recompiled for Aztek"), "{err}");
+    assert!(err.contains("compiled for the reference") && err.contains("recompiled for Aztek"), "{err}");
     assert_eq!(c.mel("pluginInfo -q -loaded \"theirTool\";"), json!(false));
 
     // Auto load is kept by file.

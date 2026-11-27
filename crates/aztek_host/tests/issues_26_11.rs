@@ -77,3 +77,23 @@ fn the_ik_handle_tool_makes_its_handle_with_its_solver() {
     c.exec("ikHandle", call).unwrap();
     assert_eq!(mel(&mut c, "ikHandle -q -sol ikHandle1;"), json!("ikSCsolver"));
 }
+
+#[test]
+fn the_marking_menu_targets_the_visible_mesh_in_isolate_select() {
+    // #325: a hidden cube in front must not take the component menu from the visible cube.
+    use aztek_host::{camera::CamKind, viewport::Viewport};
+    use glam::DVec2;
+
+    let mut c = Core::new();
+    mel(&mut c, "polyCube -n rearCube; polyCube -n frontCube; move 0 0 2 frontCube; select rearCube;");
+    let g = &mut c.s.graph;
+    let mut view = Viewport::new(CamKind::Front);
+    view.rect = [0.0, 0.0, 800.0, 800.0];
+    let center = DVec2::splat(400.0);
+
+    let target = view.marking_menu_target(g, center).unwrap();
+    assert_eq!(g.path(target), "frontCube");
+    view.iso = aztek_scene::isolation::from_selection(g);
+    let target = view.marking_menu_target(g, center).unwrap();
+    assert_eq!(g.path(target), "rearCube");
+}

@@ -7,9 +7,9 @@ use super::network::{get_b, get_f, get_s};
 use crate::graph::Graph;
 use crate::plug::NodeId;
 
-pub const OPTIONS: &str = "defaultArnoldRenderOptions";
-pub const FILTER: &str = "defaultArnoldFilter";
-pub const DRIVER: &str = "defaultArnoldDriver";
+pub const OPTIONS: &str = "defaultHaroldRenderOptions";
+pub const FILTER: &str = "defaultHaroldFilter";
+pub const DRIVER: &str = "defaultHaroldDriver";
 pub const GLOBALS: &str = "defaultRenderGlobals";
 pub const RESOLUTION: &str = "defaultResolution";
 
@@ -170,7 +170,7 @@ pub fn read(g: &mut Graph, warnings: &mut Vec<String>) -> (Options, Common, Moti
         let key = get_s(g, r, "imfPluginKey");
         common.format = format_name(get_f(g, r, "imageFormat", 51.0) as i64, &key);
         let ren = get_s(g, r, "currentRenderer");
-        if !ren.is_empty() && !matches!(ren.as_str(), "arnold" | "harold") {
+        if !ren.is_empty() && crate::harold::compat::renderer(&ren) != crate::harold::compat::RENDERER {
             warnings.push(format!("renderer {ren} in the file: rendered with Harold"));
         }
     }

@@ -4,7 +4,7 @@
 // Aztek's Render Settings window is its own (the RenderGlobalsWindow runtime command); unifiedRenderGlobalsWindow opens
 // it. Where that command isn't there the window below is made instead, in the workspace control the reference uses, so
 // scripts that add tabs to it still find it. Renderers register their tabs and settings nodes with the renderer
-// registry; Harold, Aztek's renderer, keeps its settings in the defaultArnold nodes the Render Settings window edits.
+// registry; Harold, Aztek's renderer, keeps its settings in the defaultHarold nodes the Render Settings window edits.
 
 // currentRenderer and the other renderer procedures live in supportRenderers, which start-up loads; loaded here too for
 // when this file is used before that.

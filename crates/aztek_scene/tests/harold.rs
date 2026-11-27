@@ -28,7 +28,7 @@ fn scene() -> Session {
 fn small(s: &mut Session, aa: i64) {
     set(s, "defaultResolution.width", json!(32));
     set(s, "defaultResolution.height", json!(32));
-    set(s, "defaultArnoldRenderOptions.AASamples", json!(aa));
+    set(s, "defaultHaroldRenderOptions.AASamples", json!(aa));
 }
 
 fn render(s: &mut Session, camera: &str) -> (aztek_render::film::Film, Vec<String>) {
@@ -60,7 +60,7 @@ fn lambert_under_a_point_light() {
     run(&mut s, "pointLight", json!({"position": [0.0, 2.0, 0.0]}));
     small(&mut s, 2);
     set(&mut s, "topShape.orthographicWidth", json!(0.2));
-    set(&mut s, "defaultArnoldRenderOptions.GIDiffuseDepth", json!(0));
+    set(&mut s, "defaultHaroldRenderOptions.GIDiffuseDepth", json!(0));
     let (film, _) = render(&mut s, "top");
     let c = centre(&film);
     let expect = 0.8 * 0.5 * 1.0;
@@ -76,7 +76,7 @@ fn light_exposure_and_colour() {
     run(&mut s, "pointLight", json!({"position": [0.0, 2.0, 0.0], "name": "key"}));
     small(&mut s, 1);
     set(&mut s, "topShape.orthographicWidth", json!(0.2));
-    set(&mut s, "defaultArnoldRenderOptions.GIDiffuseDepth", json!(0));
+    set(&mut s, "defaultHaroldRenderOptions.GIDiffuseDepth", json!(0));
     let (a, _) = render(&mut s, "top");
     set(&mut s, "keyShape.aiExposure", json!(1.0));
     set(&mut s, "keyShape.color", json!([1.0, 0.0, 0.0]));
@@ -128,7 +128,8 @@ fn standard_surfaces_and_emission() {
     assert!((c.x - 1.0).abs() < 0.02 && (c.y - 0.5).abs() < 0.02 && (c.z - 2.0).abs() < 0.04, "{c}");
 }
 
-/// Render settings save and load with the scene, and the old renderer named in a file is a warning, not an error.
+/// Render settings save and load with the scene, under the reference renderer's node names, and the old renderer
+/// named in a file is a warning, not an error.
 #[test]
 fn settings_round_trip_through_a_file() {
     let dir = std::env::temp_dir().join(format!("harold_settings_{}", std::process::id()));
@@ -136,8 +137,8 @@ fn settings_round_trip_through_a_file() {
     let path = dir.join("a.ma");
     let mut s = scene();
     run(&mut s, "polyCube", json!({}));
-    set(&mut s, "defaultArnoldRenderOptions.AASamples", json!(5));
-    set(&mut s, "defaultArnoldRenderOptions.GIDiffuseDepth", json!(3));
+    set(&mut s, "defaultHaroldRenderOptions.AASamples", json!(5));
+    set(&mut s, "defaultHaroldRenderOptions.GIDiffuseDepth", json!(3));
     set(&mut s, "defaultResolution.width", json!(1280));
     set(&mut s, "defaultRenderGlobals.imageFilePrefix", json!("shots/<Scene>"));
     aztek_scene::ma_file::save_scene(&mut s, path.to_str().unwrap(), aztek_scene::ma_file::Format::of_path(path.to_str().unwrap())).unwrap();
@@ -145,7 +146,7 @@ fn settings_round_trip_through_a_file() {
     assert!(text.contains("createNode aiOptions -s -n \"defaultArnoldRenderOptions\";"), "{text}");
     let mut b = scene();
     aztek_scene::ma_file::open_scene(&mut b, path.to_str().unwrap()).unwrap();
-    assert_eq!(run(&mut b, "getAttr", json!({"args": ["defaultArnoldRenderOptions.AASamples"]})), json!(5));
+    assert_eq!(run(&mut b, "getAttr", json!({"args": ["defaultHaroldRenderOptions.AASamples"]})), json!(5));
     assert_eq!(run(&mut b, "getAttr", json!({"args": ["defaultResolution.width"]})), json!(1280));
     let names = run(&mut b, "renderSettings", json!({"firstImageName": true}));
     assert_eq!(names, json!(["shots/a.exr"]));
@@ -170,7 +171,7 @@ fn hrender_sequence_writes_frames() {
     run(&mut s, "pointLight", json!({"position": [3.0, 4.0, 5.0]}));
     small(&mut s, 1);
     set(&mut s, "defaultRenderGlobals.imageFilePrefix", json!(format!("{}/shot", dir.display())));
-    set(&mut s, "defaultArnoldDriver.ai_translator", json!("png"));
+    set(&mut s, "defaultHaroldDriver.ai_translator", json!("png"));
     let files = run(&mut s, "hrender", json!({"seq": "1 2", "camera": "persp"}));
     let files: Vec<String> = files.as_array().unwrap().iter().map(|v| v.as_str().unwrap().to_string()).collect();
     assert!(files.iter().any(|f| f.ends_with("shot.0001.png")), "{files:?}");
@@ -252,7 +253,7 @@ fn displacement_moves_points() {
     let (scene, _) = harold::translate(&mut s, &mut tr, &Request::default()).unwrap();
     let mesh = &scene.geo.meshes[scene.geo.instances[0].mesh as usize];
     assert!(mesh.keys[0].iter().all(|p| (p.y - 0.2).abs() < 1e-4), "{:?}", &mesh.keys[0][..3]);
-    set(&mut s, "defaultArnoldRenderOptions.ignoreDisplacement", json!(true));
+    set(&mut s, "defaultHaroldRenderOptions.ignoreDisplacement", json!(true));
     let (scene, _) = harold::translate(&mut s, &mut tr, &Request::default()).unwrap();
     let mesh = &scene.geo.meshes[scene.geo.instances[0].mesh as usize];
     assert!(mesh.keys[0].iter().all(|p| p.y.abs() < 1e-4));
@@ -289,7 +290,7 @@ fn render_attributes_round_trip() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// Catmull-Clark at render: Arnold's subdivision settings, or smooth preview's.
+/// Catmull-Clark at render: the ai subdivision settings, or smooth preview's.
 #[test]
 fn subdivision_at_render() {
     let mut s = scene();
@@ -313,7 +314,7 @@ fn light_linking_is_honoured() {
     run(&mut s, "pointLight", json!({"position": [0.0, 2.0, 0.0], "name": "key"}));
     small(&mut s, 1);
     set(&mut s, "topShape.orthographicWidth", json!(0.2));
-    set(&mut s, "defaultArnoldRenderOptions.GIDiffuseDepth", json!(0));
+    set(&mut s, "defaultHaroldRenderOptions.GIDiffuseDepth", json!(0));
     let (lit, _) = render(&mut s, "top");
     assert!(centre(&lit).x > 0.01);
     run(&mut s, "lightlink", json!({"b": true, "light": "key", "object": plane}));
@@ -347,7 +348,7 @@ fn default_lighting_as_the_viewport() {
     run(&mut s, "polyPlane", json!({"width": 40, "height": 40}));
     small(&mut s, 2);
     set(&mut s, "topShape.orthographicWidth", json!(0.2));
-    set(&mut s, "defaultArnoldRenderOptions.GIDiffuseDepth", json!(0));
+    set(&mut s, "defaultHaroldRenderOptions.GIDiffuseDepth", json!(0));
     let (film, _) = render(&mut s, "top");
     let k = glam::Vec3::new(-0.45, 0.6, 0.65).normalize();
     let f = glam::Vec3::new(0.6, -0.2, 0.75).normalize();
@@ -387,7 +388,7 @@ fn open_pbr_translates_to_the_standard_surface() {
     run(&mut s, "pointLight", json!({"position": [0.0, 2.0, 0.0]}));
     small(&mut s, 2);
     set(&mut s, "topShape.orthographicWidth", json!(0.2));
-    set(&mut s, "defaultArnoldRenderOptions.GIDiffuseDepth", json!(0));
+    set(&mut s, "defaultHaroldRenderOptions.GIDiffuseDepth", json!(0));
     let m = run(&mut s, "shadingNode", json!({"args": ["openPBRSurface"], "asShader": true})).as_str().unwrap().to_string();
     run(&mut s, "sets", json!({"renderable": true, "noSurfaceShader": true, "empty": true, "name": "openPBRSG"}));
     run(&mut s, "connectAttr", json!({"args": [format!("{m}.outColor"), "openPBRSG.surfaceShader"], "force": true}));
@@ -400,4 +401,31 @@ fn open_pbr_translates_to_the_standard_surface() {
     assert!(!warnings.iter().any(|w| w.contains("default material")), "{warnings:?}");
     let c = centre(&film);
     assert!((c.y - 1.0).abs() < 0.05 && c.x.abs() < 0.02 && c.z.abs() < 0.02, "green: {c}");
+}
+
+/// The reference renderer's names for the settings nodes and for itself answer for Harold's: one node under either
+/// name, a file naming the old one fills it in rather than making another, and saving writes the old names back.
+#[test]
+fn the_reference_renderers_names_answer_for_harolds() {
+    use aztek_scene::harold::compat;
+    let mut s = scene();
+    for (old, new) in compat::NODE_NAMES {
+        assert_eq!(run(&mut s, "objExists", json!({"args": [old]})), json!(true), "{old}");
+        assert_eq!(run(&mut s, "objExists", json!({"args": [new]})), json!(true), "{new}");
+    }
+    set(&mut s, "defaultArnoldRenderOptions.AASamples", json!(6));
+    assert_eq!(run(&mut s, "getAttr", json!({"args": ["defaultHaroldRenderOptions.AASamples"]})), json!(6));
+    let ls = run(&mut s, "ls", json!({"type": "aiOptions"}));
+    assert_eq!(ls, json!(["defaultHaroldRenderOptions"]));
+    assert_eq!(run(&mut s, "getAttr", json!({"args": ["defaultRenderGlobals.currentRenderer"]})), json!("harold"));
+    set(&mut s, "defaultRenderGlobals.imageFilePrefix", json!("x"));
+    let (text, _) = aztek_scene::ma_file::write_text(&mut s, "x.ma", None);
+    assert!(!text.contains("defaultHarold"), "{text}");
+    assert!(text.contains("createNode aiOptions -s -n \"defaultArnoldRenderOptions\";"), "{text}");
+    assert!(!text.contains("\"harold\""), "{text}");
+    let mut b = scene();
+    aztek_scene::ma_file::read_text(&mut b, &text, false);
+    assert_eq!(run(&mut b, "ls", json!({"type": "aiOptions"})), json!(["defaultHaroldRenderOptions"]));
+    assert_eq!(run(&mut b, "getAttr", json!({"args": ["defaultHaroldRenderOptions.AASamples"]})), json!(6));
+    assert_eq!(compat::renderer("arnold"), "harold");
 }

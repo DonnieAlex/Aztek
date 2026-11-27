@@ -11,10 +11,13 @@ fn ok(c: &mut Core, src: &str) -> serde_json::Value {
 #[test]
 fn renderers_register_and_answer() {
     let mut c = Core::new();
+    assert_eq!(ok(&mut c, "renderer -exists harold;"), json!(true));
+    assert_eq!(ok(&mut c, "renderer -q -rendererUIName harold;"), json!("Harold"));
+    // The reference renderer's name finds Harold, for scenes and scripts that name it.
     assert_eq!(ok(&mut c, "renderer -exists arnold;"), json!(true));
     assert_eq!(ok(&mut c, "renderer -q -rendererUIName arnold;"), json!("Harold"));
     ok(&mut c, "renderer -rendererUIName \"Mine\" -renderProcedure \"myRender\" -addGlobalsNode \"myGlobals\" -addGlobalsTab \"Common\" \"makeCommon\" \"updateCommon\" mine;");
-    assert_eq!(ok(&mut c, "renderer -q -namesOfAvailableRenderers arnold;"), json!(["arnold", "mine"]));
+    assert_eq!(ok(&mut c, "renderer -q -namesOfAvailableRenderers harold;"), json!(["harold", "mine"]));
     assert_eq!(ok(&mut c, "renderer -q -renderProcedure mine;"), json!("myRender"));
     assert_eq!(ok(&mut c, "renderer -q -globalsNodes mine;"), json!(["myGlobals"]));
     assert_eq!(ok(&mut c, "renderer -q -globalsTabCreateProcNames mine;"), json!(["makeCommon"]));

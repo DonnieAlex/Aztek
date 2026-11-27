@@ -129,7 +129,7 @@ fn what_the_shader_is_given() {
     assert_eq!(g.params[1], 6.0, "the nearest-point light scales by the half sides");
     assert_eq!(g.params[0], 1.0);
 
-    // Arnold's area light falls off with the square of distance, as Harold lights it.
+    // aiAreaLight falls off with the square of distance, as Harold lights it.
     mel(&mut c, "createNode transform -n q; createNode aiAreaLight -n qShape -p q;");
     assert_eq!(gpu_light(&light(&mut c, "q"), &view).dir[3], 2.0);
 

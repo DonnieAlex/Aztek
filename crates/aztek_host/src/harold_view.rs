@@ -111,10 +111,10 @@ pub extern "C" fn aztek_render_batch(argc: i32, argv: *const *const c_char) -> i
         set(&mut s, "defaultRenderGlobals.imageFilePrefix", json!(p));
     }
     if let Some(f) = format {
-        set(&mut s, "defaultArnoldDriver.ai_translator", json!(f.to_lowercase()));
+        set(&mut s, "defaultHaroldDriver.ai_translator", json!(f.to_lowercase()));
     }
     if let Some(n) = aa {
-        set(&mut s, "defaultArnoldRenderOptions.AASamples", json!(n));
+        set(&mut s, "defaultHaroldRenderOptions.AASamples", json!(n));
     }
     if let Some(d) = &dir {
         // The output folder by way of the prefix: an absolute prefix keeps it.

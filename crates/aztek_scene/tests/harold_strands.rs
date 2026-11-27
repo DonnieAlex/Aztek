@@ -25,7 +25,7 @@ fn scene() -> Session {
     aztek_scene::cameras::make_defaults(&mut s.graph);
     set(&mut s, "defaultResolution.width", json!(48));
     set(&mut s, "defaultResolution.height", json!(48));
-    set(&mut s, "defaultArnoldRenderOptions.AASamples", json!(3));
+    set(&mut s, "defaultHaroldRenderOptions.AASamples", json!(3));
     s
 }
 

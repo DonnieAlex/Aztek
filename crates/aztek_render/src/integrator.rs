@@ -405,7 +405,7 @@ impl<'a> Tracer<'a> {
     }
 
     /// As depth_allows, for a bsdf that may be hair: its specular bounces go on past the specular depth for up to
-    /// `hair_extra` more, as Arnold's standard_hair extra_depth.
+    /// `hair_extra` more, as aiStandardHair's extraDepth.
     pub fn depth_allows_bsdf(&self, d: &Depth, cat: Category, hair_extra: u32) -> bool {
         if self.depth_allows(d, cat) {
             return true;

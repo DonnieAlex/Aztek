@@ -951,13 +951,8 @@ pub extern "C" fn aztek_view_capture(id: i32, path: *const c_char) -> i32 {
 pub extern "C" fn aztek_view_hit(id: i32, x: f64, y: f64) -> *mut c_char {
     with(|h| {
         let hit = use_view(h, id, |core, v| {
-            let items = viewport::gather(&mut core.s.graph);
             v.vp.rect = [0.0, 0.0, v.gpu.extent.width as f64, v.gpu.extent.height as f64];
-            let px = DVec2::new(x, y);
-            if let Some(id) = v.vp.pick_rig(&core.s.graph, px) {
-                return core.s.graph.path(id);
-            }
-            v.vp.raycast(&items, px).map(|(i, _, _)| core.s.graph.path(items[i].xf)).unwrap_or_default()
+            v.vp.marking_menu_target(&mut core.s.graph, DVec2::new(x, y)).map(|id| core.s.graph.path(id)).unwrap_or_default()
         });
         out(hit.unwrap_or_default())
     })

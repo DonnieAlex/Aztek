@@ -22,7 +22,7 @@ pub enum FilterKind {
     Mitchell,
     CatmullRom,
     Sinc,
-    /// One sample at the pixel centre, unweighted: Arnold's closest for data AOVs.
+    /// One sample at the pixel centre, unweighted: the closest filter, for data AOVs.
     Closest,
 }
 
@@ -86,7 +86,7 @@ impl FilterKind {
     }
 }
 
-/// A homogeneous fog filling the scene's bounds: Arnold's atmosphere volume, simplified.
+/// A homogeneous fog filling the scene's bounds: aiAtmosphereVolume, simplified.
 #[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug)]
 pub struct Atmosphere {
     pub density: f32,
@@ -147,7 +147,7 @@ pub struct Options {
 }
 
 impl Default for Options {
-    /// Arnold's defaults.
+    /// The reference renderer's defaults.
     fn default() -> Self {
         Options {
             width: 960,

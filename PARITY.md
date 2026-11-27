@@ -470,7 +470,8 @@ Sculpting shelves. Windows: Attribute Spread Sheet, Component Editor with skin w
 Namespace Editor (listing only), Channel Control, Modeling Toolkit, Shape Editor,
 workspaces, main pane only, panel layouts, saved layouts, a panel holding an outliner or editor. Panel menus: cameras,
 `lookThru`, bookmarks, camera tools, gates, safe action; flat, bounding box, X-Ray and its joint and component kinds,
-backface culling; Show filters, `isolateSelect`. Heads up display and `headsUpDisplay`; `polyOptions`. In-View Editor and
+backface culling; Show filters, `isolateSelect`. The right-click component menu uses the meshes shown in its view (#325).
+Heads up display and `headsUpDisplay`; `polyOptions`. In-View Editor and
 the channel box's virtual slider on INPUTS. Attribute Editor sections by node type, sliders, Notes, Copy Tab. Outliner
 filters and icons. Layer editor V, P, T, R, colour, reorder. Script Editor tabs, highlighting, line numbers, save and
 source. File, Edit, Modify and Display menus; Preferences saved and `optionVar`; time units by name; playback speed and
@@ -656,7 +657,7 @@ Faults found, all general:
 - `.cp[k]` on a curve with history is a move on top of it. A curve fed straight by another curve keeps the connection. Deformer membership on curves (`cv[...]`) reaches the weights. `pointOnCurveInfo.top` is a share of the parameter range. Edit points exist (`eps[k].yve`). A wrap can be driven by a curve, each point keeping its offset from the nearest CV.
 - `multiplyDivide.input1` starts at 0. `pickMatrix`, `aimMatrix`, `blendMatrix` and `setRange` have the reference's short names; a blendMatrix target has `useMatrix`. `pairBlend` has its modes. `ramp`, `motionPath`, `makeNurbsSquare`, `extrude` and `reverseSurface` come from files. Transform limits read and can be driven (`mntl`, `mxtl`, `xtxe`). `.pa` is read and saved, where saving used to lose it. A single chain handle's rotation means its difference from the file's pose.
 - Spline IK advanced twist: up types, world up axis, vectors and matrices, Total, Start/End and Ramp values. The bone's way out of the joint counts as forward, whatever `dForwardAxis` says, as a mirrored chain at rest shows.
-- `createColorSet` passes through. `deleteComponent` and `polyDelEdge` apply to the stored mesh. Renderer nodes (RenderMan, Arnold) are quiet and left out on saving. Images are also looked for in `Textures` beside the scene.
+- `createColorSet` passes through. `deleteComponent` and `polyDelEdge` apply to the stored mesh. Renderer nodes (RenderMan, and ai types Harold has no node for) are quiet and left out on saving. Images are also looked for in `Textures` beside the scene.
 
 Looked at: all four rigs posed through arm IK and FK, legs, spine, head, jaw and fingers, each reaching the final meshes, and back at rest to 0.0000. Screenshots at rest and posed, textured, under Xvfb. Saved and reopened: 0 warnings on the second and third, and on the fourth 0 where it had 2, as what it can't represent is dropped by the save.
 
@@ -1052,9 +1053,10 @@ the checks with their numbers, and timings. Nothing was compared with a running 
 point and quad light, clamp and Cornell box checks compare against closed forms and against Harold's own high sample
 renders.
 
-Settings use the node and attribute names files hold (`defaultRenderGlobals`, `defaultResolution`,
-`defaultArnoldRenderOptions` as `aiOptions`, `aiAOVFilter`, `aiAOVDriver`, `aiAOV`) and save with the scene; the shared
-nodes are written with `createNode -s`. The shape attributes (`aiSubdivType`, `primaryVisibility`, ...) save on meshes
+Settings use the node types and attribute names files hold (`defaultRenderGlobals`, `defaultResolution`,
+`defaultHaroldRenderOptions` as `aiOptions`, `aiAOVFilter`, `aiAOVDriver`, `aiAOV`) and save with the scene; the shared
+nodes are written with `createNode -s`. The reference renderer's node names and renderer name answer for Harold's, and
+saving writes them, so files open in either (27/11/2026, docs/HAROLD.md). The shape attributes (`aiSubdivType`, `primaryVisibility`, ...) save on meshes
 and NURBS surfaces. `render`, `hrender` with `arnoldRender` as a second name, `renderSettings`, `renderWindowEditor`.
 
 From older renderers, not honoured (each named in a warning when a scene uses it):
@@ -2951,16 +2953,16 @@ Harold background (issue 39):
 - The render had the background colour in it (checked in the EXR: 1 0 0 with alpha 0). The render view drew the
   image through its alpha, so the background vanished and showed only at partly covered edges. It now shows the
   colour alone; Alpha and RGBA Over Checker are on the View menu.
-- The alpha is premultiplied, as Arnold's. The setting to change is how the image is shown, not the render.
+- The alpha is premultiplied, as the reference renderer's. The setting to change is how the image is shown, not the render.
 - A colour swatch's style sheet was taken by the colour dialog opened from it; the dialog is now the window's child.
-- Arnold USD: materials whose output is `outputs:arnold:surface` come in as the Arnold node types (`arnold:flat` as
-  aiFlat, `arnold:standard_surface` as aiStandardSurface, other `arnold:` ids as `ai` plus the name), their inputs set
-  and Arnold shaders feeding them connected. The background named by the RenderSettings' `arnold:global:background`
+- The reference renderer's USD: materials whose output is `outputs:arnold:surface` come in as the ai node types
+  (`arnold:flat` as aiFlat, `arnold:standard_surface` as aiStandardSurface, other `arnold:` ids as `ai` plus the
+  name), their inputs set and the shaders feeding them connected. The background named by the RenderSettings' `arnold:global:background`
   (or `arnold:background` on an ArnoldOptions prim), through its ArnoldNodeGraph, is made and connected to
-  `defaultArnoldRenderOptions.background`. RenderProduct, RenderVar and Arnold's own prims no longer come in as
+  `defaultHaroldRenderOptions.background`. RenderProduct, RenderVar and the renderer's own prims no longer come in as
   transforms. The background is one colour for the whole image: a textured background shader isn't evaluated per pixel.
-- Not reproduced: the background in bounces. Harold shows it to camera rays only. Arnold's `background_visibility`
-  default was not confirmed from its documentation.
+- Not reproduced: the background in bounces. Harold shows it to camera rays only. The reference renderer's
+  `background_visibility` default was not confirmed from its documentation.
 
 ### mGear rigs without mGear (13/11/2026)
 
@@ -3583,7 +3585,7 @@ as it is written from the `.ma` text.
 
 The first part of making Harold a standalone renderer with a plug-in, as the reference's renderer and its plug-in
 are: Harold renders scene files of its own without Aztek. Names as chosen for it: the program `harold`, scene files
-`.hss`, the export command `haroldExportHss` (the reference's plug-in has `arnoldExportAss`), the plug-in
+`.hss`, the export command `haroldExportHss` (the reference renderer's plug-in has its own export command), the plug-in
 `haroldForAztek` (next part). See [docs/HAROLD.md](docs/HAROLD.md).
 
 - `haroldExportHss`: `-filename`, `-camera`, `-width`, `-height`, `-region`, `-startFrame`, `-endFrame`, `-frameStep`.
@@ -4784,3 +4786,13 @@ regression test reads the saved file after `autoSave` follows `upAxis`, as the P
 
 Viewport menus and shelf tabs use the interface font size. Changing that preference refreshes the fonts the theme
 has already applied. Checked at 9 and 14 pt under Xvfb on Linux. macOS still needs a visual check.
+### What changed (27/11/2026, vortex axis)
+
+`vortex -axisX -axisY -axisZ` (`-ax -ay -az`), from the reference's documentation: the axis the vortex turns about,
+0 1 0 by default, given on creation, changed one component at a time with `-e` and read with `-q`. It is kept as the
+field's `direction`, which Aztek's one field node already uses as a vortex's axis, so there is no `axisX` attribute to
+`getAttr`. A `vortexField` read from a `.ma` takes its `ax ay az` as that axis, and starts from the reference's
+defaults (magnitude 5, attenuation 1, axis 0 1 0) for what the file leaves out, where before it took the gravity
+field's 9.8, 0 and 0 -1 0, so a file's vortex turned the wrong way. Queries of every field command's number flags
+(`gravity -q -m`, `cmds.air(q=True, s=True)`) failed with "bad value"; they answer now. Still missing on `vortex`:
+the volume flags and `-perVertex`.

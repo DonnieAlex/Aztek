@@ -95,7 +95,7 @@ thread_local! {
     static KINDS: std::cell::RefCell<std::collections::HashMap<PathBuf, (Stamp, Kind)>> = std::cell::RefCell::new(std::collections::HashMap::new());
 }
 
-pub const FOREIGN_NOTE: &str = "This plug-in was compiled for Maya. It needs to be recompiled for Aztek from its source, with Aztek's plug-in kit (docs/PLUGINS.md).";
+pub const FOREIGN_NOTE: &str = "This plug-in was compiled for the reference. It needs to be recompiled for Aztek from its source, with Aztek's plug-in kit (docs/PLUGINS.md).";
 
 /// Where the names of the plug-ins loaded at start are kept.
 fn autoload_file() -> PathBuf {

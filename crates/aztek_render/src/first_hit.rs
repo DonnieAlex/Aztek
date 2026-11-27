@@ -1,5 +1,5 @@
-//! One camera sample: the ray from the lens, transparency on the way in, and at the first surface the split Arnold
-//! makes, a number of samples per ray type (diffuse, specular, transmission, subsurface), each squared, every light
+//! One camera sample: the ray from the lens, transparency on the way in, and at the first surface the split by ray type
+//! the reference's renderer makes: a number of samples per ray type (diffuse, specular, transmission, subsurface), each squared, every light
 //! sampled its own squared count. Results are split into the light AOVs by lobe and by direct or indirect.
 
 use glam::{Vec2, Vec3};
@@ -239,7 +239,7 @@ impl Tracer<'_> {
             let n = self.samples_for(c);
             counts[c as usize] = (n * n) as f32;
         }
-        // Categories with zero samples are off, Arnold's way of turning a ray type off.
+        // Categories with zero samples are off, the reference renderer's way of turning a ray type off.
         let mut mask = 0u8;
         for c in CATEGORIES {
             if present & c.bit() != 0 && counts[c as usize] > 0.0 {
@@ -270,7 +270,7 @@ impl Tracer<'_> {
                 let Some(smp) = bsdf.sample(wo, c.bit(), sub.next_1d(), sub.next_2d()) else { continue };
                 let mut depth = Depth::default();
                 if !self.depth_allows_bsdf(&depth, c, bsdf.hair_extra) {
-                    // Depth 0 for this type: direct light only, as Arnold does with a depth of 0.
+                    // Depth 0 for this type: direct light only, as the reference's renderer does with a depth of 0.
                     if c != Category::Sss {
                         let mut g2 = [Vec3::ZERO; MAX_GROUPS];
                         let ray = Ray::new(offset(sp.p, sp.ng, !smp.transmit), smp.wi, time);

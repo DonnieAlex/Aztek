@@ -3,7 +3,7 @@
 //! dielectric refraction) and the entry into subsurface scattering. Layers are combined by albedo scaling, as the
 //! standard surface specification describes: what a layer reflects on average is taken from what reaches those below.
 //!
-//! Lobes carry a category, Arnold's: diffuse, specular, coat, sheen, transmission, subsurface. Lighting AOVs split by it,
+//! Lobes carry a category, as the reference renderer's do: diffuse, specular, coat, sheen, transmission, subsurface. Lighting AOVs split by it,
 //! and the first hit draws its samples category by category.
 
 use std::sync::OnceLock;
@@ -669,7 +669,7 @@ fn eval_lobe(k: &LobeKind, wo: Vec3, wi: Vec3, reflect: bool) -> (Vec3, f32) {
             let d = ggx_d(h, ax, ay);
             let g = ggx_g2(wo, wi, ax, ay);
             let denom = (ho + eta * hi).powi(2);
-            // Radiance scales by 1/eta^2 crossing into denser media; Arnold-style renderers leave it out of the BSDF
+            // Radiance scales by 1/eta^2 crossing into denser media; production path tracers leave it out of the BSDF
             // so that light paths and camera paths agree. Left out here too.
             let val = (1.0 - f) * d * g * ho * (-hi) * eta * eta / (denom * wo.z);
             let pdf = vndf_pdf(wo, h, ax, ay) * eta * eta * (-hi) / denom;

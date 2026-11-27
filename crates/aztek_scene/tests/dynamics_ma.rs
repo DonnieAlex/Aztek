@@ -278,3 +278,28 @@ fn nails_hold_after_the_file_is_read_back() {
     let there = held(&mut back);
     assert!((there - DVec3::new(0.0, 580.0, 0.0)).length() < 1.0, "read back: {there}");
 }
+
+/// A vortexField as the reference writes it: the axis as ax ay az, and nothing written that is at its default.
+const VORTEX_FILE: &str = r#"//Maya ASCII 2024 scene
+requires maya "2024";
+currentUnit -l centimeter -a degree -t film;
+createNode vortexField -n "vortexField1";
+createNode vortexField -n "vortexField2";
+	setAttr ".mag" 2;
+	setAttr ".ax" 1;
+	setAttr ".ay" 0;
+"#;
+
+#[test]
+fn vortex_field_reads_its_axis_and_the_reference_defaults() {
+    let mut s = Session::new();
+    let w = read_text(&mut s, VORTEX_FILE, false);
+    assert!(w.is_empty(), "the axis is used, not kept aside: {w:?}");
+    assert_eq!(get(&mut s, "vortexFieldShape1.fieldType"), json!(7));
+    // Left out of the file, so at the reference's defaults.
+    assert_eq!(get(&mut s, "vortexFieldShape1.magnitude"), json!(5.0));
+    assert_eq!(get(&mut s, "vortexFieldShape1.attenuation"), json!(1.0));
+    assert_eq!(get(&mut s, "vortexFieldShape1.direction"), json!([0.0, 1.0, 0.0]));
+    assert_eq!(get(&mut s, "vortexFieldShape2.magnitude"), json!(2.0));
+    assert_eq!(get(&mut s, "vortexFieldShape2.direction"), json!([1.0, 0.0, 0.0]));
+}

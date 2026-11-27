@@ -1,7 +1,8 @@
 // supportRenderers: keeps track of the current renderer (defaultRenderGlobals.currentRenderer), checks it is one that
 // is registered, keeps it valid as scenes open, and lets renderer UI register procedures to run when it changes.
 //
-// Renderers are registered with the `renderer` command; Aztek registers Harold under the name "arnold", so scenes and
+// Renderers are registered with the `renderer` command. Harold is registered as "harold", and the `renderer` command
+// takes the reference renderer's name for it too, so scenes and
 // scripts written for the reference find it.
 
 global string $gUpdateUIProcs[];
@@ -31,11 +32,8 @@ global proc verifyCurrentRenderer()
 
     if (!`renderer -exists $current`) {
         if (`getenv "MAYA_NO_WARNING_FOR_MISSING_DEFAULT_RENDERER"` != "1") {
-            if ($current == "arnold")
-                warning -noContext "The scene's renderer, arnold, isn't available, so the preferred renderer is used.";
-            else
-                warning (`format -stringArg $current -stringArg $preferred
-                    "The renderer ^1s isn't available; switching to ^2s."`);
+            warning (`format -stringArg $current -stringArg $preferred
+                "The renderer ^1s isn't available; switching to ^2s."`);
         }
         // Swapping the renderer isn't a change the user made, so an unchanged scene stays unchanged.
         int $modified = `file -query -modified`;
