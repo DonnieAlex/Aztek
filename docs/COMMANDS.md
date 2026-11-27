@@ -2230,7 +2230,7 @@ Arguments: a curve (the selection when none); the curveInfo node with -q and -e
 
 ## arnoldRender
 
-hrender under the name other scripts use.
+hrender under the name scripts written for the reference use.
 
 Arguments: camera
 

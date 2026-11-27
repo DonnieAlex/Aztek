@@ -30,7 +30,7 @@ What crosses:
 | blendShape deformers | `BlendShape` prims with inbetweens |
 | Keys | time samples, a sample per frame; reading makes linear keys |
 | lambert, blinn, phong, standardSurface, file, place2dTexture | `UsdPreviewSurface`, `UsdUVTexture`, `UsdPrimvarReader_float2`, `UsdTransform2d` |
-| Arnold shaders (`aiFlat`, `aiStandardSurface` ...), read only | `arnold:` shaders on `outputs:arnold:surface`; the RenderSettings' `arnold:global:background` to `defaultArnoldRenderOptions.background` |
+| The reference renderer's shaders (`aiFlat`, `aiStandardSurface` ...), read only | `arnold:` shaders on `outputs:arnold:surface`; the RenderSettings' `arnold:global:background` to `defaultHaroldRenderOptions.background` |
 | Face assignments | `GeomSubset`s in the `materialBind` family |
 | Instanced shapes | instanceable prims on a hidden prototype; `PointInstancer` reads as instances |
 | Attributes tagged `USD_ATTR_x`, or listed in `USD_UserExportedAttributesJson` | custom attributes, `userProperties:` |

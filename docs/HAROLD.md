@@ -63,7 +63,7 @@ scene holds is rendered by it; there is no choice of renderer.
   with it for every type, decay rate and setting. A scene with no lights renders with the viewport's default lighting
   (a key and a fill that follow the camera, and a little all round). `physicalLights` on the options node switches
   to physical units instead: quadratic falloff, intensity as radiant intensity, `aiDecayType` honoured.
-  The Realtime viewport renderer reads the same Arnold lights: `aiAreaLight` and `aiMeshLight` as area lights,
+  The Realtime viewport renderer reads the same ai lights: `aiAreaLight` and `aiMeshLight` as area lights,
   `aiPhotometricLight` as a spot, and `aiSkyDomeLight` as its image-based lighting.
   Harold's own lights: point radius (`aiRadius`), directional angle (`aiAngle`), sky dome (colour or a latitude-longitude
   image, importance sampled), Harold area lights (quad, disc, cylinder, normalised by area unless `aiNormalize` is off,
@@ -72,7 +72,7 @@ scene holds is rendered by it; there is no choice of renderer.
   `aiDiffuse`, `aiSpecular`, `aiSss`, `aiVolume`, `aiTransmission`, `aiMaxBounces`; `aiAov` puts a light in a light
   group. Specular highlights are the standard surface's, not the viewport's blinn and phong shapes.
 - **Background.** Camera rays that meet nothing see the options' `background` colour (black by default) where there is
-  no sky dome; a shader connected to it (`aiFlat`, as the reference's Arnold plug-in connects one) gives its colour.
+  no sky dome; a shader connected to it (`aiFlat`, as the reference connects one) gives its colour.
   The background adds to the colour and leaves alpha clear, so the image is premultiplied. EXR keeps alpha; eight bit
   images are written opaque. The render view shows the colour alone by default (View > RGB); View > Alpha shows the
   alpha and View > RGBA Over Checker the image over a checker.
@@ -120,14 +120,20 @@ renderer renders with Harold and says so.
 
 - `hrender` renders the current frame (waits), `-async` (returns at once, the render view follows), `-ipr start`,
   `stop`, `refresh` or `pause`, `-seq "1 10 2"` and `-batch` (writes the frames the settings name), `-camera`, `-width`,
-  `-height`, `-region x0 y0 x1 y1`. `arnoldRender` takes the same flags, for scripts written for it.
+  `-height`, `-region x0 y0 x1 y1`. `arnoldRender` is the same command under the reference renderer's name, for scripts written for it.
 - `render [camera]` renders the current frame and returns the image's path.
 - `renderSettings -firstImageName`, `-lastImageName`, `-imageGenericName`, `-fullPath`, `-fullPathTemp`.
 - `renderWindowEditor -e -writeImage path`, `-snapShot`, `-removeAllImages`, `-removeImage`, `-exposure`, `-gamma`;
   `-q -nbImages`, `-currentCamera`.
-- Settings are attributes: `defaultRenderGlobals`, `defaultResolution`, `defaultArnoldRenderOptions` (samples, depths,
-  clamps, adaptive, motion blur, textures, ignore switches, threads), `defaultArnoldFilter`, `defaultArnoldDriver` (its
-  `ai_translator` picks the format), `aiAOV` nodes. The names are those files use.
+- Settings are attributes: `defaultRenderGlobals`, `defaultResolution`, `defaultHaroldRenderOptions` (samples, depths,
+  clamps, adaptive, motion blur, textures, ignore switches, threads), `defaultHaroldFilter`, `defaultHaroldDriver` (its
+  `ai_translator` picks the format), `defaultHaroldDisplayDriver`, `aiAOV` nodes. The node types and attributes are
+  those files use.
+- Names for compatibility: the reference renderer's names answer for Harold's. `defaultArnoldRenderOptions`,
+  `defaultArnoldFilter`, `defaultArnoldDriver` and `defaultArnoldDisplayDriver` find the `defaultHarold` nodes in
+  `getAttr`, `setAttr`, `select` and the rest, and a file that creates them fills those in. `renderer -exists arnold`
+  and a `currentRenderer` of `arnold` mean Harold. Saving a scene writes the reference's names, so the file keeps its
+  render settings when the reference opens it. The table is `crates/aztek_scene/src/harold/compat.rs`.
 
 Batch rendering needs no display:
 
@@ -204,7 +210,7 @@ Ranked by how much a user would notice:
 
 1. Render layers and render setup are not read: everything renders as the master layer.
 2. Particles and volumes other than the atmosphere fog are not rendered. Curves and hair are (see Strands below), without
-   minimum pixel width, oriented curves or Arnold's curve tessellation of B-splines: curves are sampled into straight
+   minimum pixel width, oriented curves or the reference renderer's curve tessellation of B-splines: curves are sampled into straight
    segments first.
 3. Subsurface scattering is noisy at default samples, more than a production renderer's.
 4. USD stages in the scene are not rendered.
@@ -226,7 +232,7 @@ Ranked by how much a user would notice:
 Curves rendered as fibres, for NURBS curves with Render Curve on and for hair (XJEN, docs/XJEN.md).
 
 - **Geometry.** A curve set is a mesh of its own whose primitives are straight segments with a radius at each point,
-  in the same two-level hierarchy as triangles, with motion keys. Ribbon (Arnold's default for curves) is met where
+  in the same two-level hierarchy as triangles, with motion keys. Ribbon (the reference renderer's default for curves) is met where
   the ray passes nearest the strand's middle line and faces the ray; Thick is a tube met on its near side.
 - **NURBS curves:** `aiRenderCurve`, `aiCurveWidth` (a diameter), `aiSampleRate` (points a span), `aiCurveShader` (the
   material connected) and `aiMode` (ribbon, thick) on the shape, names as files hold them (unverified against a
@@ -234,6 +240,6 @@ Curves rendered as fibres, for NURBS curves with Render Curve on and for hair (X
 - **aiStandardHair:** the fibre model of d'Eon and Chiang as the PBRT book gives it: R, TT, TRT and the rest, a cuticle
   tilt (`shift`), longitudinal and azimuthal roughness, melanin and its redness for the pigment, `baseColor` as a dye
   over it, the three tints, emission and opacity. Not read: `melaninRandomize`, `roughnessAnisotropic`, `diffuse`,
-  `diffuseColor`, `extraDepth`, `extraSamples`. How Arnold maps melanin 0 to 1 onto pigment is not published: here 1 is
-  about eight units of eumelanin, scaled by the power 1.5. Defaults are Arnold's documentation's, unverified.
+  `diffuseColor`, `extraDepth`, `extraSamples`. How the reference's renderer maps melanin 0 to 1 onto pigment is not published: here 1 is
+  about eight units of eumelanin, scaled by the power 1.5. Defaults are from the reference renderer's documentation, unverified.
 - Surface materials on strands shade the ribbon or tube as a surface.

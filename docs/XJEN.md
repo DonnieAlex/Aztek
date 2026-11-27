@@ -104,7 +104,7 @@ Each step ends with tests stating the reference's result, the plug-in loading an
 round trips, and screenshots.
 
 1. **Strands in Harold and in the views.** Harold gets a curve primitive (round, ribbon and oriented ribbon, the
-   Arnold curve modes, with minimum pixel width), its own BVH leaves for curve segments, motion keys, and the
+   reference renderer's curve modes, with minimum pixel width), its own BVH leaves for curve segments, motion keys, and the
    `aiStandardHair` shader. The views draw strands as tapered, tube-shaded lines in one GPU buffer per description,
    fast at millions of segments. Both are tested on plain NURBS curves first (the reference renders curves with
    `aiRenderCurve`).
