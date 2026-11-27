@@ -1101,7 +1101,6 @@ void ChannelBox::refresh() {
         return;
     }
     const QJsonArray objects = cb["objects"].toArray();
-    const bool only_lead = QSettings().value("channelBox/showType", "all").toString() == "select";
     // One label column for the whole box: every attribute label, in the object and in its shapes, inputs and outputs,
     // ends at the same edge as the reference's.
     int label_width = 60;
@@ -1121,19 +1120,29 @@ void ChannelBox::refresh() {
             for (const QJsonValue& v : objects) scan_node(v.toObject());
         if (options_.contains("labelWidth")) label_width = qMax(10, options_["labelWidth"].toInt());
     }
-    // One block per selected object, lead last, as the reference stacks them.
-    auto add_object = [&](const QJsonObject& o) {
-        // Object name, editable to rename.
+    // One block for the selection. With more than one object the reference shows the lead's block only, its name
+    // followed by "..." as a sign that the same channels are edited on every selected object. The lead is the last
+    // selected object, as the reference names it.
+    auto add_object = [&](const QJsonObject& o, bool multiple) {
+        // Object name, editable to rename. The "..." is the multiple-selection mark, not part of the name.
         // Settings > Show Namespace off drops the namespace from the name shown.
         const QString full = o["name"].toString();
-        auto* name = new QLineEdit(cb_setting("namespace", true).toBool() ? full : full.section(':', -1), body_);
+        const QString shown = (cb_setting("namespace", true).toBool() ? full : full.section(':', -1)) + (multiple ? "..." : "");
+        auto* name = new QLineEdit(shown, body_);
         name->setObjectName("channelHeader");
         const QString path = o["path"].toString();
         connect(name, &QLineEdit::textEdited, name, [name] { name->setProperty("editing", true); });
-        connect(name, &QLineEdit::editingFinished, name, [name, path] {
+        connect(name, &QLineEdit::editingFinished, name, [name, path, shown, multiple] {
             if (!name->property("editing").toBool()) return;
             name->setProperty("editing", false);
-            exec("rename", args(QJsonArray{path, name->text().trimmed()}));
+            QString renamed = name->text().trimmed();
+            if (multiple && renamed.endsWith("...")) renamed.chop(3);
+            renamed = renamed.trimmed();
+            if (renamed.isEmpty()) {
+                name->setText(shown);
+                return;
+            }
+            exec("rename", args(QJsonArray{path, renamed}));
         });
         name->setProperty("node", path);
         lay->addWidget(name);
@@ -1156,13 +1165,9 @@ void ChannelBox::refresh() {
         add_nodes(lay, "OUTPUTS", o["outputs"].toArray(), label_width);
     };
     if (!objects.isEmpty()) {
-        const int first = only_lead ? qMax(0, objects.size() - 1) : 0;
-        for (int i = first; i < objects.size(); ++i) {
-            if (i > first) lay->addSpacing(8);
-            add_object(objects[i].toObject());
-        }
+        add_object(objects.last().toObject(), objects.size() > 1);
     } else {
-        add_object(cb);
+        add_object(cb, false);
     }
     lay->addStretch(1);
     scroll_->setWidget(body_);

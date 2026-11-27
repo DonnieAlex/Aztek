@@ -48,8 +48,10 @@ def write_geometry():
         if key and key not in rows:
             at = w.mapTo(main, QPoint(0, 0))
             rows[key] = at.y() + w.height() // 2
+    headers = [w.text() for w in main.findChildren(QLineEdit) if w.objectName() == "channelHeader"]
     data = {"label_x": label.mapTo(main, QPoint(0, 0)).x() + 8,
             "field_x": field.mapTo(main, QPoint(0, 0)).x() + 6,
+            "headers": headers,
             "rows": rows}
     with open(OUT + ".geom.tmp", "w") as f:
         json.dump(data, f)

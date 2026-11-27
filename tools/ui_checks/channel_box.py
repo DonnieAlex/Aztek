@@ -121,6 +121,10 @@ try:
         LABEL_X = geom["label_x"]
         FIELD_X = geom["field_x"]
         ROW.update(geom["rows"])
+        headers = geom.get("headers", [])
+        print("headers: %r" % (headers,))
+        if len(headers) != 1 or not headers[0].endswith("..."):
+            failures.append("one Channel Box header ending in ...")
     shot("0_start")
 
     # Scale X picked, Shift+click on Scale Z picks the run.
