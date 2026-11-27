@@ -529,7 +529,11 @@ void MainWindow::apply_prefs() {
     QSettings s;
     QFont f = qApp->font();
     f.setPointSize(s.value("prefs/fontSize", 9).toInt());
-    qApp->setFont(f);
+    if (f != qApp->font()) {
+        qApp->setFont(f);
+        // Refresh the fonts already resolved by the theme stylesheet.
+        qApp->setStyleSheet(qApp->styleSheet());
+    }
     statusBar()->setVisible(s.value("prefs/helpLine", true).toBool());
     auto bar = [this, &s](const char* name, const char* key) {
         if (QWidget* t = findChild<QWidget*>(name, Qt::FindDirectChildrenOnly)) t->setVisible(s.value(QString("prefs/") + key, true).toBool());

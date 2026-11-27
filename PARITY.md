@@ -4782,6 +4782,10 @@ the session started with. There is now one copy, the session's `option_vars`: th
 Preferences window and the autosave settings all read and write it, and the core saves it after each command. A
 regression test reads the saved file after `autoSave` follows `upAxis`, as the Preferences Save does.
 
+### What changed (26/11/2026, #323)
+
+Viewport menus and shelf tabs use the interface font size. Changing that preference refreshes the fonts the theme
+has already applied. Checked at 9 and 14 pt under Xvfb on Linux. macOS still needs a visual check.
 ### What changed (27/11/2026, vortex axis)
 
 `vortex -axisX -axisY -axisZ` (`-ax -ay -az`), from the reference's documentation: the axis the vortex turns about,
