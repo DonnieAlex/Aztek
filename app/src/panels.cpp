@@ -415,11 +415,17 @@ protected:
             // Settings > No or Invisible Manipulators keep the handle out of the view; the middle drag still works.
             if (cb_setting("manipulators", 2).toInt() == 2) {
                 query("uiShowManip", plug.section('.', 0, -2));
-                query("uiShowManipAttr", plug.section('.', -1));
+                // The attribute is lit on release: asking now bumps the core version, which rebuilds this panel and
+                // destroys the labels under a drag, leaving only the first channel picked.
             }
         }
         else g_input_plugs.remove(a);
         restyle_channel_labels();
+    }
+    void mouseReleaseEvent(QMouseEvent* e) override {
+        QLabel::mouseReleaseEvent(e);
+        if (e->button() == Qt::LeftButton && property("inputPlug").isValid())
+            query("uiShowManipAttr", property("inputPlug").toString().section('.', -1));
     }
 };
 
