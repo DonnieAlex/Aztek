@@ -575,7 +575,7 @@ The reference has one look, and Classic is it, the default. There are 26 built-i
 changes the interface's colours, fonts and the shapes of its buttons, fields, tabs, arrows and scroll bars, live, and
 Aztek keeps the choice. They are listed from darkest to lightest, and the icons turn dark on the light ones. Keating,
 Novacek, Springer and Buxton are the Dracula, Nord and Solarized colour schemes as their authors publish them; Shaq
-follows Unreal Engine 5's editor, DonnieAlex Blender's, Martino Softimage XSI and Macintosh macOS. The timeline and the drawn editors (Graph,
+follows Unreal Engine 5's editor, DonnieAlex Blender's and Macintosh macOS. The timeline and the drawn editors (Graph,
 Node and UV Editor, marking menus) keep their own colours.
 
 **Random!**, at the bottom of the box, makes a theme with every option at random, fonts included, and applies it: pick
@@ -587,7 +587,7 @@ or bold menus and tabs, the fill (classic, flat or gradient), bevels (none, sing
 radius, border width, padding, the tab, arrow and scroll bar styles, the buttons (soft, glossy, outline, inset, chunky,
 underlined or pills), the edges round panels (line, groove, raised, thick, rounded or a drop shadow) and the panel title
 bars (gradient, underlined, a highlight stripe, inverse or a folder tab). Every built-in theme has its own mix of these;
-Martino follows Softimage XSI: warm grey panels, soft rounded buttons, blue-grey section bars, dark rounded entry
+Martino has warm grey panels, soft rounded buttons, blue-grey section bars, dark rounded entry
 fields and a white bar for what is picked. Built-in themes stay as they are and saving makes a
 copy of your own, kept as JSON in the Aztek settings folder's `themes` directory, which Import and Export pass around.
 On Linux that folder is `~/.config/aztek` by default, and Aztek copies existing settings there without replacing files already present.
@@ -606,17 +606,17 @@ On Linux that folder is `~/.config/aztek` by default, and Aztek copies existing 
 | **Gibson**: forest green and lime, humanist type, soft gradients | **Shaq**: after Unreal Engine 5's editor: near-black and charcoal panels, black fields, its bright blue, Roboto | **Springer**: Solarized dark with its yellow and orange: condensed type, single bevels, square edges |
 | ![Ozymok](docs/theme-slate.jpg) | ![Keating](docs/theme-dracula.jpg) | ![DonnieAlex](docs/theme-classic98.jpg) |
 | **Ozymok**: plum and hot pink, Gill-style type with italic menus, gradient buttons with a single bevel | **Keating**: the Dracula scheme: pink highlights, purple section bars, rounded type, very round corners | **DonnieAlex**: after Blender, in DonnieAlex's high-contrast take: mid-dark grey regions, its blue for panel headers and selection, grey rounded widgets, serif type |
-| ![Novacek](docs/theme-nord.jpg) | ![Alias](docs/theme-alias.jpg) | ![Tureski](docs/theme-pewter.jpg) |
-| **Novacek**: the Nord scheme: frost blues, geometric type, borderless, round-topped tabs | **Alias**: the late-90s animation package's dark scheme: slate panels, white section bars, fixed-width type | **Tureski**: warm pewter grey and orange, wide Verdana-style type, double bevels, orange section bars |
+| ![Novacek](docs/theme-nord.jpg) | ![Terminus](docs/theme-terminus.jpg) | ![Tureski](docs/theme-pewter.jpg) |
+| **Novacek**: the Nord scheme: frost blues, geometric type, borderless, round-topped tabs | **Terminus**: a late-90s dark scheme: slate panels, white section bars, fixed-width type | **Tureski**: warm pewter grey and orange, wide Verdana-style type, double bevels, orange section bars |
 
 ### Light
 
 | | | |
 |---|---|---|
 | ![Sebdvvv](docs/theme-studio96.jpg) | ![Martino](docs/theme-martino.jpg) | ![Krieger](docs/theme-desktop98.jpg) |
-| **Sebdvvv**: the mid-90s workstation animation packages: pink fields, bold italic menus, bevels | **Martino**: after Softimage XSI: warm grey, soft rounded buttons, blue-grey section bars, dark rounded fields, white selection | **Krieger**: silver and navy, two-tone bevels, 1998 |
-| ![Wavefront](docs/theme-workstation.jpg) | ![Hourihan](docs/theme-poweranimator.jpg) | ![Hourcade](docs/theme-sky.jpg) |
-| **Wavefront**: the light grey workstation desktop the reference first ran on | **Hourihan**: light grey with mid grey fields and darker section bars, round-topped tabs | **Hourcade**: pale sky blue and navy, humanist type, navy section bars, round pills |
+| **Sebdvvv**: the mid-90s workstation animation packages: pink fields, bold italic menus, bevels | **Martino**: warm grey, soft rounded buttons, blue-grey section bars, dark rounded fields, white selection | **Krieger**: silver and navy, two-tone bevels, 1998 |
+| ![Workstation](docs/theme-workstation.jpg) | ![Hourihan](docs/theme-hourihan.jpg) | ![Hourcade](docs/theme-sky.jpg) |
+| **Workstation**: the light grey workstation desktop of the early 1990s | **Hourihan**: light grey with mid grey fields and darker section bars, round-topped tabs | **Hourcade**: pale sky blue and navy, humanist type, navy section bars, round pills |
 | ![Buxton](docs/theme-solarized-light.jpg) | ![Hall](docs/theme-paper.jpg) | ![AshT](docs/theme-ash.jpg) |
 | **Buxton**: Solarized light with its cyan and magenta: serif type, round-topped tabs | **Hall**: cream paper and red ink, typewriter type, bold menus, square corners, black section bars | **AshT**: after Hello Kitty: candy pink and white, red highlights and section bars, black outlines, rounded type |
 | ![Macintosh](docs/theme-macos.jpg) | ![Stam](docs/theme-lilac.jpg) |  |
