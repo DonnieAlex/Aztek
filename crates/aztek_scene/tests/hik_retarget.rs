@@ -1,4 +1,4 @@
-//! HumanIK's workflow with numbers: slots, definitions, sources, the retarget between bodies of different sizes and joint counts,
+//! Humanoid IK's workflow with numbers: slots, definitions, sources, the retarget between bodies of different sizes and joint counts,
 //! bakes, and a character in the words of a file saved by the reference.
 
 use aztek_scene::Session;

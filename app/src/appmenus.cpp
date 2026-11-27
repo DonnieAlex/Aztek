@@ -927,8 +927,8 @@ void MainWindow::show_named_window(const QString& name) {
 }
 
 QStringList MainWindow::workspace_names() {
-    // The reference's list, with Aztek's names for its systems (the host's workspaceLayoutManager holds it); MASH and
-    // Motion Graphics are left out until TRASH is in.
+    // The reference's list, with Aztek's names for its systems (the host's workspaceLayoutManager holds it); the motion
+    // graphics ones are left out until TRASH is in.
     static QStringList names;
     if (names.isEmpty())
         for (const QJsonValue& v : ask("workspaceLayoutManager", QJsonObject{{"listLayouts", true}}).toArray()) names << v.toString();

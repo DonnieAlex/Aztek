@@ -5498,7 +5498,7 @@ impl Writer<'_> {
             if !a.has(flags::INPUT) || !a.has(flags::STORABLE) || !wanted(i, a) {
                 continue;
             }
-            // A HumanIK node's vectors go by axis: the reference's files name .HipsTx and never .HipsT.
+            // A Humanoid IK node's vectors go by axis: the reference's files name .HipsTx and never .HipsT.
             if t.name.starts_with("HIK") && a.ty == PlugType::Vec3 {
                 let (value, rest) = (n.value(i).as_vec3(), a.default_value.as_vec3());
                 for c in 0..3 {

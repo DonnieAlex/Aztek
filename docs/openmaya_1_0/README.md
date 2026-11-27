@@ -331,7 +331,7 @@ does not:
   has edit classes that Python lacks.
 - MPx classes beyond commands, nodes, transforms, constraints, shapes, locators and IK solvers: bake engines, cache
   formats and filters, camera sets, component shapes, custom evaluators, edit data, file resolvers, geometry data and
-  iterators, image files and planes, material information, Maya ASCII filters, motion path nodes, object sets,
+  iterators, image files and planes, material information, ASCII scene file filters, motion path nodes, object sets,
   poly triggers, poly tweak UV commands, representations, topology evaluators and pre-rotation matrices.
 
 ### Methods

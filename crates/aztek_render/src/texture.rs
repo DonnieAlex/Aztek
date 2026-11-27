@@ -21,7 +21,7 @@ pub enum ColorSpace {
 }
 
 impl ColorSpace {
-    /// Maya's and OCIO's names, read tolerantly.
+    /// The reference's and OCIO's names, read tolerantly.
     pub fn parse(s: &str) -> ColorSpace {
         let l = s.to_ascii_lowercase();
         if l.contains("raw") || l == "utility - raw" || l == "data" || l == "non-color" {

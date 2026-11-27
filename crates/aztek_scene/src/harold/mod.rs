@@ -485,7 +485,7 @@ pub fn translate(s: &mut Session, tr: &mut Translator, req: &Request) -> Result<
     scene.network = net;
     scene.materials = mats;
     scene.material_names = names;
-    // A default light when there are none and the globals ask for one, as Maya's own default light. Glowing surfaces
+    // A default light when there are none and the globals ask for one, as the reference's own default light. Glowing surfaces
     // don't count: they are lights only to the renderer.
     let no_lights = scene.lights.is_empty();
     lights::emissive(&mut scene);

@@ -126,7 +126,7 @@ impl MatBuilder<'_, '_> {
         s
     }
 
-    /// Maya's lambert family into the standard surface.
+    /// The reference's lambert family into the standard surface.
     fn legacy(&mut self, id: NodeId, ty: &str, name: &str) -> Material {
         let nb = &mut *self.nb;
         let mut s = Standard::default();
@@ -169,7 +169,7 @@ impl MatBuilder<'_, '_> {
         match ty {
             "lambert" => s.specular = Input::c(0.0),
             "blinn" | "phong" | "phongE" | "anisotropic" | "rampShader" => {
-                // The highlight's colour at Maya's default of 0.5 reads as the standard surface's full specular.
+                // The highlight's colour at the reference's default of 0.5 reads as the standard surface's full specular.
                 let sc = nb.input(id, "specularColor");
                 s.specular_color = scale(nb, sc, 2.0);
                 s.specular = Input::c(1.0);

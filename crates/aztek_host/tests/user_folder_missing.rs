@@ -17,7 +17,7 @@ fn a_missing_user_folder_is_asked_about_and_made_when_chosen() {
     let mut c = Core::new();
     let ask = |c: &mut Core| -> Value { c.exec("aztekUserFolder", json!({"query": true})).unwrap() };
 
-    // First start, nothing anywhere: asked, with no Maya folder to offer.
+    // First start, nothing anywhere: asked, with no folder of the reference's to offer.
     let q = ask(&mut c);
     assert_eq!(q["needsChoice"], json!(true), "{q}");
     assert!(q["detected"].is_null());
@@ -33,13 +33,13 @@ fn a_missing_user_folder_is_asked_about_and_made_when_chosen() {
     std::fs::remove_dir_all(&own).unwrap();
     assert_eq!(ask(&mut c)["needsChoice"], json!(true));
 
-    // Copied from an empty Maya folder: the folder is made all the same.
+    // Copied from an empty folder of the reference's: the folder is made all the same.
     std::fs::create_dir_all(&theirs).unwrap();
     c.exec("aztekUserFolder", json!({"copyFrom": theirs.to_string_lossy()})).unwrap();
     assert!(own.is_dir());
     assert_eq!(ask(&mut c)["needsChoice"], json!(false));
 
-    // Linked to the Maya folder, which then goes: asked again.
+    // Linked to the reference's folder, which then goes: asked again.
     c.exec("aztekUserFolder", json!({"mode": "link", "folder": theirs.to_string_lossy()})).unwrap();
     assert_eq!(ask(&mut c)["needsChoice"], json!(false));
     std::fs::remove_dir_all(&theirs).unwrap();

@@ -46,7 +46,7 @@ fn find(g: &Graph, name: &str, ty: &str) -> Option<NodeId> {
     g.nodes().into_iter().find(|&id| g.node(id).is_some_and(|n| n.ty().name == ty))
 }
 
-/// Maya's imageFormat numbers for the formats Harold writes.
+/// The reference's imageFormat numbers for the formats Harold writes.
 pub fn format_name(code: i64, key: &str) -> String {
     if !key.is_empty() && super::FORMATS.contains(&key.to_ascii_lowercase().as_str()) {
         return key.to_ascii_lowercase();

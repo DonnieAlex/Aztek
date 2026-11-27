@@ -1,4 +1,4 @@
-//! The camera: Maya's camera model of focal length over a film back in inches, film fit, orthographic width, and a thin
+//! The camera: the reference's camera model of focal length over a film back in inches, film fit, orthographic width, and a thin
 //! lens for depth of field from the f-stop and focus distance.
 
 use glam::{Mat4, Vec2, Vec3};

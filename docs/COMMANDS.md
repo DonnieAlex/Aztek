@@ -1376,11 +1376,11 @@ Open the Graph Editor.
 
 ## HIKCharacterControlsTool
 
-The Human IK window.
+The Humanoid IK window.
 
 ## HumanIK
 
-The Human IK window: characters, sources, definitions and controls.
+The Humanoid IK window: characters, sources, definitions and controls.
 
 ## IKHandleTool
 
@@ -11007,7 +11007,7 @@ Arguments: character
 
 ## hikBakeCharacterPre
 
-Ready a character's bake: selects every node in its definition, the nodes HumanIK drives.
+Ready a character's bake: selects every node in its definition, the nodes Humanoid IK drives.
 
 Arguments: character
 
@@ -11043,7 +11043,7 @@ Arguments: character, on, validate
 
 ## hikControlRigSelectionChangedCallback
 
-Refreshes the HumanIK window; here it follows the scene by itself.
+Refreshes the Humanoid IK window; here it follows the scene by itself.
 
 Arguments: ignored
 
@@ -11130,7 +11130,7 @@ Arguments: character
 
 ## hikGetCurrentCharacter
 
-The character the HumanIK window is on.
+The character the Humanoid IK window is on.
 
 ## hikGetCurrentSource
 
@@ -11182,7 +11182,7 @@ Held for scripts: -rap, the release all pinning flag. It has no effect, since th
 
 ## hikInfo
 
-What the HumanIK window draws, as JSON.
+What the Humanoid IK window draws, as JSON.
 
 ## hikIsCharacterizationLocked
 
@@ -11249,7 +11249,7 @@ Arguments: file, character
 
 ## hikSelectDefinitionTab
 
-Refreshes the HumanIK window; here it follows the scene by itself.
+Refreshes the Humanoid IK window; here it follows the scene by itself.
 
 Arguments: ignored
 
@@ -11267,7 +11267,7 @@ Arguments: joint, character, slot, 0
 
 ## hikSetCurrentCharacter
 
-Make a character the HumanIK window's. Returns it.
+Make a character the Humanoid IK window's. Returns it.
 
 Arguments: character
 
@@ -11301,55 +11301,55 @@ Lock or unlock the current character's definition.
 
 ## hikUpdateCharacterList
 
-Refreshes the HumanIK window; here it follows the scene by itself.
+Refreshes the Humanoid IK window; here it follows the scene by itself.
 
 Arguments: ignored
 
 ## hikUpdateContextualUI
 
-Refreshes the HumanIK window; here it follows the scene by itself.
+Refreshes the Humanoid IK window; here it follows the scene by itself.
 
 Arguments: ignored
 
 ## hikUpdateCurrentCharacterFromUI
 
-Refreshes the HumanIK window; here it follows the scene by itself.
+Refreshes the Humanoid IK window; here it follows the scene by itself.
 
 Arguments: ignored
 
 ## hikUpdateCurrentSourceFromUI
 
-Refreshes the HumanIK window; here it follows the scene by itself.
+Refreshes the Humanoid IK window; here it follows the scene by itself.
 
 Arguments: ignored
 
 ## hikUpdateCustomRigUI
 
-Refreshes the HumanIK window; here it follows the scene by itself.
+Refreshes the Humanoid IK window; here it follows the scene by itself.
 
 Arguments: ignored
 
 ## hikUpdateDefinitionUI
 
-Refreshes the HumanIK window; here it follows the scene by itself.
+Refreshes the Humanoid IK window; here it follows the scene by itself.
 
 Arguments: ignored
 
 ## hikUpdateSkeletonUI
 
-Refreshes the HumanIK window; here it follows the scene by itself.
+Refreshes the Humanoid IK window; here it follows the scene by itself.
 
 Arguments: ignored
 
 ## hikUpdateSourceList
 
-Refreshes the HumanIK window; here it follows the scene by itself.
+Refreshes the Humanoid IK window; here it follows the scene by itself.
 
 Arguments: ignored
 
 ## hikUpdateTool
 
-Refreshes the HumanIK window; here it follows the scene by itself.
+Refreshes the Humanoid IK window; here it follows the scene by itself.
 
 Arguments: ignored
 

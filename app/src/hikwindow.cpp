@@ -1,4 +1,4 @@
-// Humanoid IK, laid out as the reference's HumanIK panel (#168): the menu button, Character and Source, a row of tool
+// Humanoid IK, laid out as the reference's Humanoid IK panel (#168): the menu button, Character and Source, a row of tool
 // buttons, then the Skeleton, Definition, Controls and Properties tabs. Definition and Controls draw the body, with views
 // of the hands, feet, spine, clavicles, neck and roll bones to go into; under Definition the status and the picked
 // joint's values. It reads hikInfo and acts through the hik commands. The figures are drawn here, Aztek's own.
@@ -392,9 +392,9 @@ QWidget* section(const QString& title, QWidget* body) {
     return w;
 }
 
-class HumanIK : public Panel {
+class HumanoidIkPanel : public Panel {
 public:
-    explicit HumanIK(QWidget* parent) : Panel(parent) {
+    explicit HumanoidIkPanel(QWidget* parent) : Panel(parent) {
         auto* v = new QVBoxLayout(this);
         v->setContentsMargins(4, 4, 4, 4);
         v->setSpacing(4);
@@ -882,7 +882,7 @@ private:
 } // namespace
 
 QWidget* human_ik_panel(QWidget* parent) {
-    return new HumanIK(parent);
+    return new HumanoidIkPanel(parent);
 }
 
 } // namespace az

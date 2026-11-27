@@ -4,7 +4,7 @@ Requests waiting or in progress, newest detail kept. Move to Done with the date 
 
 ## In progress
 - Sound output (srlegrand's call): which audio library Aztek plays sound through, for playback, scrubbing and sync.
-- XJEN (top priority, srlegrand 16/11/2026): hair and fur at XGen parity. Target and order in docs/XJEN.md; ground truth
+- XJEN (top priority, srlegrand 16/11/2026): hair and fur at the reference's parity. Target and order in docs/XJEN.md; ground truth
   from `tools/reference_capture/xgen_capture.py`, to be run by srlegrand. Steps 1 (strands), 2 (Interactive Groom
   core), 3 (grooming tools), 4 (modifiers), 5 (editor, shelf,
   menu) and 6 (Alembic, caches) in, 16/11/2026.
@@ -81,7 +81,7 @@ Requests waiting or in progress, newest detail kept. Move to Done with the date 
 - Cloth feels wrong at scale: a cloth bigger than the grid acts stiff, small or heavy even as silk. Units, gravity, bending and presets must scale (agent, top priority). Real-world units by default from `currentUnit`: 1 cm of geometry is 1 cm of cloth, so nobody works in 10 cm = 1 m.
 - Shift+click on an expand arrow fully expands (and collapses) everything below it, in every hierarchy: Outliner, Hypershade, Reference Editor, Node Editor lists, Graph Editor and Dope Sheet outlines, layer editors, Attribute Editor sections.
 - Harold: render layers and render setup; hair and curves (XJEN step 1); quieter subsurface; USD stages in renders; an evicting texture tile cache; vector displacement and autobump; denoiser off the interface thread.
-- Bicurious: something like Bifrost built into the dynamics, not a separate system. Liquids, smoke, fire and procedural graphs share the one solver, colliding with and affecting cloth, particles and rigid bodies. Start after the unified solver merges.
+- Bicurious: the reference's procedural effects, built into the dynamics, not a separate system. Liquids, smoke, fire and procedural graphs share the one solver, colliding with and affecting cloth, particles and rigid bodies. Start after the unified solver merges.
 - README screenshots refreshed as features land.
 - Menus still missing: UV Pin, Proximity Pin, Interactive Bind Skin, Split UVs, 3D Cut and Sew, Unsmooth, Slice, Hole Punch, Cut Out, Deform Edit submenus, Prune Membership, Relationship Editors, IK/FK Keys, Audio, Cache, Visualize.
 - World symmetry: an object moved after symmetry was set keeps its old pairs.
@@ -94,7 +94,7 @@ Requests waiting or in progress, newest detail kept. Move to Done with the date 
 - polyMergeUV, polyForceUV with no UV selection do nothing where the reference may still add a node: check.
 
 
-- More examples once they merge: anim layers, HumanIK, USD.
+- More examples once they merge: anim layers, Humanoid IK, USD.
 
 - Shadows, spot cone manipulators, Light Linking editor; check whether keys 5 and 6 go back to default lighting.
 - Waitress rig about 14 fps measured during playback in the viewport: see what else takes the time now the skin is faster.
@@ -188,7 +188,7 @@ Requests waiting or in progress, newest detail kept. Move to Done with the date 
 - 07/11/2026 Smooth Preview wire as asked.
 - 07/11/2026 First class USD, priorities 1 to 8 with the gaps above.
 - 07/11/2026 Skin core: parallel, flat table, shared topology; a deformed mesh can't go stale in the viewport.
-- 07/11/2026 Anim layers and HumanIK retargeting; gaps in PARITY.md (Custom Rig, full-body solver, ghosts).
+- 07/11/2026 Anim layers and Humanoid IK retargeting; gaps in PARITY.md (Custom Rig, full-body solver, ghosts).
 - 07/11/2026 File > Examples with modelling history, materials, a coloured keyed arm rig and nested references.
 - 07/11/2026 All six default lights in the viewport, commands and `.ma`; no shadows yet.
 - 07/11/2026 Sculpting icons drawn to show what each tool does.

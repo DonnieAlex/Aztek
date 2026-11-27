@@ -258,7 +258,7 @@ fn sheen_f(wo: Vec3, wi: Vec3, rough: f32) -> f32 {
 #[derive(Clone, Copy, Debug)]
 pub enum LobeKind {
     Diffuse { color: Vec3, sigma: f32 },
-    /// Diffuse through to the other side: thin walled subsurface, Maya's translucence.
+    /// Diffuse through to the other side: thin walled subsurface, the reference's translucence.
     Translucent { color: Vec3 },
     Sheen { color: Vec3, rough: f32 },
     /// Dielectric reflection: specular and coat. `film` replaces Fresnel with a thin film's when present.

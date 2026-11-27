@@ -2,11 +2,11 @@
 
 fn no_op(c: &mut Commands<Session>, names: &[&str]) {
     for name in names {
-        c.register(Cmd::new(name, "Refreshes the HumanIK window; here it follows the scene by itself.", |_s, _a| Ok(Value::Null)).undoable(false).positional("ignored"));
+        c.register(Cmd::new(name, "Refreshes the Humanoid IK window; here it follows the scene by itself.", |_s, _a| Ok(Value::Null)).undoable(false).positional("ignored"));
     }
 }
 
-/// What the HumanIK window draws.
+/// What the Humanoid IK window draws.
 fn window_info(s: &mut Session) -> Value {
     let cur = current(s);
     let g = &mut s.graph;
@@ -123,7 +123,7 @@ pub fn register(c: &mut Commands<Session>) {
         refresh_rig(g, c)?;
         Ok(Value::Null)
     }).positional("character, slot"));
-    // The procedures of the reference's HumanIK scripts that tools call by name (mGear's HumanIK Mapper among them).
+    // The procedures of the reference's Humanoid IK scripts that tools call by name (mGear's Humanoid IK Mapper among them).
     c.register(Cmd::new("hikRemoveSkFromCharacter", "Empty a character's slot: character, slot id.", |s, a| {
         let (Some(cn), Some(slot)) = (a.pos_str(0).map(str::to_string), slot_arg(a, 1)) else { fail!("hikRemoveSkFromCharacter: character, slot") };
         let g = &mut s.graph;
@@ -148,7 +148,7 @@ pub fn register(c: &mut Commands<Session>) {
         the_character(s, a, "hikReadStancePoseTRSOffsets")?;
         Ok(Value::Null)
     }).undoable(false).positional("character"));
-    c.register(Cmd::new("hikBakeCharacterPre", "Ready a character's bake: selects every node in its definition, the nodes HumanIK drives.", |s, a| {
+    c.register(Cmd::new("hikBakeCharacterPre", "Ready a character's bake: selects every node in its definition, the nodes Humanoid IK drives.", |s, a| {
         let (_, ch) = the_character(s, a, "hikBakeCharacterPre")?;
         let nodes: Vec<String> = slots_of(&s.graph, ch).into_values().collect();
         s.run("select", json!({"args": nodes, "replace": true}))?;
@@ -175,8 +175,8 @@ pub fn register(c: &mut Commands<Session>) {
             Ok(json!(slots_of(&s.graph, ch).into_values().collect::<Vec<_>>()))
         }).undoable(false).positional("character"));
     }
-    c.register(Cmd::new("hikGetCurrentCharacter", "The character the HumanIK window is on.", |s, _a| Ok(json!(current(s).unwrap_or_default()))).undoable(false));
-    c.register(Cmd::new("hikSetCurrentCharacter", "Make a character the HumanIK window's. Returns it.", |s, a| {
+    c.register(Cmd::new("hikGetCurrentCharacter", "The character the Humanoid IK window is on.", |s, _a| Ok(json!(current(s).unwrap_or_default()))).undoable(false));
+    c.register(Cmd::new("hikSetCurrentCharacter", "Make a character the Humanoid IK window's. Returns it.", |s, a| {
         let Some(n) = a.pos_str(0).map(str::to_string) else { fail!("hikSetCurrentCharacter: name a character") };
         character(&s.graph, &n, "hikSetCurrentCharacter")?;
         set_current(s, &n);
@@ -331,6 +331,6 @@ pub fn register(c: &mut Commands<Session>) {
         let (_, ch) = the_character(s, a, "hikStraightenArms")?;
         Ok(json!(straighten_arms(&mut s.graph, ch)?))
     }).positional("the character"));
-    c.register(Cmd::new("hikInfo", "What the HumanIK window draws, as JSON.", |s, _a| Ok(window_info(s))).undoable(false));
+    c.register(Cmd::new("hikInfo", "What the Humanoid IK window draws, as JSON.", |s, _a| Ok(window_info(s))).undoable(false));
     no_op(c, &["hikUpdateDefinitionUI", "hikUpdateCharacterList", "hikUpdateSourceList", "hikUpdateContextualUI", "hikUpdateCurrentCharacterFromUI", "hikUpdateCurrentSourceFromUI", "hikUpdateSkeletonUI", "hikControlRigSelectionChangedCallback", "hikSelectDefinitionTab", "hikUpdateTool", "hikUpdateCustomRigUI"]);
 }

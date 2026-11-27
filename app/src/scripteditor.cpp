@@ -479,7 +479,7 @@ QMenu#scriptMenu::indicator:exclusive:unchecked { image: url(@DIR/radio_off.png)
 QMenu#scriptMenu::indicator:exclusive:checked { image: url(@DIR/radio_on.png); }
 )";
 
-// The menu indicator pictures: Maya's outlined square with a check, and the filled radio dot. Written once to the
+// The menu indicator pictures: the reference's outlined square with a check, and the filled radio dot. Written once to the
 // cache directory and named in the menus' style sheet.
 const QString& script_icon_dir() {
     static const QString dir = [] {

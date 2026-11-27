@@ -805,7 +805,7 @@ void ScriptCompletion::build_candidates(const Analysis& a) {
                 e.kind = CompletionEntry::Module;
                 e.category = QStringLiteral("module");
                 e.detail = name;
-                e.doc = name == "maya" ? QStringLiteral("Aztek's maya compatibility package.") : QStringLiteral("Aztek's own package.");
+                e.doc = name == "maya" ? QStringLiteral("Aztek's compatibility package.") : QStringLiteral("Aztek's own package.");
                 base_.append(e);
             }
             for (const QString& alias : aliases) {

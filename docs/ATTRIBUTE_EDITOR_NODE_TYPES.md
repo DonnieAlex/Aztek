@@ -32,7 +32,7 @@ Grouped by the names they share, not by the reference's own families. The groupi
 
     AL_usdmaya_ProxyShape, AlembicNode, CustomRigRetargeterNode, ProxyUsdGeomCamera, TdnAffect, Unfold3DUnfold, arubaTessellate
 
-### HumanIK (13)
+### Humanoid IK (13)
 
     HIKCharacterNode, HIKControlSetNode, HIKEffector2State, HIKFK2State, HIKPinning2State, HIKProperty2State, HIKRetargeterNode, HIKSK2State, HIKSolverNode, HIKState2Effector, HIKState2FK, HIKState2GlobalSK, HIKState2SK
 

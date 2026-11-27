@@ -228,7 +228,7 @@ simulation.
 
 ## Hair (17/11/2026)
 
-`makeCurvesDynamic` (nHair > Make Selected Curves Dynamic) puts each selected curve under a new follicle in
+`makeCurvesDynamic` (Hair > Make Selected Curves Dynamic) puts each selected curve under a new follicle in
 `hairSystem1Follicles`, makes a dynamic output curve for it in `hairSystem1OutputCurves`, and wires them as the
 reference does: `curve.worldSpace -> follicle.startPosition`, `follicle.outHair -> hairSystem.inputHair[i]`,
 `follicle.pointLock -> hairSystem.inputHairPin[i]`, `hairSystem.outputHair[i] -> follicle.currentPosition`,
@@ -244,7 +244,7 @@ kept, so going back to one already solved gives it again; going forward past a g
 Not yet: a nucleus (the system uses its own gravity rather than a nucleus's), collisions (self, with meshes and
 the ground), attraction and stiffness ramps, turbulence and fields, the follicle's per hair overrides, rest
 position and rest curves, hair rendering of the system (Paint Effects and Harold strands), caches, and the rest of
-the nHair menu.
+the Hair menu.
 
 ## The disk cache
 

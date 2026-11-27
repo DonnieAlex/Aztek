@@ -1,4 +1,4 @@
-//! HumanIK's commands: the procedures scripts call, the T-pose checks, name templates, the standard skeleton, the control rig,
+//! Humanoid IK's commands: the procedures scripts call, the T-pose checks, name templates, the standard skeleton, the control rig,
 //! and baking. Nothing here is documented by the reference apart from `characterize` and `hikGlobals`: names and arguments are as community
 //! scripts quote them, and what the checks say is written here to read like the reference's rather than copied from it.
 

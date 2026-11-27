@@ -1,4 +1,4 @@
-//! The retarget: a source character's joints in the world to a target character's, both defined in T-pose. HumanIK's own solver
+//! The retarget: a source character's joints in the world to a target character's, both defined in T-pose. Humanoid IK's own solver
 //! isn't documented, so this is ours, to the behaviour the Retarget Specific attributes describe.
 //!
 //! Each mapped joint turns in the world as its source does, measured from their T-poses. Spines and necks of different

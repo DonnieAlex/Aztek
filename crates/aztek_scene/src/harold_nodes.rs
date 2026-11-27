@@ -134,7 +134,7 @@ const OLD_SHORT: &[(&str, &str)] = &[
     ("transmissionDispersion", "tdis"),
 ];
 
-/// The standard surface's attributes, camelCase (Maya's standardSurface) or snake_case (aiStandardSurface).
+/// The standard surface's attributes, camelCase (the reference's standardSurface) or snake_case (aiStandardSurface).
 pub fn standard_attrs(snake: bool) -> Vec<AttrDef> {
     let mut out = Vec::new();
     for &(camel, short, sn, colour, d) in STANDARD {
@@ -476,7 +476,7 @@ pub const SHAPE_RENDER_NAMES: &[&str] = &[
     "aiDispHeight", "aiDispZeroValue", "aiDispPadding", "aiDispAutobump", "aiTraceSets", "aiSssSetname", "aiExportTangents", "aiExportColors", "aiExportRefPoints", "aiExportRefNormals", "aiMotionVectorSource",
 ];
 
-/// What renders need on a mesh or NURBS surface: Maya's render stats and the subdivision and visibility settings files
+/// What renders need on a mesh or NURBS surface: the reference's render stats and the subdivision and visibility settings files
 /// hold for the reference's renderer. Added at the end of each type's attributes.
 pub fn shape_render_attrs() -> Vec<AttrDef> {
     vec![
@@ -516,7 +516,7 @@ pub fn shape_render_attrs() -> Vec<AttrDef> {
     ]
 }
 
-/// What renders read on every light, beside Maya's own attributes.
+/// What renders read on every light, beside the reference's own attributes.
 pub fn light_render_attrs() -> Vec<AttrDef> {
     vec![
         fs("aiExposure", "ai_exposure", 0.0),

@@ -66,6 +66,6 @@ Each is a guess in a test, marked `// unverified:` at the line. `calls.json` car
 | The IK Spline Handle Tool's defaults: `for f in ("roc","cra","pcv","snc","ccv","scv","ns","rtm","tws"): print(f, cmds.ikSplineHandleCtx("ikSplineHandleContext", q=True, **{f: True}))` (#317) | `ctx_cmds.rs` default_prop | none yet |
 | What does `emit` do before the particles' start frame (an error, a warning, an empty array)? Which short names does `-attribute` take (`vel`, `rgb`)? From Python, how do the values pair with several `attribute=` names? Is a mid-solve emit undone? | `emit.rs` | `emit.before_start`, `emit.ids` |
 | Spline IK `twistType` Ease In / Ease Out / Ease In Out and `rootTwistMode`: each joint's twist (five joints along X, `twist` 90) | `ik_spline_options.rs` `ease_in_gathers_the_twist_toward_the_end` | none yet |
-| Every XGen default, the commands the Generate menu and the grooming tools run, how a groom is stored in `.ma` and `.mb` | XJEN, all steps | `xgen_capture.py` |
+| Every grooming default, the commands the Generate menu and the grooming tools run, how a groom is stored in `.ma` and `.mb` | XJEN, all steps | `xgen_capture.py` |
 
 Add a row, and a call in `calls.json`, whenever a test takes a guess.

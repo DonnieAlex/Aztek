@@ -118,7 +118,7 @@ fn skeleton_tab_choices() {
     }
 }
 
-/// The calls mGear's HumanIK mapper makes: a source set and read back by name, a joint taken out of the definition,
+/// The calls mGear's Humanoid IK mapper makes: a source set and read back by name, a joint taken out of the definition,
 /// and the bake bracketed by its pre and post steps.
 #[test]
 fn mapper_calls() {

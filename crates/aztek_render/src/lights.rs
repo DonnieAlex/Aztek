@@ -179,7 +179,7 @@ pub enum Shape {
     },
     /// Emitting triangles of an instance, chosen by area.
     Mesh { inst: u32, tris: Vec<u32>, cdf: Vec<f32>, area: f32 },
-    /// Maya's ambient light: light from all around unshadowed, and the shade part from its position.
+    /// The reference's ambient light: light from all around unshadowed, and the shade part from its position.
     Ambient { pos: Vec3, shade: f32 },
     /// The reference's volume light: light inside a box, sphere, cylinder or cone (shape 0 to 3) in the unit space of
     /// `to_unit`, fading from the middle to the boundary; coming from the centre (mode 0), towards it (1) or down the

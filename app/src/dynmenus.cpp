@@ -39,7 +39,7 @@ QList<QMenu*> MainWindow::dynamics_menus() {
     particles->addAction("Emit from Object", [] { mel("EmitFromObject;"); });
     out << particles;
 
-    // nHair: curves on follicles of a hair system (no nucleus or collisions yet; docs/DYNAMICS.md, Hair).
+    // Hair: curves on follicles of a hair system (no nucleus or collisions yet; docs/DYNAMICS.md, Hair).
     auto* hair = new QMenu("Hair", this);
     cmd(hair, "Make Selected Curves Dynamic", "makeCurvesDynamic", {}, QString(), true);
     out << hair;

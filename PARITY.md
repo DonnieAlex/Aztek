@@ -63,7 +63,7 @@ Save. With Z up:
 - Not changed by the axis: attribute defaults (aim vectors, gravity and field directions). Unchecked against the
   reference: whether its gravity and nucleus defaults follow Z up.
 - Batch mode (`aztek --batch`) starts Y up with the default units: it doesn't read the saved preferences. It does use the user folder: its paths and modules, the plug-ins marked Auto load and `userSetup`.
-- Left as they are: HumanIK's per-joint state attributes keep what their solver works in. Attributes Aztek adds itself with no counterpart (`hardAngle`, `minAngle`) and UV angles the reference documents in degrees (`polyEditUV -angle`, `polyMoveUV -ra`) stay in degrees.
+- Left as they are: Humanoid IK's per-joint state attributes keep what their solver works in. Attributes Aztek adds itself with no counterpart (`hardAngle`, `minAngle`) and UV angles the reference documents in degrees (`polyEditUV -angle`, `polyMoveUV -ra`) stay in degrees.
 - Unverified, all on the capture list: whether `xform -q -m` answers in the current unit (here centimetres), whether a primitive's default size follows the unit (here it doesn't: `polyCube` with no `-w` in a metre scene is 1 cm wide), and whether `polyEvaluate -b` scales (1.11).
 
 Audited, commands whose flags carry a unit:
@@ -975,7 +975,7 @@ Not done, the ones a user would notice first:
 - Missing menu items, by use, as of 16/11/2026: Interactive Bind Skin, Deform > Edit > Blend Shape's Swap and Bake Topology to Targets, Wire's edits other than Add Wire, Connect and Disconnect from IK/FK, the Cache menu's nCache and Geometry Cache. The rest of the list from 07/11/2026 is in; see the dated sections below.
 - `polyBevel3`'s node is `polyBevel1`, with no test pinning anything else. From memory, not confirmed: `bevel.name` in the capture kit.
 
-## Animation layers and HumanIK, 07/11/2026
+## Animation layers and Humanoid IK, 07/11/2026
 
 Nothing here has been compared with a running copy of the reference. The layout comes from the node and command pages and from scenes saved by the reference on this machine: one layered scene, one with three characters. Those files stay out of the repo.
 
@@ -1004,14 +1004,14 @@ Shallower, most noticed first:
 - Extract Non-Layered makes an override layer so the result stays; the guide doesn't say what the base keeps. `-maxLayers` answers the largest integer: the page gives no number. `-excludeProxy` has nothing to exclude. Bake's `-smart` isn't in; merge's is. Channel box tint colour is ours. Export Layer, Package Into Assets, Exclusive Solo, Template Curves of Locked Layers, the layer drop-down by the Range Slider and Ghost options aren't in.
 - `.dsm` isn't a connection here, as it would be a cycle: read past and written from the blends. `.bllm`, `.ri`, `.im` aren't kept.
 
-### HumanIK
+### Humanoid IK
 
 `hik.rs`, `hik_nodes.rs`, `hik_solve.rs`, `hik_slots.rs`, `hik_rig.rs`, `hik_commands.rs`, `app/src/hikwindow.cpp`, `tests/hik_retarget.rs`. The reference documents none of this beyond `characterize` and `hikGlobals`; the node pages are absent from its reference. Procedure names are as community scripts quote them, argument lists partly inferred.
 
 - Nodes as a saved file shows them: `HIKCharacterNode` (joint `.ch` to `.Hips`, world T-pose in `.HipsTx`, `.HipsRx`, `.HipsSx`, `.HipsJointOrientx`, limits, `.InputCharacterizationLock`, `.propertyState`), `HIKProperty2State`, `HIKSolverNode`, `HIKState2SK`, `HIKSK2State`, `HIKFK2State`, `HIKRetargeterNode`, in the same connections. `HIKEffector2State`, `HIKPinning2State`, `HIKState2FK`, `HIKState2GlobalSK`, `HIKState2Effector`, `HIKControlSetNode`, `CustomRigRetargeterNode` are held only. Slots 0 to 171 in a saved file's order, 172 to 211 from a published table's end.
 - Commands: `hikCreateCharacter`, `newCharacterWithName`, `hikCreateDefinition`, `setCharacterObject`, `hikSetCharacterObject`, `GetHIKNodeName`, `hikGetNodeCount`, `hikGetSkNode`, `hikGetSkeletonNodes`, `hikGetCurrentCharacter`, `hikSetCurrentCharacter`, `hikGetCurrentSource`, `hikSetCurrentSource`, `hikSetCurrentSourceFromCharacter`, `mayaHIKgetInputCharacter`, `hikCharacterLock`, `hikToggleLockDefinition`, `hikIsDefinitionLocked`, `hikEnableCharacter`, `hikCreateControlRig`, `hikDeleteControlRig`, `hikBakeToSkeleton`, `hikBakeToControlRig`, the `hikUpdate*` refreshes as no-ops. Ours: `hikDefinitionStatus`, `hikNameMatch`, `hikMirrorMatching`, `hikSaveTemplate`, `hikLoadTemplate`, `hikStraightenArms`, `hikInfo`.
-- The retarget is ours, as HumanIK's solver is closed, to what the Retarget Specific attributes describe. World turns from the T-poses, spine and neck by position along the chain so counts may differ, joints with no source follow their parent, hips and ankles moved by the action space scale (Auto: hip heights), a two bone solve at the ankle keeping the knee's side. Match Source, Mirror, Action Space, Hips Level, Feet Spacing and Ankle Height modes, hand reach.
-- Human IK window (`HumanIK`, Skeleton > HumanIK): Character, Source, Lock, Create Control Rig, Stance, a drawn figure with slots red, yellow, green and the messages, Assign Selected Bone, Mirror Matching, Name Match, Controls figure selecting the control rig, Properties, bake options, templates.
+- The retarget is ours, as Humanoid IK's solver is closed, to what the Retarget Specific attributes describe. World turns from the T-poses, spine and neck by position along the chain so counts may differ, joints with no source follow their parent, hips and ankles moved by the action space scale (Auto: hip heights), a two bone solve at the ankle keeping the knee's side. Match Source, Mirror, Action Space, Hips Level, Feet Spacing and Ankle Height modes, hand reach.
+- Humanoid IK window (`HumanIK`, Skeleton > Humanoid IK): Character, Source, Lock, Create Control Rig, Stance, a drawn figure with slots red, yellow, green and the messages, Assign Selected Bone, Mirror Matching, Name Match, Controls figure selecting the control rig, Properties, bake options, templates.
 - Tried on a mocap skeleton from a scene on this machine onto a rig whose limbs hang under groups: joints follow in proportion and the feet land. Its torso mesh stretches when the source lies down, as that rig skins to spine joints not in the definition.
 
 Shallower, most noticed first:
@@ -1213,7 +1213,7 @@ the path) and every `userSetup.py`, and its shelves on request.
 
 Differences from the reference:
 
-- A compiled plug-in built for the reference is listed as "Compiled for Maya" and never loaded; it is told by reading the file for
+- A compiled plug-in built for the reference is listed as "Compiled for the reference" and never loaded; it is told by reading the file for
   what it exports, not by loading it.
 - The reference writes its preferences into its user folder. Aztek keeps its own in `~/.aztek` and never writes to a linked folder.
 - Of the saved preferences only optionVars are read. Hotkeys, marking menus, colours, window layouts and `pluginPrefs.mel` are not.
@@ -1700,9 +1700,9 @@ checked before it loads and become an ImportError that names the cause: a shibok
 PySide6, and an `enum` module that isn't Python's own (a Python 2 backport, enum34, or a tool's enum.py earlier on the
 path). Not confirmed as the cause of #169: the reporter's setup is still to be checked.
 
-### HumanIK as the mayaHIK plug-in (19/11/2026, #167)
+### Humanoid IK as the mayaHIK plug-in (19/11/2026, #167)
 
-HumanIK is a plug-in of Aztek's own named mayaHIK, as the reference's is, loaded at start and listed in the Plug-in
+Humanoid IK is a plug-in of Aztek's own named mayaHIK, as the reference's is, loaded at start and listed in the Plug-in
 Manager. `pluginInfo -q -command mayaHIK` lists its commands and `-dependNode` its node types (HIKCharacterNode,
 HIKSolverNode, HIKState2SK, HIKProperty2State); unloading it takes the commands away and loading puts them back, and
 built-in plug-ins now answer -dependNode. Of the reference plug-in's own commands only GetHIKNodeName, hikGetNodeCount
@@ -1743,15 +1743,15 @@ of a vertex along its normal with nothing live. Before, only the vertex under th
 
 ### Humanoid IK as a tab; panels tabbed by default (19/11/2026, #177)
 
-Human IK is now Humanoid IK, and it opens as a tab on the right with the Channel Box and the Attribute Editor rather
-than as a window of its own (Windows > Humanoid IK, the status line button, and the HumanIK runtime commands). Picking
+The window is now the Humanoid IK panel, and it opens as a tab on the right with the Channel Box and the Attribute Editor rather
+than as a window of its own (Windows > Humanoid IK, the status line button, and the Humanoid IK runtime commands). Picking
 a built-in workspace puts the panels back as a fresh layout has them: the Channel Box, the Attribute Editor, the
 Modeling Toolkit and Humanoid IK tabbed on the right, the Outliner and the Tool Settings tabbed on the left, rather than
 stacked as another workspace may have left them.
 
 ### Humanoid IK panel laid out as the reference's (19/11/2026, #168)
 
-The Humanoid IK panel follows the reference's HumanIK panel: the menu button, Character and Source, a row of tool
+The Humanoid IK panel follows the reference's Humanoid IK panel: the menu button, Character and Source, a row of tool
 buttons that changes with the tab, then Skeleton, Definition, Controls and Properties.
 
 - Skeleton: the reference's frames, Scale and Bones (Character Scale, Spine, Neck, Shoulder / Clavicle), Roll Bones,
@@ -1763,7 +1763,7 @@ buttons that changes with the tab, then Skeleton, Definition, Controls and Prope
   selects it. Under the figure the status, then the slot, its joint, the scene selection and the joint's values.
 - Controls: once the source is the control rig, sticks for the bones and circles for the hand and foot effectors, a
   click selecting the control (a finger's stick its whole finger), and the hands and feet with the other side's in
-  the corner to go to it. The HumanIK Controls frame's IK Blend T sets the picked effector's IK blend; IK Blend R and IK
+  the corner to go to it. The Humanoid IK Controls frame's IK Blend T sets the picked effector's IK blend; IK Blend R and IK
   Pull are there but not in Aztek yet.
 
 The figures are Aztek's own drawings.
@@ -2832,7 +2832,7 @@ Import (`FBXImport -f path`, `file -import -type "FBX" path`, `file -open` of a 
   shapes, constraints, cameras and lights as such (their nodes are transforms), geometry caches, audio.
 
 Settings: every `FBXImport*` and `FBXExport*` command on the reference's command pages, each `-v value` to set and
-`-q` to ask, starting at the Autodesk Media & Entertainment preset; `FBXResetImport`, `FBXResetExport`,
+`-q` to ask, starting at the Media & Entertainment preset; `FBXResetImport`, `FBXResetExport`,
 `FBXPushSettings`, `FBXPopSettings`, `FBXLoadMBImportPresetFile`, `FBXLoadMBExportPresetFile`,
 `FBXExportSplitAnimationIntoTakes`, `FBXResamplingRate`, `FBXRead`, `FBXClose`, `FBXGetTakeCount`,
 `FBXGetTakeName`, `FBXGetTakeIndex`, `FBXGetTakeComment`, `FBXGetTakeLocalTimeSpan`,
@@ -4468,7 +4468,7 @@ right: a top-level node's parent as the world DAG node in the API, `translate` a
 (`MFnCompoundAttribute`), `instObjGroups` on every DAG node with object sets listed through it, `$gMainPane`,
 `$gShelfTopLevel` and `$gChannelBoxName` with the shelves as `shelfLayout`s scripts can put buttons on,
 `performFileDropAction` and `performFileImportAction` (a tool that redefines the first takes dropped files),
-`maya.app.flux.core.getPixmap`, `OpenMayaUI.MQtUtil.findMenuItem` by menu path, the HumanIK commands mGear's mapper
+`maya.app.flux.core.getPixmap`, `OpenMayaUI.MQtUtil.findMenuItem` by menu path, the Humanoid IK commands mGear's mapper
 calls (`hikRemoveSkFromCharacter`, `hikSetCharacterInput`, `mayaHIKsetCharacterInput`, `hikGetCharacterInputString`,
 `hikReadStancePoseTRSOffsets`, `hikBakeCharacterPre`, `hikBakeCharacterPost`), `FBXExportFileVersion -uiVersionList`,
 and the gpuCache plug-in: the `gpuCache` command writes Alembic files over a frame range and the `gpuCache` shape plays

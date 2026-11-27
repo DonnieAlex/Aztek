@@ -1,4 +1,4 @@
-//! HumanIK characters: definitions mapping joints to slots through `.ch`, T-pose checks, sources, baking and the procedures scripts
+//! Humanoid IK characters: definitions mapping joints to slots through `.ch`, T-pose checks, sources, baking and the procedures scripts
 //! call. Nodes are in `hik_nodes.rs`, the retarget in `hik_solve.rs`, slot tables in `hik_slots.rs`, the control rig and the
 //! commands for definitions' files in `hik_rig.rs`. Procedure names come from the reference's own scripts as community code quotes them;
 //! The reference documents none of them.
@@ -466,7 +466,7 @@ pub(crate) fn set_source(s: &mut Session, target: &str, source: &str) -> CmdResu
     let c = character(&s.graph, target, "hikSetCurrentSource")?;
     let source = source.trim();
     let g = &mut s.graph;
-    g.open_chunk("HumanIK source");
+    g.open_chunk("Humanoid IK source");
     let r = (|| -> CmdResult<usize> {
         if let Some(k) = dest_of_type(g, c, "HIKState2SK") {
             if is_driving(g, k) {
