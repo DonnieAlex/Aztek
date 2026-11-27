@@ -408,24 +408,21 @@ protected:
         if (e->button() != Qt::LeftButton) return QLabel::mousePressEvent(e);
         QString a = property("attr").toString();
         pick_channel(a, e->modifiers(), false);
-        if (property("inputPlug").isValid()) {
+        if (property("inputPlug").isValid())
             g_input_plugs[a] = property("inputPlug").toString();
-            // The channel's handle lights up, and a middle drag takes it.
-            QString plug = property("inputPlug").toString();
-            // Settings > No or Invisible Manipulators keep the handle out of the view; the middle drag still works.
-            if (cb_setting("manipulators", 2).toInt() == 2) {
-                query("uiShowManip", plug.section('.', 0, -2));
-                // The attribute is lit on release: asking now bumps the core version, which rebuilds this panel and
-                // destroys the labels under a drag, leaving only the first channel picked.
-            }
-        }
-        else g_input_plugs.remove(a);
+        else
+            g_input_plugs.remove(a);
         restyle_channel_labels();
     }
     void mouseReleaseEvent(QMouseEvent* e) override {
         QLabel::mouseReleaseEvent(e);
-        if (e->button() == Qt::LeftButton && property("inputPlug").isValid())
-            query("uiShowManipAttr", property("inputPlug").toString().section('.', -1));
+        if (e->button() != Qt::LeftButton || !property("inputPlug").isValid()) return;
+        // Showing the handle is deferred to the release. Doing it on the press changed the tool under the mouse and
+        // stopped a drag down the input names after the first label, the same reason the attribute is lit here.
+        QString plug = property("inputPlug").toString();
+        if (cb_setting("manipulators", 2).toInt() == 2)
+            query("uiShowManip", plug.section('.', 0, -2));
+        query("uiShowManipAttr", plug.section('.', -1));
     }
 };
 
