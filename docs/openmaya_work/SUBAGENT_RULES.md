@@ -25,6 +25,103 @@ without overwriting each other or duplicating work. The documentation in this fo
 - Do not force-push a shared branch. If a rebase is needed, announce it in the handoff.
 - Remove the worktree only after the branch is merged or abandoned and the coordinator confirms it.
 
+## Claiming on GitHub comes first
+
+A work item is claimed on GitHub before any branch, worktree or code exists. The local queue is only a mirror of the
+GitHub issue. It is not a claim system of its own.
+
+The claim follows `CONTRIBUTING.md`, "Before you start on an issue". That section is the authority; the steps below are
+the subagent version of it.
+
+### Step 0: check the issue tracker first
+
+Before creating an issue or claiming anything, search the repository's issues and pull requests for the same work.
+This is the first action of a work item, ahead of authentication, branching or editing.
+
+```sh
+gh issue list --repo srlegrand/Aztek --state all --search "OM-<area>-<number>"
+gh issue list --repo srlegrand/Aztek --state all --search "<class or method>"
+gh pr list --repo srlegrand/Aztek --state all --search "<class or method>"
+```
+
+Also search for the documented 1.0 name and the Aztek name when the item is a name fix, and for the class name alone
+when the work is a class. Read every plausible hit, including closed issues and merged pull requests.
+
+Then choose one of these outcomes:
+
+- An open issue already covers the work. Claim that issue. Do not open a second one.
+- A closed issue or merged pull request already covers it. Record the link and stop, or reopen only if the work is
+  genuinely incomplete. Do not duplicate a settled item.
+- An open issue overlaps but is not the same. Link it in the new issue and say what is different.
+- Nothing matches. Create the issue in the claim step below.
+
+The work item record must carry the search queries and their result:
+
+```
+issue check: <queries>, found #<N> | none
+```
+
+An agent that cannot show this check has not started the item correctly and must not create a branch.
+
+### Preconditions
+
+An agent must satisfy all of these before it claims anything:
+
+- It is authenticated: `gh auth status` succeeds for the account that will do the work.
+- The target repository is reachable: `gh repo view srlegrand/Aztek` succeeds.
+- The issue is open and publicly visible: `gh issue view <N> --repo srlegrand/Aztek --json number,url,state,labels`
+  returns it. A private, deleted or forbidden issue stops the claim.
+- The issue is not owned by the issue bot or by srlegrand: no `auto:working`, `auto:pr` or `needs-srlegrand` label.
+- No open pull request already fixes it, and no unexpired claim exists. Search the comments and pull requests as
+  `CONTRIBUTING.md` says. A claim lapses after 3 days with no comment, push or pull request update from its claimant.
+- The work item's dependencies in `dependencies.md` are merged or explicitly out of scope.
+
+If any precondition fails, the agent records the item as `blocked` and stops. It does not start work on a local branch
+and it does not use the queue as a fallback.
+
+### The claim
+
+1. Use the open issue found by Step 0. Create one only when the search found nothing that covers the work. The title
+   should name the work item and the class or method. The body should link this folder, the relevant reference row and
+   the search result, including any overlapping issue or pull request. Use the repository's issue template if one
+   applies.
+2. Post the claim with the exact `Claimed:` prefix from `CONTRIBUTING.md`:
+
+   ```sh
+   gh issue comment <N> --repo srlegrand/Aztek \
+     --body "Claimed: OM-<area>-<number>, <one-line plan>"
+   ```
+
+3. Read the issue back and confirm the comment is visible and public:
+
+   ```sh
+   gh issue view <N> --repo srlegrand/Aztek --comments
+   ```
+
+4. Record the issue number, issue URL and claim comment URL on the work item. Only then change the local status from
+   `queued` to `claimed`, set `owner`, and create the branch and worktree.
+5. If the claim comment cannot be written, cannot be read back, or the issue is not public, the claim did not happen.
+   Report the exact command and error, mark the item `blocked`, and stop.
+
+A takeover follows the same rule with the wording from `CONTRIBUTING.md`:
+`Claimed: taking over from @name, <plan>`. Do not push to the previous claimant's branch.
+
+### Releasing a claim
+
+- If work stops, comment `Unclaimed:` on the issue with the reason, then mark the local item `queued` or `blocked`.
+- If work is done, push the branch, open the draft pull request with `Fixes #N` as soon as the first commit exists, and
+  leave the issue open until the pull request is merged. The merge closes it as `CONTRIBUTING.md` describes.
+- The coordinator may reassign an item only after the issue shows an `Unclaimed:` comment or the 3 day lapse. Record
+  the reassignment on the issue, not only in the local queue.
+
+### Why this order
+
+The issue tracker is the only place every contributor looks. Checking it first prevents duplicate issues, duplicate
+claims and work on something already settled. A local claim or a new issue is invisible to a person working from
+GitHub, a fork or another worktree. Making the search and the issue comment the first actions means a duplicate, a
+failed login, a private issue or a stale claim is found before a branch exists, not after an agent has spent time on
+work it cannot publish.
+
 ## Work item format
 
 Every item is a short record with these fields:
@@ -39,22 +136,31 @@ depends on: class or work item ids from dependencies.md
 files expected:
 acceptance: exact calls that must work
 tests:
+issue check: <queries>, found #<N> | none
+issue: <N> <url>
+claim comment: <url> | none
 owner:
 status: queued | claimed | implemented | verified | merged | blocked
 ```
 
-The coordinator keeps the queue. An agent claims an item by changing `owner` and `status` in the queue file, not by
-starting work silently. If two agents claim the same item, the first timestamp wins.
+The coordinator keeps the queue. The GitHub issue is authoritative. An item may be `claimed` locally only after the
+public `Claimed:` comment is visible on the issue and its URL is recorded. If the two disagree, the issue wins and the
+local item is corrected to match it.
 
 ## Roles
 
 ### Coordinator
 
-- Owns the queue and the merge order.
+- Owns the local queue and the merge order, but treats the GitHub issue as authoritative.
+- Releases an item only when its issue search is recorded, its issue is public, open and carries the claimant's
+  `Claimed:` comment.
+- Rejects a new issue that duplicates an existing open issue or a merged pull request.
+- Verifies the claim URL before assigning files or approving a branch.
 - Reads `dependencies.md` and releases items only when their prerequisites are merged.
 - Assigns non-overlapping files. Two agents may not edit the same header, source file or test file at the same time.
 - Runs the final verification and updates `README.md` and `PARITY.md`.
 - Rejects a change that adds a stub, renames a 2.0 method for a 1.0 fix, or edits outside its declared files.
+- Rejects a branch whose work item has no public claim, or whose claim was never read back from GitHub.
 
 ### Reference and audit agent
 
@@ -66,14 +172,20 @@ starting work silently. If two agents claim the same item, the first timestamp w
 ### Implementation agent
 
 - Implements exactly one work item.
+- Before creating a branch, shows the issue search result, the public GitHub issue URL and the `Claimed:` comment URL.
+  Without all three, it stops and reports `blocked`.
 - Reads the class's module document and its dependency row before editing.
 - Adds the tests named in the item.
 - Keeps the public header and the implementation in sync.
 - Does not touch another agent's files. If a shared file is unavoidable, the coordinator serialises the change.
+- Comments `Unclaimed:` on the issue if work stops, then updates the local item.
 
 ### Verification agent
 
 - Runs the build and the tests in a clean worktree.
+- Checks that the item records the issue search and that no open issue or merged pull request already covers it.
+- Checks that the GitHub issue shows the claimant's `Claimed:` comment and is still open.
+- Checks that the branch's pull request says `Fixes #N` and points at the same issue.
 - Checks the reference signature against the header.
 - Checks the Python 1.0 name against the C++ page, not the 2.0 name.
 - Checks that no unrelated files changed.
