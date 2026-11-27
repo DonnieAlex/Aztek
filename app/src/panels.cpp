@@ -444,6 +444,24 @@ void commit_channels(QLabel* edited, const QString& plug, const QString& text) {
     if (many) exec_quiet("undoInfo", QJsonObject{{"closeChunk", true}});
 }
 
+// A value chosen from a row's dropdown. A main row's value goes to every selected object, as typed values do; a
+// shape's or an input's row changes only that node. Visibility and the enums use this path.
+void set_channel_value(QLineEdit* edit, const QString& plug, const QJsonObject& ch, const QJsonValue& value) {
+    QString attr = ch["attr"].toString();
+    QString type = ch["type"].toString();
+    QStringList nodes;
+    if (edit->property("main").toBool()) {
+        for (const QJsonValue& v : state()["selection"].toArray()) {
+            QString n = v.toString().section('.', 0, 0);
+            if (!nodes.contains(n)) nodes << n;
+        }
+    }
+    if (nodes.isEmpty()) nodes << plug.section('.', 0, 0);
+    if (nodes.size() > 1) exec_quiet("undoInfo", QJsonObject{{"openChunk", true}});
+    for (const QString& n : nodes) set_attr(n + "." + attr, value, type);
+    if (nodes.size() > 1) exec_quiet("undoInfo", QJsonObject{{"closeChunk", true}});
+}
+
 void fill_channels_menu(QMenu* m, bool titled);
 
 // A channel row: right-aligned name, value field. Enter commits a setAttr.
@@ -483,6 +501,7 @@ QWidget* channel_row(const QJsonObject& ch, QWidget* parent, int label_width) {
     auto* edit = new QLineEdit(value_text(ch), row);
     edit->setProperty("attr", ch["attr"].toString());
     edit->setProperty("picked", g_channel_sel.contains(ch["attr"].toString()));
+    edit->setProperty("main", label->property("main"));
     g_channel_fields << edit;
     static auto* clicks = new ChannelValueClicks(qApp);
     edit->installEventFilter(clicks);
@@ -536,7 +555,7 @@ QWidget* channel_row(const QJsonObject& ch, QWidget* parent, int label_width) {
                 if (edit->property("choiceVersion").toULongLong() != aztek_version()) return;
                 edit->setProperty("editing", false);
                 QPointer<QLineEdit> current(edit);
-                set_attr(plug, type == "bool" ? QJsonValue(i != 0) : QJsonValue(i), type);
+                set_channel_value(edit, plug, ch, type == "bool" ? QJsonValue(i != 0) : QJsonValue(i));
                 if (!current) return;
                 QJsonObject updated = ch;
                 updated["value"] = ask("getAttr", args(QJsonArray{plug}));
