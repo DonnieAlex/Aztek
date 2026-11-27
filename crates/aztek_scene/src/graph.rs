@@ -1333,6 +1333,7 @@ impl Graph {
 
     /// global: unique across the scene; otherwise among the children of parent.
     fn unique_name(&self, wanted: &str, parent: NodeId, self_id: NodeId, global: bool) -> String {
+        let wanted = &*crate::harold::compat::node_name(wanted);
         let taken = |n: &str| {
             self.names.get(n).is_some_and(|ids| {
                 ids.iter()
@@ -1735,6 +1736,7 @@ impl Graph {
 
     /// Every node `path` matches, by id.
     pub fn find_all(&self, path: &str) -> Vec<NodeId> {
+        let path = &*crate::harold::compat::node_name(path);
         let absolute = path.starts_with('|');
         let path = if absolute { &path[1..] } else { path };
         let segs: Vec<&str> = path.split('|').collect();
@@ -1762,6 +1764,7 @@ impl Graph {
     pub fn find(&self, path: &str) -> Result<Option<NodeId>> {
         // surface->curve: a curve on a surface goes by its own name.
         let path = path.rsplit_once("->").map_or(path, |x| x.1);
+        let path = &*crate::harold::compat::node_name(path);
         if !path.contains('|') {
             match self.names.get(path).map(Vec::as_slice) {
                 None | Some([]) => return Ok(None),

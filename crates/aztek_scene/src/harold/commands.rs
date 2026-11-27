@@ -1,5 +1,5 @@
-//! Render commands: `render` as Maya's, `hrender` as Harold's own with `arnoldRender` accepted for scripts written for
-//! it, `renderSettings` for output names, and `renderWindowEditor` for the render view's images. The render view's
+//! Render commands: `render` as the reference's, `hrender` as Harold's own, also under the reference renderer's name
+//! (compat::RENDER_COMMAND) for scripts written for it, `renderSettings` for output names, and `renderWindowEditor` for the render view's images. The render view's
 //! state lives here: the running render, interactive rendering, and kept snapshots.
 
 use std::path::{Path, PathBuf};
@@ -386,7 +386,7 @@ fn hrender(s: &mut Session, a: &Args) -> CmdResult {
     Ok(json!(files))
 }
 
-/// Maya's `render`: the current frame through the given camera, waiting, returning the image's path.
+/// The reference's `render`: the current frame through the given camera, waiting, returning the image's path.
 fn render_cmd(s: &mut Session, a: &Args) -> CmdResult {
     let r = hrender(s, a)?;
     Ok(match r {
@@ -475,7 +475,7 @@ pub fn register(c: &mut Commands<Session>) {
             .flag(f("signature", "sig", ArgType::Bool, "Only the signature."))
             .undoable(false),
     );
-    for (name, doc) in [("hrender", "Renders with Harold: the current frame, a sequence (-seq), every frame the settings name (-batch), or interactively (-ipr start)."), ("arnoldRender", "hrender under the name other scripts use.")] {
+    for (name, doc) in [("hrender", "Renders with Harold: the current frame, a sequence (-seq), every frame the settings name (-batch), or interactively (-ipr start)."), (super::compat::RENDER_COMMAND, "hrender under the name scripts written for the reference use.")] {
         c.register(
             common(Cmd::new(name, doc, hrender).positional("camera"))
                 .flag(f("seq", "seq", ArgType::Any, "Frames: \"1 10\", \"1 10 2\" or one frame."))

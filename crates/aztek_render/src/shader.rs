@@ -714,7 +714,7 @@ pub struct Standard {
     pub opacity: Input,
     pub thin_walled: bool,
     pub normal: NormalMod,
-    /// Arnold's: caustics off cuts specular paths after a diffuse bounce.
+    /// As the reference's renderer: caustics off cuts specular paths after a diffuse bounce.
     pub caustics: bool,
     pub internal_reflections: bool,
     pub exit_to_background: bool,
@@ -725,7 +725,7 @@ pub struct Standard {
     pub hair: Option<HairInputs>,
 }
 
-/// aiStandardHair's inputs, by Arnold's names.
+/// aiStandardHair's inputs, by its attribute names.
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct HairInputs {
     pub base: Input,
@@ -741,7 +741,7 @@ pub struct HairInputs {
     pub transmission_tint: Input,
     pub emission: Input,
     pub emission_color: Input,
-    /// Arnold's extra_depth: bounces through hair allowed past the specular depth, so light hair keeps its brightness.
+    /// aiStandardHair's extraDepth: bounces through hair allowed past the specular depth, so light hair keeps its brightness.
     #[serde(default = "default_extra_depth")]
     pub extra_depth: u32,
 }

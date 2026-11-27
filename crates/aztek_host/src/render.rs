@@ -647,7 +647,7 @@ void direct(vec3 base, vec3 n, vec3 v, out vec3 diff, out vec3 spec, out vec3 co
             float d = length(to);
             l = to / max(d, 0.0001);
             if (dir.w > 1.5) {
-                // Falling off as Arnold's: its radiance (colour, intensity and exposure, normalised over the area, as
+                // Falling off as the reference renderer's: its radiance (colour, intensity and exposure, normalised over the area, as
                 // Harold's: without the pi the viewport's own lights take) through the rectangle's exact irradiance for
                 // the diffuse, and as a point of the same power at the nearest point for the highlight.
                 vec3 radiance = col.rgb * par.x;

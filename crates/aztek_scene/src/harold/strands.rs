@@ -78,8 +78,8 @@ pub fn gather(g: &mut Graph) -> Vec<Strands> {
     out
 }
 
-/// NURBS curves with Arnold's Render Curve on: sampled by Sample Rate a span, Curve Width across (a diameter, as
-/// Arnold's), shaded by what Curve Shader connects.
+/// NURBS curves with Render Curve on: sampled by Sample Rate a span, Curve Width across (a diameter, as
+/// the reference's renderer has it), shaded by what Curve Shader connects.
 fn render_curves(g: &mut Graph) -> Vec<Strands> {
     g.evaluate();
     let ids: Vec<NodeId> = g.nodes().into_iter().filter(|&id| g.node(id).is_some_and(|n| n.ty().is_a(crate::curves::SHAPE_TYPE))).collect();

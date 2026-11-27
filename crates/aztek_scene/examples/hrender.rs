@@ -22,7 +22,7 @@ fn main() {
         s.graph.set_time(fr / aztek_scene::anim::fps());
     }
     if let Some(aa) = aa {
-        let _ = s.run("setAttr", serde_json::json!({"args": ["defaultArnoldRenderOptions.AASamples", aa]}));
+        let _ = s.run("setAttr", serde_json::json!({"args": ["defaultHaroldRenderOptions.AASamples", aa]}));
     }
     if std::env::var_os("HAROLD_LIGHTS").is_some() {
         // A sky and an angled key, for rigs that come with no lights.
@@ -117,7 +117,7 @@ fn main() {
         r.cancel();
         let cancel = t.elapsed().as_secs_f64();
         // An edit: a light's intensity.
-        let _ = s.run("setAttr", serde_json::json!({"args": ["defaultArnoldRenderOptions.AASamples", 3]}));
+        let _ = s.run("setAttr", serde_json::json!({"args": ["defaultHaroldRenderOptions.AASamples", 3]}));
         let t = Instant::now();
         let (scene2, _) = harold::translate(&mut s, &mut tr, &Request { camera: None, width: w, height: h, ..Default::default() }).expect("translate");
         let tr_s = t.elapsed().as_secs_f64();

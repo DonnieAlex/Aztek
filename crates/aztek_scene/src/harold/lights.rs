@@ -1,5 +1,5 @@
-//! Lights into Harold's: Maya's six and Arnold's four, with their exposure, samples, radius, shadows and weights.
-//! Maya's decay rate is not used: light falls off with the square of distance, as in Arnold, unless aiDecayType asks for
+//! Lights into Harold's: the reference's six and the four ai lights, with their exposure, samples, radius, shadows and weights.
+//! The reference's decay rate is not used: light falls off with the square of distance, as in the reference's renderer, unless aiDecayType asks for
 //! none.
 
 use std::sync::Arc;

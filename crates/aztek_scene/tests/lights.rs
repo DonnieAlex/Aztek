@@ -264,7 +264,7 @@ fn harold_lights_read_for_the_realtime_renderer() {
     assert!((env.color[0] - 0.5).abs() < 1e-6 && (env.color[1] - 1.0).abs() < 1e-6 && (env.color[2] - 2.0).abs() < 1e-6);
     assert!(aztek_scene::lights::scene_light(&mut s.graph, id).is_none());
 
-    // The other Arnold lights are the legacy kinds the realtime shader already reads.
+    // The other ai lights are the legacy kinds the realtime shader already reads.
     for (ty, kind) in [("aiAreaLight", aztek_scene::lights::Kind::Area), ("aiMeshLight", aztek_scene::lights::Kind::Area), ("aiPhotometricLight", aztek_scene::lights::Kind::Spot)] {
         let tr = run(&mut s, "shadingNode", json!({"args": [ty], "asLight": true}));
         let sh = run(&mut s, "listRelatives", json!({"args": [tr], "shapes": true}))[0].as_str().unwrap().to_string();

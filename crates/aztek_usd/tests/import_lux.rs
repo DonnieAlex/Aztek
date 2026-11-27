@@ -1,4 +1,4 @@
-//! Issues 41 and 42: Scopes merge on a second import; UsdLux lights (Arnold's too) come in as lights; a Scope of render
+//! Issues 41 and 42: Scopes merge on a second import; UsdLux lights (the reference renderer's too) come in as lights; a Scope of render
 //! settings makes no group.
 
 use aztek_scene::session::Session;
