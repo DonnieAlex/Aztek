@@ -369,7 +369,7 @@ Every extra copy makes the project harder to lose.
 **Rigging**
 
 - **Skeletons and skinning:** joints (orient, mirror, insert, segment scale compensate), RP, SC and spline IK, every constraint, smooth
-  skin with weight painting, mirror and copy, dual quaternion; HumanIK characters with definitions, T-pose checks, control rig and
+  skin with weight painting, mirror and copy, dual quaternion; Humanoid IK characters with definitions, T-pose checks, control rig and
   retargeting between skeletons of different sizes. Controls keep their colours: drawing overrides, templates, reference display,
   display layer colours and wireframe colours.
 

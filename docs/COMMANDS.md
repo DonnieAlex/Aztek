@@ -3,7 +3,7 @@
 Generated from the command registry by `cargo run -p aztek_host --example gen_commands`; do not edit by hand.
 Commands take the reference's flags, long or short, in MEL and in Python (`aztek.cmds` or `maya.cmds`).
 
-1496 commands.
+1513 commands.
 
 ## AL_usdmaya_LayerCreateLayer
 
@@ -1305,11 +1305,11 @@ Load an import preset file: -f path.
 
 ## FBXLoadMBExportPresetFile
 
-The MotionBuilder export preset: constraints and skeleton definitions on.
+The motion capture export preset: constraints and skeleton definitions on.
 
 ## FBXLoadMBImportPresetFile
 
-The MotionBuilder import preset: constraints and skeleton definitions on.
+The motion capture import preset: constraints and skeleton definitions on.
 
 ## FBXPopSettings
 
@@ -1340,11 +1340,11 @@ Arguments: value
 
 ## FBXResetExport
 
-Every export setting back to the Autodesk Media & Entertainment preset.
+Every export setting back to the Media & Entertainment preset.
 
 ## FBXResetImport
 
-Every import setting back to the Autodesk Media & Entertainment preset.
+Every import setting back to the Media & Entertainment preset.
 
 ## FourViewLayout
 
@@ -1381,6 +1381,22 @@ The Human IK window.
 ## HumanIK
 
 The Human IK window: characters, sources, definitions and controls.
+
+## IKHandleTool
+
+The IK handle tool: click the start joint, then the end joint.
+
+## IKHandleToolOptions
+
+The IK handle tool and its settings.
+
+## IKSplineHandleTool
+
+The IK spline handle tool: click the start joint, then the end joint (then the curve, with Auto create curve off).
+
+## IKSplineHandleToolOptions
+
+The IK spline handle tool and its settings.
 
 ## InsertJointTool
 
@@ -2545,6 +2561,40 @@ Arguments: a NURBS surface (the selection when none)
 | `caching` | `cch` | The node's caching: keeps every attribute computed so nothing is computed again. |
 | `nodeState` | `nds` | The node's state: 0 normal, 1 has no effect (the input passes through), 2 blocking (it stops computing and keeps what it gave). |
 
+## assignCommand
+
+The name commands by number, 1 up (in name order here): -q -numElements counts them; -q with -name, -command, -annotation, -keyString or -data1 to -data3 and an index reads one; -e with an index changes it; -keyString with -alt, -ctl and -kup binds a key to it; -delete removes it; -q -keyArray lists the keys bound; -q -index gives a name's number.
+
+Arguments: index
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` | Read. |
+| `edit` | `e` | Change. |
+| `addDivider` | `ad` | A divider before the command in the hotkey editor's list: accepted. |
+| `altModifier` | `alt` | With -keyString: with Alt. |
+| `annotation` | `ann` | What the command does. |
+| `command` | `c` | The command it runs. |
+| `commandModifier` | `cmd` | With -keyString: with Command, as Ctrl here. |
+| `ctrlModifier` | `ctl` | With -keyString: with Ctrl. |
+| `data1` | `da1` | A string of the user's own kept with it. |
+| `data2` | `da2` | A second one. |
+| `data3` | `da3` | A third one. |
+| `delete` | `d` | Removes the command at the index given. |
+| `dividerString` | `ds` | A divider's text: accepted. |
+| `enableCommandRepeat` | `ecr` | Accepted: every command can be repeated. |
+| `factorySettings` | `fs` | Only the default name commands stay. |
+| `index` | `i` | With -q and a name: its number. |
+| `keyArray` | `ka` | With -q: the keys bound. |
+| `keyString` | `k` | The key to bind the command to (NONE unbinds it); with -q, its key and modifiers. |
+| `keyUp` | `kup` | With -keyString: on release. |
+| `name` | `n` | The command's name; with -e, a new one. |
+| `numDividersPreceding` | `ndp` | Accepted: there are no dividers here. |
+| `numElements` | `num` | With -q: how many name commands there are. |
+| `optionModifier` | `opt` | With -keyString: with Option, as Alt here. |
+| `sortByKey` | `sbk` | Accepted: the list is in name order. |
+| `sourceUserCommands` | `suc` | Accepted: the user's commands are always loaded. |
+
 ## attachCurve
 
 Join curves end to end through an attachCurve node. -rpo (on by default) changes the first curve; off, a new curve. Returns [curve, node].
@@ -3625,6 +3675,12 @@ Arguments: the light
 | Flag | Short | Description |
 | --- | --- | --- |
 | `set` | `set` | In or out. |
+
+## aztekMenuSetShown
+
+For the main window: the menu set it now shows, by label, made current.
+
+Arguments: label
 
 ## aztekMgear
 
@@ -8500,6 +8556,19 @@ Arguments: the effector (the selection when none)
 | `hide` | `hi` | Hide it when attached to a handle. |
 | `name` | `n` | Its name. |
 
+## emit
+
+Add particles to particles that exist: -o the particles, -pos x y z for each new one, then -at an attribute followed by its values, -vv x y z or -fv n, one per new particle in turn. Returns their ids.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `object` | `o` | The particle shape, or its transform, to add to. Needed: the selection is not used. |
+| `position` | `pos` | Where one new particle goes, in the particles' space (world): x y z. Repeat it, once for each. |
+| `attribute` | `at` | The per particle attribute the values after it set: position, velocity, rgbPP, opacityPP, lifespanPP, radiusPP or mass. Repeat it for another. |
+| `floatValue` | `fv` | A number for the next new particle's attribute; on each axis of a vector attribute. |
+| `vectorValue` | `vv` | A vector for the next new particle's attribute; its length for a number attribute. |
+| `flagOrder` |  | The flags' order, one name per use: MEL passes it, as the values pair with the attributes by it. |
+
 ## emitter
 
 Make an emitter: -type omni, dir, surf, curve or vol, -r rate, -spd speed. With a mesh named or selected it emits off its surface. Only the emitter, as the reference makes it: connectDynamic -em (or -particles here) gives it particles to emit into. Returns [emitter], or [object, emitter] on an object.
@@ -11910,11 +11979,11 @@ Arguments: start and end joints (the selection when -sj/-ee are not given), or t
 | --- | --- | --- |
 | `curve` | `c` | Spline IK: the curve to follow. Queried, the curve. |
 | `createCurve` | `ccv` | Spline IK: make a curve through the joints (the default). |
-| `parentCurve` | `pcv` | Accepted for existing scripts: the curve drives in world space. |
+| `parentCurve` | `pcv` | Spline IK: the created curve goes under the start joint's parent (on). |
 | `rootOnCurve` | `roc` | Spline IK: the start joint goes to the curve's start (on by default). |
-| `simplifyCurve` | `scv` | Accepted for existing scripts. |
-| `rootTwistMode` | `rtm` | Accepted for existing scripts. |
-| `twistType` | `tws` | Accepted for existing scripts (linear). |
+| `simplifyCurve` | `scv` | Spline IK: the created curve is a cubic of -numSpans spans (on); off, it passes through every joint. |
+| `rootTwistMode` | `rtm` | Spline IK: twist turns the start joint a little too (off). |
+| `twistType` | `tws` | Spline IK: linear (the default), easeIn, easeOut or easeInOut. |
 | `startJoint` | `sj` | First joint of the chain. |
 | `endEffector` | `ee` | Last joint of the chain. Queried, the effector. |
 | `solver` | `sol` | ikRPsolver (default), ikSCsolver or a solver node's name. |
@@ -11926,10 +11995,8 @@ Arguments: start and end joints (the selection when -sj/-ee are not given), or t
 | `roll` | `rl` | Turn of the chain's start, degrees. |
 | `offset` | `ofs` | Slide along the curve (spline IK). |
 | `autoPriority` | `ap` | Set the priority from the chain's depth in the hierarchy. |
-| `createCurve` | `ccv` | Spline IK: create a curve. Accepted for the solver to come. |
-| `parentCurve` | `pcv` | Spline IK: parent the curve. Accepted for the solver to come. |
-| `snapCurve` | `snc` | Spline IK: snap the curve. Accepted for the solver to come. |
-| `numSpans` | `ns` | Spline IK: spans of the curve. |
+| `snapCurve` | `snc` | Spline IK with -c: the curve moves to start at the start joint (off). |
+| `numSpans` | `ns` | Spline IK: spans of the created curve (1). |
 | `disableHandles` | `dh` | Set the handles to full FK: ikBlend 0. |
 | `enableHandles` | `eh` | Set the handles to full IK: ikBlend 1. |
 | `jointList` | `jl` | Query: the joints the handle drives. |
@@ -13448,6 +13515,43 @@ Arguments: name
 | `query` | `q` |  |
 | `edit` | `e` |  |
 
+## keyframeTangentControl
+
+Script UI: keyframeTangentControl, with create, edit and query as in the reference's command.
+
+Arguments: name
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `precision` | `pre` |  |
+| `annotation` | `ann` |  |
+| `backgroundColor` | `bgc` |  |
+| `defineTemplate` | `dt` |  |
+| `docTag` | `dtg` |  |
+| `dragCallback` | `dgc` |  |
+| `dropCallback` | `dpc` |  |
+| `enable` | `en` |  |
+| `enableBackground` | `ebg` |  |
+| `enableKeyboardFocus` | `ekf` |  |
+| `exists` | `ex` |  |
+| `fullPathName` | `fpn` |  |
+| `height` | `h` |  |
+| `highlightColor` | `hlc` |  |
+| `isObscured` | `io` |  |
+| `manage` | `m` |  |
+| `noBackground` | `nbg` |  |
+| `numberOfPopupMenus` | `npm` |  |
+| `parent` | `p` |  |
+| `popupMenuArray` | `pma` |  |
+| `preventOverride` | `po` |  |
+| `statusBarMessage` | `sbm` |  |
+| `useTemplate` | `ut` |  |
+| `visible` | `vis` |  |
+| `visibleChangeCommand` | `vcc` |  |
+| `width` | `w` |  |
+| `query` | `q` |  |
+| `edit` | `e` |  |
+
 ## keyingGroup
 
 A keying group: objects (and groups inside it) keyed as one. Keying an activator (-act) keys the group when the global filter (-fil) lets its category (-cat) through. The set flags work as the sets command's. Returns its name; -q lists it.
@@ -13722,6 +13826,19 @@ Arguments: name
 | `width` | `w` |  |
 | `query` | `q` |  |
 | `edit` | `e` |  |
+
+## layoutDialog
+
+A modal dialog whose inside -uiScript builds, under a formLayout it is given as the parent. layoutDialog -dismiss ends it with a string, which the call gives back; closed any other way it gives "dismiss", as it does with no interface to show it in.
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `title` | `t` | The window's title. |
+| `uiScript` | `ui` | What builds the dialog's inside: MEL, or a Python callable. |
+| `dismiss` | `dis` | Ends the dialog that is open, which gives this string back. |
+| `parent` | `p` | The window the dialog belongs to. |
+| `backgroundColor` | `bgc` | The dialog's background, red green blue 0 to 1. |
+| `resizable` | `res` | Whether it can be resized. |
 
 ## license
 
@@ -14969,6 +15086,32 @@ Arguments: name
 | `query` | `q` |  |
 | `edit` | `e` |  |
 
+## menuSet
+
+The main window's menu sets: the reference's five (modelingMenuSet, riggingMenuSet, animationMenuSet, fxMenuSet, renderingMenuSet) and any made with a new name and -label. -currentMenuSet makes one current, which switches the main window's menus for the five; -addMenu, -insertMenu, -moveMenu, -removeMenu and -menuArray hold the menus scripts put in a set (the five's own menus are the window's and aren't listed).
+
+Arguments: name
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `query` | `q` | Read. |
+| `edit` | `e` | Change. |
+| `addMenu` | `am` | A menu to put at the end of the set. |
+| `allMenuSets` | `ams` | With -q: every menu set's name. |
+| `currentMenuSet` | `cms` | Makes a set current; with -q, the current one. |
+| `exists` | `ex` | Whether a menu set of the name is there. |
+| `hotBoxVisible` | `hbv` | Whether the set shows in the hotbox. |
+| `insertMenu` | `im` | A menu and the place to put it in the set. |
+| `label` | `l` | The set's label. |
+| `menuArray` | `ma` | The set's menus: given, they replace them; with -q, the list. |
+| `moveMenu` | `mm` | A menu of the set and the place to move it to. |
+| `moveMenuSet` | `mms` | A set and the place to move it to among the sets. |
+| `numberOfMenuSets` | `nms` | With -q: how many sets there are. |
+| `numberOfMenus` | `nm` | With -q: how many menus the set has. |
+| `permanent` | `p` | A set that can't be removed. |
+| `removeMenu` | `rm` | Takes a menu out of the set. |
+| `removeMenuSet` | `rms` | Removes a set made by a script. |
+
 ## mergeAnimLayers
 
 Merge layers into one, keeping the result: -mt top or bottom selected layer, -ic children too, -rlm automatic, additive or override, -db delete the merged layers, -sb sample by, -sm keys only where needed, -fd its tolerance. With none named, the selected layers. Returns the layer merged into.
@@ -15095,7 +15238,10 @@ Arguments: panel
 | `activeOnly` | `ao` |  |
 | `activeView` | `av` |  |
 | `allObjects` | `alo` |  |
+| `ambientOcclusion` | `aoc` |  |
 | `backfaceCulling` | `bfc` |  |
+| `bounceLight` | `bl` |  |
+| `depthOfField` | `dof` |  |
 | `camera` | `cam` |  |
 | `cameras` | `ca` |  |
 | `clipGhosts` | `cg` |  |
@@ -15553,6 +15699,47 @@ Arguments: name
 | `data2` | `da2` | A second one. |
 | `data3` | `da3` | A third one. |
 | `default` | `d` | A default name command: not saved with the hotkey set. |
+
+## nameField
+
+Script UI: nameField, with create, edit and query as in the reference's command.
+
+Arguments: name
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `object` | `o` |  |
+| `nameChangeCommand` | `ncc` |  |
+| `changeCommand` | `cc` |  |
+| `receiveFocusCommand` | `rfc` |  |
+| `drawInactiveFrame` | `dif` |  |
+| `annotation` | `ann` |  |
+| `backgroundColor` | `bgc` |  |
+| `defineTemplate` | `dt` |  |
+| `docTag` | `dtg` |  |
+| `dragCallback` | `dgc` |  |
+| `dropCallback` | `dpc` |  |
+| `enable` | `en` |  |
+| `enableBackground` | `ebg` |  |
+| `enableKeyboardFocus` | `ekf` |  |
+| `exists` | `ex` |  |
+| `fullPathName` | `fpn` |  |
+| `height` | `h` |  |
+| `highlightColor` | `hlc` |  |
+| `isObscured` | `io` |  |
+| `manage` | `m` |  |
+| `noBackground` | `nbg` |  |
+| `numberOfPopupMenus` | `npm` |  |
+| `parent` | `p` |  |
+| `popupMenuArray` | `pma` |  |
+| `preventOverride` | `po` |  |
+| `statusBarMessage` | `sbm` |  |
+| `useTemplate` | `ut` |  |
+| `visible` | `vis` |  |
+| `visibleChangeCommand` | `vcc` |  |
+| `width` | `w` |  |
+| `query` | `q` |  |
+| `edit` | `e` |  |
 
 ## namespace
 
@@ -23979,6 +24166,12 @@ Arguments: name
 | `addKeyword` | `ak` | One more search keyword. |
 | `addTag` | `at` | One more search tag. |
 
+## saveAllShelves
+
+Writes every shelf of a shelf tab layout to the prefs shelves folder as shelf_Name.mel. The main window's shelves are kept written as they change; this writes them now.
+
+Arguments: shelfTabLayout
+
 ## savePrefObjects
 
 Save the preference nodes to userPrefObjects.ma in the preferences folder. Returns true when it is written.
@@ -23996,6 +24189,12 @@ Save preferences to the preferences folder. With no flags, all of them: optionVa
 | `menuSets` | `ms` | Save the menu set preferences. |
 | `plugins` | `pl` | Save the plug-in preferences. |
 | `uiLayout` | `ui` | Save each window's size and place. |
+
+## saveShelf
+
+Writes a shelf as the reference's shelf file: the shelf's name, then the file (.mel added). A shelf a script made is written from its buttons; one of the main window's by the window. Gives true once written.
+
+Arguments: file
 
 ## saveToolSettings
 
@@ -24823,6 +25022,25 @@ Select the faces enclosed by the selected edges: a flood fill that stops at sele
 | Flag | Short | Description |
 | --- | --- | --- |
 | `larger` |  | Keep the largest region instead of the smaller ones. |
+
+## selectContext
+
+A selectContext tool context: create by name, -e and -q its settings. setToolTo makes it current.
+
+Arguments: [name]
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `image1` | `i1` |  |
+| `image2` | `i2` |  |
+| `image3` | `i3` |  |
+| `title` | `t` |  |
+| `exists` | `ex` |  |
+| `query` | `q` |  |
+| `edit` | `e` |  |
+| `name` | `n` |  |
+| `history` | `ch` |  |
+| `dragSlider` | `ds` |  |
 
 ## selectDisplayLayerMembers
 
@@ -28778,6 +28996,147 @@ Arguments: the slider's name ($gPlayBackSlider)
 | `visibleChangeCommand` | `vcc` |  |
 | `width` | `w` |  |
 
+## timeField
+
+Script UI: timeField, with create, edit and query as in the reference's command.
+
+Arguments: name
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `precision` | `pre` |  |
+| `autoUnitWidth` | `auw` |  |
+| `value` | `v` |  |
+| `minValue` | `min` |  |
+| `maxValue` | `max` |  |
+| `step` | `s` |  |
+| `changeCommand` | `cc` |  |
+| `dragCommand` | `dc` |  |
+| `enterCommand` | `ec` |  |
+| `receiveFocusCommand` | `rfc` |  |
+| `editable` | `ed` |  |
+| `annotation` | `ann` |  |
+| `backgroundColor` | `bgc` |  |
+| `defineTemplate` | `dt` |  |
+| `docTag` | `dtg` |  |
+| `dragCallback` | `dgc` |  |
+| `dropCallback` | `dpc` |  |
+| `enable` | `en` |  |
+| `enableBackground` | `ebg` |  |
+| `enableKeyboardFocus` | `ekf` |  |
+| `exists` | `ex` |  |
+| `fullPathName` | `fpn` |  |
+| `height` | `h` |  |
+| `highlightColor` | `hlc` |  |
+| `isObscured` | `io` |  |
+| `manage` | `m` |  |
+| `noBackground` | `nbg` |  |
+| `numberOfPopupMenus` | `npm` |  |
+| `parent` | `p` |  |
+| `popupMenuArray` | `pma` |  |
+| `preventOverride` | `po` |  |
+| `statusBarMessage` | `sbm` |  |
+| `useTemplate` | `ut` |  |
+| `visible` | `vis` |  |
+| `visibleChangeCommand` | `vcc` |  |
+| `width` | `w` |  |
+| `query` | `q` |  |
+| `edit` | `e` |  |
+
+## timeFieldGrp
+
+Script UI: timeFieldGrp, with create, edit and query as in the reference's command.
+
+Arguments: name
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `precision` | `pre` |  |
+| `step` | `s` |  |
+| `enable1` | `en1` |  |
+| `enable2` | `en2` |  |
+| `enable3` | `en3` |  |
+| `enable4` | `en4` |  |
+| `label` | `l` |  |
+| `numberOfFields` | `nf` |  |
+| `value` | `v` |  |
+| `value1` | `v1` |  |
+| `value2` | `v2` |  |
+| `value3` | `v3` |  |
+| `value4` | `v4` |  |
+| `extraLabel` | `el` |  |
+| `changeCommand` | `cc` |  |
+| `changeCommand1` | `cc1` |  |
+| `changeCommand2` | `cc2` |  |
+| `changeCommand3` | `cc3` |  |
+| `changeCommand4` | `cc4` |  |
+| `dragCommand` | `dc` |  |
+| `dragCommand1` | `dc1` |  |
+| `dragCommand2` | `dc2` |  |
+| `dragCommand3` | `dc3` |  |
+| `dragCommand4` | `dc4` |  |
+| `columnWidth1` | `cw1` |  |
+| `columnAlign1` | `cl1` |  |
+| `columnAttach1` | `ct1` |  |
+| `columnOffset1` | `co1` |  |
+| `columnWidth2` | `cw2` |  |
+| `columnAlign2` | `cl2` |  |
+| `columnAttach2` | `ct2` |  |
+| `columnOffset2` | `co2` |  |
+| `adjustableColumn2` | `ad2` |  |
+| `columnWidth3` | `cw3` |  |
+| `columnAlign3` | `cl3` |  |
+| `columnAttach3` | `ct3` |  |
+| `columnOffset3` | `co3` |  |
+| `adjustableColumn3` | `ad3` |  |
+| `columnWidth4` | `cw4` |  |
+| `columnAlign4` | `cl4` |  |
+| `columnAttach4` | `ct4` |  |
+| `columnOffset4` | `co4` |  |
+| `adjustableColumn4` | `ad4` |  |
+| `columnWidth5` | `cw5` |  |
+| `columnAlign5` | `cl5` |  |
+| `columnAttach5` | `ct5` |  |
+| `columnOffset5` | `co5` |  |
+| `adjustableColumn5` | `ad5` |  |
+| `columnWidth6` | `cw6` |  |
+| `columnAlign6` | `cl6` |  |
+| `columnAttach6` | `ct6` |  |
+| `columnOffset6` | `co6` |  |
+| `adjustableColumn6` | `ad6` |  |
+| `adjustableColumn` | `adj` |  |
+| `columnWidth` | `cw` |  |
+| `columnAlign` | `cal` |  |
+| `columnAttach` | `cat` |  |
+| `rowAttach` | `rat` |  |
+| `annotation` | `ann` |  |
+| `backgroundColor` | `bgc` |  |
+| `defineTemplate` | `dt` |  |
+| `docTag` | `dtg` |  |
+| `dragCallback` | `dgc` |  |
+| `dropCallback` | `dpc` |  |
+| `enable` | `en` |  |
+| `enableBackground` | `ebg` |  |
+| `enableKeyboardFocus` | `ekf` |  |
+| `exists` | `ex` |  |
+| `fullPathName` | `fpn` |  |
+| `height` | `h` |  |
+| `highlightColor` | `hlc` |  |
+| `isObscured` | `io` |  |
+| `manage` | `m` |  |
+| `noBackground` | `nbg` |  |
+| `numberOfPopupMenus` | `npm` |  |
+| `parent` | `p` |  |
+| `popupMenuArray` | `pma` |  |
+| `preventOverride` | `po` |  |
+| `statusBarMessage` | `sbm` |  |
+| `useTemplate` | `ut` |  |
+| `visible` | `vis` |  |
+| `visibleChangeCommand` | `vcc` |  |
+| `width` | `w` |  |
+| `query` | `q` |  |
+| `edit` | `e` |  |
+
 ## timePort
 
 Script UI: timePort, with create, edit and query as in the reference's command.
@@ -28935,6 +29294,46 @@ The tolerances modelling operations use when not given their own: -linear (posit
 | `query` | `q` | Query mode. |
 | `linear` | `l` | The positional tolerance, in the current linear unit (0.01 cm). |
 | `angular` | `a` | The tangential tolerance, in the current angular unit (0.1 degrees). |
+
+## toolBar
+
+Script UI: toolBar, with create, edit and query as in the reference's command.
+
+Arguments: name
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `area` | `a` |  |
+| `allowedArea` | `aa` |  |
+| `content` | `con` |  |
+| `label` | `l` |  |
+| `annotation` | `ann` |  |
+| `backgroundColor` | `bgc` |  |
+| `defineTemplate` | `dt` |  |
+| `docTag` | `dtg` |  |
+| `dragCallback` | `dgc` |  |
+| `dropCallback` | `dpc` |  |
+| `enable` | `en` |  |
+| `enableBackground` | `ebg` |  |
+| `enableKeyboardFocus` | `ekf` |  |
+| `exists` | `ex` |  |
+| `fullPathName` | `fpn` |  |
+| `height` | `h` |  |
+| `highlightColor` | `hlc` |  |
+| `isObscured` | `io` |  |
+| `manage` | `m` |  |
+| `noBackground` | `nbg` |  |
+| `numberOfPopupMenus` | `npm` |  |
+| `parent` | `p` |  |
+| `popupMenuArray` | `pma` |  |
+| `preventOverride` | `po` |  |
+| `statusBarMessage` | `sbm` |  |
+| `useTemplate` | `ut` |  |
+| `visible` | `vis` |  |
+| `visibleChangeCommand` | `vcc` |  |
+| `width` | `w` |  |
+| `query` | `q` |  |
+| `edit` | `e` |  |
 
 ## toolButton
 
@@ -30108,6 +30507,9 @@ Arguments: bodies to act on
 | `query` | `q` | Query a value. |
 | `edit` | `e` | Edit an existing node. |
 | `name` | `n` | Name of the new node. |
+| `axisX` | `ax` | The axis it turns about, X (0 by default). |
+| `axisY` | `ay` | The axis it turns about, Y (1 by default). |
+| `axisZ` | `az` | The axis it turns about, Z (0 by default). |
 | `magnitude` | `m` | Strength. |
 | `attenuation` | `att` | How fast it weakens with distance. |
 | `maxDistance` | `mxd` | How far it reaches (turns the limit on). |

@@ -470,7 +470,7 @@ QWidget* shape_editor(QWidget* parent) {
 
 
 QWidget* human_ik(QWidget* parent) {
-    auto* win = window_shell(parent, "Human IK", 640, 720);
+    auto* win = window_shell(parent, "Humanoid IK", 640, 720);
     auto* v = new QVBoxLayout(win);
     v->setContentsMargins(0, 0, 0, 0);
     v->addWidget(human_ik_panel(win), 1);

@@ -633,7 +633,7 @@ private:
             ++row;
             return out;
         };
-        node_ = line("HumanIK node", 1)[0];
+        node_ = line("Humanoid IK node", 1)[0];
         bone_ = line("Bone", 1)[0];
         scene_sel_ = line("Scene Selection", 1)[0];
         const QStringList three = {"Translate", "Rotate", "Scale", "Pre-rotate", "Post-rotate", "Min rot limit", "Max rot limit", "Parent offset R"};
@@ -665,7 +665,7 @@ private:
         order_->setText(j.isEmpty() ? QString() : orders.value(ask("getAttr", QJsonObject{{"args", QJsonArray{j + ".rotateOrder"}}}).toInt()));
     }
 
-    // Controls: the control rig's figure, sticks for the bones and circles for the effectors, and the HumanIK Controls frame.
+    // Controls: the control rig's figure, sticks for the bones and circles for the effectors, and the Humanoid IK Controls frame.
     QWidget* build_controls() {
         auto* w = new QWidget;
         auto* v = new QVBoxLayout(w);
@@ -696,7 +696,7 @@ private:
         connect(blend_t_, &QSlider::sliderReleased, this, [this] {
             if (!ik_.isEmpty()) exec("setAttr", QJsonObject{{"args", QJsonArray{ik_ + ".ikBlend", blend_t_->value() / 100.0}}});
         });
-        v->addWidget(section("HumanIK Controls", frame));
+        v->addWidget(section("Humanoid IK Controls", frame));
         return w;
     }
     // A click on the control rig figure: the effector for a hand or foot, else the bone's own control; a finger's stick
