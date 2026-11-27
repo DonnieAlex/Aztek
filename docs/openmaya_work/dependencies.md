@@ -2,7 +2,7 @@
 
 ## Why this document exists
 
-The module documents in `reference/` are independent transcriptions, but the implementation is not independent. A
+The module documents in `reference/` are independent lists, but the implementation is not independent. A
 class or method that looks small can pull in types from another module. This document records the dependency edges
 that should decide the order of work, including edges that cross modules.
 

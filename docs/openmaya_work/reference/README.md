@@ -1,4 +1,4 @@
-# Reference transcriptions
+# Reference class lists
 
 Each file is one module of the 2022 C++ API reference.
 
@@ -10,9 +10,8 @@ Each file is one module of the 2022 C++ API reference.
 | `OpenMayaRender.md` | https://help.autodesk.com/cloudhelp/2022/ENU/Maya-SDK/cpp_ref/group___open_maya_render.html |
 | `OpenMayaUI.md` | https://help.autodesk.com/cloudhelp/2022/ENU/Maya-SDK/cpp_ref/group___open_maya_u_i.html |
 
-The `PythonOpenMaya*.md` files list the current Python 1.0 surface. They are not reference transcriptions; the
+The `PythonOpenMaya*.md` files list the current Python 1.0 surface. They are not reference lists; the
 reference names and signatures for those classes are the C++ pages above.
 
-The transcription includes class names, direct base, one-line description, public types, public members, signatures
-and the short member descriptions. Per-member parameter prose and the examples lists are not copied. Follow the source
-link on a class for those.
+Each file lists class names, direct bases, public types and members and their signatures. Descriptions are not kept;
+follow the source link on a class for them.

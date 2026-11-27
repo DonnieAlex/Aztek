@@ -8,7 +8,7 @@ https://help.autodesk.com/view/MAYAUL/2022/ENU/?guid=Maya_SDK_cpp_ref_group_open
 
 Python API 1.0 (`maya.OpenMaya`, `maya.OpenMayaAnim`, `maya.OpenMayaMPx`) takes precedence. API 2.0 is the
 implementation substrate under those modules, not the specification. When a 1.0 name and a 2.0 name disagree, the 1.0
-name is the one a Maya script calls.
+name is the one a script written for the reference calls.
 
 This document records names that Aztek implements under the 2.0 spelling while the documented 1.0 spelling is absent.
 It does not repeat every missing method. The full missing-method and missing-class records are in

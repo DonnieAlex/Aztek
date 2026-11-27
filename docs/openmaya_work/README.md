@@ -1,6 +1,6 @@
 # OpenMaya 1.0 working set
 
-This folder holds the reference transcription and the analysis that later agents should work from. It is documentation,
+This folder holds the reference's class and signature lists and the analysis that later agents should work from. It is documentation,
 not an implementation branch.
 
 ## Precedence
@@ -15,7 +15,7 @@ not an implementation branch.
 
 | Path | What it is |
 | --- | --- |
-| `reference/OpenMaya.md` | Every class in the C++ OpenMaya module, with bases, public members, signatures and one-line descriptions |
+| `reference/OpenMaya.md` | Every class in the C++ OpenMaya module, with bases, public members and signatures |
 | `reference/OpenMayaAnim.md` | The same for OpenMayaAnim |
 | `reference/OpenMayaFX.md` | The same for OpenMayaFX |
 | `reference/OpenMayaRender.md` | The same for OpenMayaRender |
@@ -38,7 +38,7 @@ not an implementation branch.
 
 ## Status
 
-- Five C++ modules transcribed: 271 + 53 + 33 + 120 + 65 class entries, with duplicates across modules.
+- Five C++ modules listed: 271 + 53 + 33 + 120 + 65 class entries, with duplicates across modules.
 - Python 1.0 audit: 105 reference classes present somewhere across the three 1.0 modules; 961 documented names missing
   from those classes; 2,078 names belong to absent classes.
 - Name mismatches: 18 confirmed 1.0-name aliases and 6 probable aliases. The confirmed rows include the reported
@@ -47,17 +47,15 @@ not an implementation branch.
   on it; UI depends on both OpenMaya and Render.
 - The C++ kit and the Python 1.0 module are separate surfaces. A method added in one does not appear in the other.
 
-## How the transcriptions were made
+## How the lists were made
 
-The group page for each module was read, then every linked class page. The transcription records:
+The group page for each module was read, then every linked class page. The lists record:
 
-- the class name, module, direct base and one-line description;
+- the class name, module and direct base;
 - public types, public member functions, static public functions, public attributes and static attributes;
-- the exact signature text and the short description shown on the class page.
+- the exact signature text.
 
-The per-member detail prose (parameter descriptions, return values, examples) is not copied. Each class has a source
-link to the reference page. The "Examples:" lists were removed because they are long, noisy and not useful for an
-implementation agent.
+No descriptions, parameter text or examples are kept. Each class has a source link to the reference page.
 
 The generated files are large, especially `reference/OpenMaya.md` because of `MFn::Type`. They are plain Markdown and
 can be searched with `grep` or loaded by an agent in sections.

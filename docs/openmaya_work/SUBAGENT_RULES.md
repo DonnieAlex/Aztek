@@ -5,7 +5,7 @@ without overwriting each other or duplicating work. The documentation in this fo
 
 ## Authority and precedence
 
-1. The 2022 C++ reference pages transcribed in `reference/` are the specification.
+1. The 2022 C++ reference pages, whose classes and signatures are listed in `reference/`, are the specification.
 2. Python 1.0 names take precedence over Python 2.0 names. Never "fix" a 1.0 name by renaming the 2.0 method.
 3. `dependencies.md` decides order. A class may not be marked done while a hard dependency is missing.
 4. `data/cpp_class_gaps.tsv`, `data/python_class_gaps.tsv` and `data/name_candidates.tsv` decide scope. Do not expand a
@@ -238,7 +238,7 @@ A C++ work item is done only when all of these hold:
 - The implementation compiles in the kit, not only in the host.
 - A test calls the method through the public header and checks the documented result.
 - The sample plug-ins still build.
-- The method's one-line description or a short host-limitation note is in the header.
+- A one-line comment in our own words, or a short host-limitation note, is in the header.
 - `data/cpp_class_gaps.tsv` no longer lists the method, or the item notes why the gap remains.
 
 A Python 1.0 work item is done only when all of these hold:

@@ -108,7 +108,7 @@ loadPlugin "/path/to/build/myPlugin.so";
 A class or method the kit does not have yet fails the build and names it. Report it at https://github.com/srlegrand/Aztek/issues with the name.
 
 The audit against the reference's OpenMaya module, with every missing class, method and constant and the compliance
-plan and estimate, is in [openmaya_1_0/README.md](openmaya_1_0/README.md). The module transcriptions, the Python 1.0
+plan and estimate, is in [openmaya_1_0/README.md](openmaya_1_0/README.md). The module class lists, the Python 1.0
 name audit, the dependency order and the subagent rules are in [openmaya_work/README.md](openmaya_work/README.md).
 
 Samples: `devkit/samples` (`helloCmd`, `scaleNode`, `rippleDeformer`).
