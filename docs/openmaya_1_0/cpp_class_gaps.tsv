@@ -1,0 +1,272 @@
+class	status	ref_methods	kit_methods	missing_count	missing_methods	signature_mismatches	ref_overloads	unmatched_overloads
+MAddRemoveAttrEdit	missing class	6	0	6	(whole class)		6	6
+MAngle	present	20	17	3	internalToUI; uiToInternal; setInternalUnit	as(ref 2/kit 1); asUnits(ref 2/kit 1)	22	7
+MArgDatabase	present	6	32	0			23	1
+MArgList	present	21	23	1	get		42	14
+MArgParser	present	27	29	3	commandArgumentMDistance; commandArgumentMAngle; commandArgumentMTime		41	4
+MArrayDataBuilder	present	12	13	2	addLastArray; addElementArray		14	3
+MArrayDataHandle	present	16	23	0			17	1
+MAtomic	missing class	8	0	8	(whole class)		8	8
+MAttributeIndex	missing class	19	0	19	(whole class)		28	28
+MAttributePattern	missing class	13	0	13	(whole class)		16	16
+MAttributePatternArray	missing class	19	0	19	(whole class)		24	24
+MAttributeSpec	missing class	10	0	10	(whole class)		14	14
+MAttributeSpecArray	missing class	19	0	19	(whole class)		23	23
+MAutoCLEvent	present	14	7	7	operator=; attach; detach; operator==; operator!; swap; operator<		17	11
+MAutoCLKernel	present	14	7	7	operator=; detach; getReferenceForAssignment; operator==; operator!; swap; operator<		17	11
+MAutoCLMem	present	14	8	6	operator=; detach; operator==; operator!; swap; operator<		17	10
+MBoundingBox	present	14	15	1	operator=		17	3
+MCacheConfigRuleRegistry	missing class	5	0	5	(whole class)		5	5
+MCacheFormatDescription	missing class	18	0	18	(whole class)		19	19
+MCallbackIdArray	missing class	20	0	20	(whole class)		26	26
+MCameraMessage	missing class	3	0	3	(whole class)		3	3
+MCameraSetMessage	missing class	3	0	3	(whole class)		3	3
+MColor	present	16	15	5	operator(); operator*=; operator/=; operator+=; set		31	10
+MColorArray	present	20	2	16	operator[]; set; setLength; length; remove; insert; append; copy; clear; get; setSizeIncrement; sizeIncrement; begin; end; cbegin; cend		33	26
+MCommandMessage	missing class	5	0	5	(whole class)		5	5
+MCommandResult	missing class	6	0	6	(whole class)		16	16
+MCommonSystemUtils	missing class	4	0	4	(whole class)		5	5
+MComputation	missing class	12	0	12	(whole class)		12	12
+MConditionMessage	missing class	4	0	4	(whole class)		4	4
+MConnectDisconnectAttrEdit	missing class	7	0	7	(whole class)		7	7
+MContainerMessage	missing class	3	0	3	(whole class)		3	3
+MCurveAttribute	missing class	19	0	19	(whole class)		22	22
+MCustomEvaluatorClusterNode	missing class	7	0	7	(whole class)		7	7
+MDAGDrawOverrideInfo	missing class	0	0	0	(whole class)		0	0
+MDGContext	present	9	6	3	operator=; makeCurrent; current		11	5
+MDGContextGuard	missing class	2	0	2	(whole class)		2	2
+MDGMessage	present	9	21	0			9	0
+MDGModifier	present	36	28	9	renameAttribute; addExtensionAttribute; removeExtensionAttribute; removeExtensionAttributeIfUnset; linkExtensionAttributeToPlugin; unlinkExtensionAttributeFromPlugin; removeMultiInstance; setMetadata; deleteMetadata		42	13
+MDagMessage	present	21	32	0			32	0
+MDagModifier	present	5	32	0			6	1
+MDagPath	present	36	33	6	getAllPathsBelow; pathCount; getPath; isTemplated; getDrawOverrideInfo; matchTransform		38	7
+MDagPathArray	present	19	2	15	operator[]; set; setLength; length; remove; insert; append; copy; clear; setSizeIncrement; sizeIncrement; begin; end; cbegin; cend		24	20
+MDataBlock	present	11	10	1	setContext		17	4
+MDataHandle	present	96	76	25	typeId; attribute; asAddr; asDouble4; asNurbsSurface; asSubdSurface; asNurbsSurfaceTransformed; asSubdSurfaceTransformed; set4Double; setMObject; setMPxData; asGenericBool; asGenericChar; asGenericFloat; asGenericShort; asGenericInt; asGenericInt64; setGenericBool; setGenericChar; setGenericDouble; setGenericFloat; setGenericShort; setGenericInt; setGenericInt64; datablock		122	26
+MDistance	present	24	18	6	asYards; asMiles; asKilometers; internalToUI; uiToInternal; setInternalUnit	as(ref 2/kit 1); asUnits(ref 2/kit 1)	26	10
+MDoubleArray	missing class	20	0	20	(whole class)		29	29
+MEdit	missing class	10	0	10	(whole class)		10	10
+MEulerRotation	present	32	26	10	operator=; isZero; inverse; invertIt; boundIt; alternateSolution; setToAlternateSolution; setToClosestSolution; closestCut; setToClosestCut		53	22
+MEvaluationGraph	missing class	6	0	6	(whole class)		6	6
+MEvaluationManager	missing class	4	0	4	(whole class)		4	4
+MEvaluationNode	present	15	3	10	parentCount; parent; childCount; child; iterator; dirtyPlug; datablock; connect; skipEvaluation; skippingEvaluation	MEvaluationNode(ref 1/kit 0)	15	13
+MEvaluationNodeIterator	missing class	8	0	8	(whole class)		9	9
+MEventMessage	present	3	14	0			3	0
+MExternalContentInfoTable	missing class	7	0	7	(whole class)		12	12
+MExternalContentLocationTable	missing class	6	0	6	(whole class)		7	7
+MFcurveEdit	missing class	4	0	4	(whole class)		4	4
+MFileIO	missing class	66	0	66	(whole class)		76	76
+MFileObject	present	31	26	7	pathCount; ithPath; ithFullName; setResolveMethod; resolveMethod; isAbsolutePath; getResolvedFullName		35	9
+MFloatArray	missing class	20	0	20	(whole class)		29	29
+MFloatMatrix	present	24	11	12	operator=; setToProduct; operator+=; operator+; operator-=; operator-; operator*=; adjoint; homogenize; det4x4; det3x3; isEquivalent	operator()(ref 0/kit 2)	32	15
+MFloatPoint	present	22	15	10	get; operator(); operator+=; operator-=; operator/; operator*=; cartesianize; rationalize; homogenize; isEquivalent		47	19
+MFloatPointArray	present	20	2	16	operator[]; set; setLength; length; remove; insert; append; copy; clear; get; setSizeIncrement; sizeIncrement; begin; end; cbegin; cend		33	26
+MFloatVector	present	24	23	4	operator(); angle; isParallel; transformAsNormal		47	5
+MFloatVectorArray	present	20	2	16	operator[]; set; setLength; length; remove; insert; append; copy; clear; get; setSizeIncrement; sizeIncrement; begin; end; cbegin; cend		31	24
+MFn	present	1	0	1	MFn		1	1
+MFnAmbientLight	missing class	11	0	11	(whole class)		16	16
+MFnAnisotropyShader	missing class	21	0	21	(whole class)		23	23
+MFnAreaLight	missing class	5	0	5	(whole class)		10	10
+MFnArrayAttrsData	missing class	17	0	17	(whole class)		19	19
+MFnAssembly	missing class	31	0	31	(whole class)		36	36
+MFnAttribute	present	59	51	19	indexMatters; isIndeterminant; isRenderSource; isExtension; isWorldSpace; isAffectsWorldSpace; isUsedAsFilename; affectsAppearance; isProxyAttribute; disconnectBehavior; internal; setIndeterminant; setProxyAttribute; acceptsAttribute; accepts; getAddAttrCmd; removeFromCategory; hasCategory; getCategories		62	21
+MFnBase	present	8	8	2	typeString; isValid		10	2
+MFnBlinnShader	missing class	9	0	9	(whole class)		11	11
+MFnCamera	present	137	71	126	centerOfInterestPoint; set; setEyePoint; setCenterOfInterestPoint; hasSamePerspective; copyViewFrom; getFilmFrustum; getPortFieldOfView; getViewParameters; getViewingFrustum; getRenderingFrustum; projectionMatrix; setHorizontalFilmAperture; horizontalFilmAperture; setVerticalFilmAperture; verticalFilmAperture; getFilmApertureLimits; setAspectRatio; aspectRatio; getAspectRatioLimits; setVerticalLock; isVerticalLock; horizontalFilmOffset; setHorizontalFilmOffset; verticalFilmOffset; setVerticalFilmOffset; shakeEnabled; setShakeEnabled; horizontalShake; setHorizontalShake; verticalShake; setVerticalShake; shakeOverscanEnabled; setShakeOverscanEnabled; shakeOverscan; setShakeOverscan; panZoomEnabled; setPanZoomEnabled; renderPanZoom; setRenderPanZoom; horizontalPan; setHorizontalPan; verticalPan; setVerticalPan; zoom; setZoom; stereoHITEnabled; setStereoHITEnabled; stereoHIT; setStereoHIT; setFilmFit; filmFit; setFilmFitOffset; filmFitOffset; setOverscan; overscan; setHorizontalRollPivot; horizontalRollPivot; setVerticalRollPivot; verticalRollPivot; setFilmRollValue; filmRollValue; setFilmRollOrder; filmRollOrder; setPreScale; preScale; setPostScale; postScale; setFilmTranslateH; filmTranslateH; setFilmTranslateV; filmTranslateV; postProjectionMatrix; setDisplayGateMask; isDisplayGateMask; setDisplayFilmGate; isDisplayFilmGate; setHorizontalFieldOfView; horizontalFieldOfView; setVerticalFieldOfView; verticalFieldOfView; setFocalLength; getFocalLengthLimits; setLensSqueezeRatio; lensSqueezeRatio; setClippingPlanes; isClippingPlanes; setNearClippingPlane; nearClippingPlane; setFarClippingPlane; farClippingPlane; setNearFarClippingPlanes; setDepthOfField; isDepthOfField; setFStop; fStop; setFocusDistance; focusDistance; setNearFocusDistance; nearFocusDistance; setFarFocusDistance; farFocusDistance; computeDepthOfField; setMotionBlur; isMotionBlur; setShutterAngle; shutterAngle; setCenterOfInterest; centerOfInterest; setIsOrtho; setOrthoWidth; orthoWidth; setCameraScale; cameraScale; setTumblePivot; tumblePivot; unnormalizedNearClippingPlane; unnormalizedFarClippingPlane; setStereo; isStereo; setParallelView; isParallelView; setEyeOffset; eyeOffset; setUsePivotAsLocalSpace; usePivotAsLocalSpace		147	133
+MFnCameraSet	missing class	21	0	21	(whole class)		29	29
+MFnComponent	present	14	17	4	hasWeights; weight; setWeight; setWeights		17	5
+MFnComponentListData	missing class	11	0	11	(whole class)		14	14
+MFnCompoundAttribute	present	10	59	1	getAddAttrCmds		12	1
+MFnContainerNode	missing class	15	0	15	(whole class)		17	17
+MFnDagNode	present	53	62	22	removeChildAt; inModel; isInstanceable; setInstanceable; isInstancedAttribute; objectColor; setObjectColor; usingObjectColor; setUseObjectColor; objectColorType; setObjectColorType; objectColorIndex; hiliteColor; usingHiliteColor; dormantColor; activeColor; drawOverrideEnabled; drawOverrideIsReference; drawOverrideIsTemplate; drawOverrideColor; getConnectedSetsAndMembers; model		62	23
+MFnData	present	4	11	0		MFnData(ref 0,2/kit 1)	6	3
+MFnDependencyNode	present	69	34	42	uniqueName; uuid; setUuid; reorderedAttribute; getAffectedAttributes; getAffectedByAttributes; isTrackingEdits; hasUniqueName; parentNamespace; isNewAttribute; setFlag; isFlagSet; setDoNotWrite; getAliasAttr; setAlias; findAlias; getAliasList; plugsAlias; setIcon; icon; getExternalContent; addExternalContentForFileAttr; setExternalContentForFileAttr; setExternalContent; affectsAnimation; setAffectsAnimation; getPlugsAlias; metadata; setMetadata; deleteMetadata; validateMetadata; dgTimerOn; dgTimerOff; dgTimerQueryState; dgTimerReset; dgTimer; dgCallbacks; dgCallbackIds; allocateFlag; deallocateFlag; deallocateAllFlags; enableDGTiming		81	45
+MFnDirectionalLight	missing class	9	0	9	(whole class)		14	14
+MFnDoubleArrayData	present	10	19	0			15	1
+MFnDoubleIndexedComponent	missing class	11	0	11	(whole class)		13	13
+MFnEnumAttribute	present	13	63	0			17	0
+MFnExpression	missing class	15	0	15	(whole class)		17	17
+MFnFalloffData	missing class	6	0	6	(whole class)		8	8
+MFnFloatArrayData	present	10	18	1	operator[]		15	3
+MFnFloatVectorArrayData	missing class	10	0	10	(whole class)		15	15
+MFnGenericAttribute	present	11	58	3	removeDataAccept; removeNumericDataAccept; removeAccept		17	5
+MFnGeometryData	present	32	16	27	getMatrix; matrixIsIdentity; matrixIsNotIdentity; hasObjectGroup; addObjectGroup; removeObjectGroup; changeObjectGroupId; objectGroupCount; objectGroup; objectGroupType; objectGroupComponent; setObjectGroupComponent; addObjectGroupComponent; removeObjectGroupComponent; objectGroupSubsetState; copyObjectGroups; componentTags; hasComponentTag; addComponentTag; removeComponentTag; renameComponentTag; componentTagContents; setComponentTagContents; componentTagType; componentTagCategory; componentTagExpressionSubsetState; resolveComponentTagExpression		34	27
+MFnIntArrayData	present	10	19	0			15	1
+MFnLambertShader	missing class	27	0	27	(whole class)		29	29
+MFnLatticeData	missing class	6	0	6	(whole class)		8	8
+MFnLayeredShader	missing class	17	0	17	(whole class)		19	19
+MFnLight	missing class	25	0	25	(whole class)		29	29
+MFnLightDataAttribute	missing class	8	0	8	(whole class)		10	10
+MFnMatrixArrayData	missing class	10	0	10	(whole class)		15	15
+MFnMatrixAttribute	present	7	56	1	getDefault		11	2
+MFnMatrixData	present	9	18	0			14	1
+MFnMesh	present	214	94	182	generateSmoothMesh; getSmoothMeshDisplayOptions; setSmoothMeshDisplayOptions; addPolygon; addHoles; deleteFace; deleteEdge; deleteVertex; split; subdivideFaces; subdivideEdges; extrudeFaces; extrudeEdges; duplicateFaces; extractFaces; collapseFaces; collapseEdges; numColors; numNormals; hasColorChannels; hasAlphaChannels; getColorRepresentation; isColorClamped; setIsColorClamped; getTriangleOffsets; booleanOp; booleanOps; anyIntersection; allIntersections; sortIntersectionFaceTriIds; freeCachedIntersectionAccelerator; cachedIntersectionAcceleratorInfo; intersect; getClosestPointAndNormal; getClosestUVs; intersectFaceAtUV; getConnectedShaders; copy; updateSurface; syncObject; getRawPoints; getRawDoublePoints; getRawNormals; setNormals; getFaceVertexNormal; getFaceVertexNormals; getNormalIds; getFaceNormalIds; setFaceVertexNormal; setVertexNormal; setFaceVertexNormals; setVertexNormals; isNormalLocked; lockVertexNormals; lockFaceVertexNormals; unlockVertexNormals; unlockFaceVertexNormals; getTangentId; getTangents; getFaceVertexTangent; getFaceVertexTangents; getBinormals; getFaceVertexBinormal; getFaceVertexBinormals; isRightHandedTangent; isPolygonConvex; isEdgeSmooth; setEdgeSmoothing; setEdgeSmoothings; cleanupEdgeSmoothing; getCreaseEdges; setCreaseEdges; getInvisibleFaces; setInvisibleFaces; getCreaseVertices; setCreaseVertices; numUVSets; createUVSetWithName; copyUVSetWithName; renameUVSet; deleteUVSet; setCurrentUVSetName; currentUVSetName; getUVSetNames; getUVSetFamilyNames; getUVSetsInFamily; isUVSetPerInstance; getFaceUVSetNames; getAssociatedUVSetTextures; getAssociatedUVSetInstances; setUVs; setSomeUVs; setUV; getUV; getPointAtUV; getPointsAtUV; getUVAtPoint; getAxisAtPoint; assignUV; assignUVs; clearUVs; getAssignedUVs; getUvShellsIds; getPinUVs; setPinUVs; isPolygonUVReversed; numColorSets; createColorSetWithName; deleteColorSet; setCurrentColorSetName; currentColorSetName; getColorSetNames; getColorSetFamilyNames; getColorSetsInFamily; isColorSetPerInstance; getAssociatedColorSetInstances; setFaceColor; setVertexColor; setFaceVertexColor; setFaceColors; setVertexColors; setFaceVertexColors; removeFaceColors; removeVertexColors; removeFaceVertexColors; getVertexColors; getFaceVertexColors; getFaceVertexColorIndex; setColors; setSomeColors; getColors; getColorIndex; setColor; getColor; assignColor; assignColors; clearColors; displayColors; setDisplayColors; getHoles; onBoundary; isBlindDataTypeUsed; createBlindDataType; hasBlindDataComponentId; hasBlindData; getBlindDataTypes; getBlindDataAttrNames; getFaceVertexBlindDataIndex; getBlindDataFaceVertexIndices; getIntBlindData; getFloatBlindData; getDoubleBlindData; getBoolBlindData; stringBlindDataComponentId; getStringBlindData; binaryBlindDataComponentId; getBinaryBlindData; setIntBlindData; setFloatBlindData; setDoubleBlindData; setBoolBlindData; setStringBlindData; setBinaryBlindData; clearBlindData; setCheckSamePointTwice; getCheckSamePointTwice; createInPlace; copyInPlace; createUVSet; createUVSetDataMesh; copyUVSet; getCurrentUVSetName; createColorSet; getCurrentColorSetName; metadata; setMetadata; validateMetadata; globalIntersectionAcceleratorsInfo; clearGlobalIntersectionAcceleratorInfo; componentTypeName; componentTypeFromName; polyTriangulate	create(ref 7,8,9/kit 2,3,4); getClosestPoint(ref 5/kit 4); getClosestNormal(ref 5/kit 4)	277	242
+MFnMeshData	present	5	19	0			7	0
+MFnMessageAttribute	present	5	55	0			7	0
+MFnNonAmbientLight	missing class	6	0	6	(whole class)		9	9
+MFnNonExtendedLight	missing class	22	0	22	(whole class)		25	25
+MFnNumericAttribute	present	24	71	0			66	16
+MFnNumericData	present	26	35	0			44	0
+MFnNurbsCurve	present	43	25	23	create; createWithEditPoints; copy; reverse; makeMultipleEndKnots; cv; setCV; getKnots; setKnots; setKnot; cvs; setCVs; knot; removeKnot; isPointOnCurve; isParamOnCurve; getDerivativesAtParm; isPlanar; distanceToPoint; area; hasHistoryOnCreate; updateCurve; rebuild		50	26
+MFnNurbsCurveData	present	5	18	1	create		7	1
+MFnNurbsSurface	present	86	87	57	copy; getDataObject; cv; cvsInU; cvsInV; setCVs; setCV; isBezier; isUniform; isKnotU; isKnotV; isParamOnSurface; numNonZeroSpansInU; numNonZeroSpansInV; setKnotsInU; setKnotsInV; knotInU; knotInV; setKnotInU; setKnotInV; removeKnotInU; removeKnotInV; removeOneKnotInU; removeOneKnotInV; isFoldedOnBispan; distanceToPoint; tesselate; intersect; hasHistoryOnCreate; updateSurface; numRegions; isFlipNorm; numBoundaries; boundaryType; numEdges; edge; isPointInTrimmedRegion; getTrimBoundaries; trimWithBoundaries; projectCurve; trim; numPatches; numPatchesInU; numPatchesInV; numUVs; setUVs; getUVs; setUV; getUV; getPatchUV; getPatchUVs; getPatchUVid; assignUV; assignUVs; clearUVs; getAssignedUVs; getConnectedShaders	create(ref 10/kit 2,3,4)	94	63
+MFnNurbsSurfaceData	missing class	5	0	5	(whole class)		7	7
+MFnPartition	missing class	8	0	8	(whole class)		10	10
+MFnPhongEShader	missing class	11	0	11	(whole class)		13	13
+MFnPhongShader	missing class	7	0	7	(whole class)		9	9
+MFnPlugin	present	70	35	42	registerControlCommand; deregisterControlCommand; registerModelEditorCommand; deregisterModelEditorCommand; registerContextCommand; deregisterContextCommand; registerEvaluator; deregisterEvaluator; registerTopologyEvaluator; deregisterTopologyEvaluator; registerDevice; deregisterDevice; registerFileTranslator; deregisterFileTranslator; registerURIFileResolver; deregisterURIFileResolver; registerCacheFormat; deregisterCacheFormat; registerDragAndDropBehavior; deregisterDragAndDropBehavior; registerImageFile; deregisterImageFile; registerRenderPassImpl; deregisterRenderPassImpl; registerAttributePatternFactory; deregisterAttributePatternFactory; registerAnimCurveInterpolator; deregisterAnimCurveInterpolator; registerDisplayFilter; deregisterDisplayFilter; registerRenderer; deregisterRenderer; addMenuItem; removeMenuItem; registerMaterialInfo; unregisterMaterialInfo; registerBakeEngine; unregisterBakeEngine; setCallableInfo; getCallableInfo; setRegisteringCallableScript; registeringCallableScript		78	47
+MFnPluginData	present	8	17	0			10	0
+MFnPointArrayData	present	10	18	1	operator[]		15	3
+MFnPointLight	missing class	5	0	5	(whole class)		10	10
+MFnReference	missing class	18	0	18	(whole class)		20	20
+MFnReflectShader	missing class	12	0	12	(whole class)		14	14
+MFnSet	missing class	19	0	19	(whole class)		29	29
+MFnSingleIndexedComponent	present	12	26	1	elementMax		14	1
+MFnSphereData	missing class	7	0	7	(whole class)		9	9
+MFnSpotLight	missing class	21	0	21	(whole class)		26	26
+MFnStandardSurfaceShader	missing class	83	0	83	(whole class)		85	85
+MFnStringArrayData	present	10	18	1	operator[]		15	3
+MFnStringData	present	7	16	0			10	0
+MFnSubd	missing class	80	0	80	(whole class)		84	84
+MFnSubdData	missing class	5	0	5	(whole class)		7	7
+MFnSubdNames	missing class	25	0	25	(whole class)		25	25
+MFnToolContext	missing class	6	0	6	(whole class)		8	8
+MFnTransform	present	43	90	13	scalePivotTranslation; setScalePivotTranslation; shearBy; rotatePivotTranslation; setRotatePivotTranslation; rotateByQuaternion; restPosition; setRestPosition; clearRestPosition; isLimited; limitValue; setLimit; enableLimit		54	16
+MFnTripleIndexedComponent	missing class	11	0	11	(whole class)		13	13
+MFnTypedAttribute	present	8	58	0			12	0
+MFnUInt64ArrayData	missing class	10	0	10	(whole class)		15	15
+MFnUint64SingleIndexedComponent	missing class	11	0	11	(whole class)		13	13
+MFnUintArrayData	missing class	10	0	10	(whole class)		15	15
+MFnUnitAttribute	present	20	59	7	hasSoftMin; hasSoftMax; getMin; getMax; getSoftMin; getSoftMax; getDefault		55	22
+MFnVectorArrayData	present	10	18	1	operator[]		15	3
+MFnVolumeLight	missing class	19	0	19	(whole class)		24	24
+MGlobal	present	92	32	60	isCustomVersion; customVersionString; customVersionMajor; customVersionMinor; customVersionClient; customVersion; getAbsolutePathToResources; isDefaultLanguage; getUILanguage; getFunctionSetList; getAssociatedSets; getRichSelection; getHiliteList; setHiliteList; setRichSelection; setDisplayCVs; selectCommand; unselectByName; unselect; selectFromScreen; selectionMethod; objectSelectionMask; setObjectSelectionMask; componentSelectionMask; setComponentSelectionMask; animSelectionMask; setAnimSelectionMask; miscSelectionMask; setMiscSelectionMask; isSelected; trackSelectionOrderEnabled; setTrackSelectionOrderEnabled; getPreselectionHiliteList; setPreselectionHiliteList; currentToolContext; executeTaskOnIdle; callPythonFunction; catchAndReportPythonException; formatPythonError; addToModel; addToModelAt; removeFromModel; deleteNode; setYAxisUp; setZAxisUp; isYAxisUp; isZAxisUp; upAxis; setDisableStow; disableStow; optionVarExists; resetToDefaultErrorLogPathName; setErrorLogPathName; errorLogPathName; startErrorLogging; errorLoggingIsOn; stopErrorLogging; closeErrorLog; doErrorLogEntry; getOptionVarValue		116	67
+MGraphNodeIterator	missing class	6	0	6	(whole class)		7	7
+MIffFile	missing class	15	0	15	(whole class)		16	16
+MIffTag	missing class	3	0	3	(whole class)		5	5
+MImage	missing class	29	0	29	(whole class)		30	30
+MImageFileInfo	missing class	10	0	10	(whole class)		19	19
+MInt64Array	missing class	20	0	20	(whole class)		26	26
+MIntArray	missing class	20	0	20	(whole class)		26	26
+MItCurveCV	missing class	14	0	14	(whole class)		17	17
+MItDag	present	20	22	4	getAllPaths; instanceCount; traverseUnderWorld; willTraverseUnderWorld		24	6
+MItDependencyGraph	present	38	17	26	resetTo; rootPlug; currentFilter; resetFilter; isPruningOnFilter; enablePruningOnFilter; disablePruningOnFilter; isDirectionDownStream; toggleDirection; isTraversalDepthFirst; currentTraversal; toggleTraversal; atNodeLevel; currentLevel; currentRelationship; setCurrentRelationship; setTraversalOverWorldSpaceDependents; isTraversingOverWorldSpaceDependents; toggleLevel; thisNodeHasUnknownType; thisPlug; previousPlug; getNodesVisited; getPlugsVisited; getNodePath; getPlugPath		45	33
+MItDependencyNodes	missing class	8	0	8	(whole class)		10	10
+MItEdits	missing class	16	0	16	(whole class)		17	17
+MItGeometry	present	18	22	1	positionIndex		25	3
+MItInstancer	missing class	15	0	15	(whole class)		15	15
+MItMeshEdge	present	27	25	7	setPoint; isSmooth; setSmoothing; cleanupSmoothing; edge; updateSurface; geomChanged		32	8
+MItMeshFaceVertex	missing class	26	0	26	(whole class)		31	31
+MItMeshPolygon	present	65	44	29	polygon; setPoints; normalIndex; getNormals; tangentIndex; setUV; setUVs; getPointAtUV; getAxisAtUV; getUVAtPoint; getUVSetNames; hasColor; getColor; getColors; numColors; getColorIndex; getColorIndices; updateSurface; geomChanged; isConnectedToFace; isConnectedToEdge; isConnectedToVertex; getUVArea; zeroUVArea; isStarlike; isLamina; isHoled; isPlanar; isUVReversed		74	36
+MItMeshVertex	present	38	24	19	vertex; translateBy; getNormals; getNormalIndices; numUVs; setUV; getUV; setUVs; getUVs; getUVIndices; updateSurface; geomChanged; connectedToFace; connectedToEdge; getOppositeVertex; hasColor; getColor; getColors; getColorIndices		46	27
+MItSelectionList	present	13	15	0			14	1
+MItSubdEdge	missing class	13	0	13	(whole class)		13	13
+MItSubdFace	missing class	10	0	10	(whole class)		10	10
+MItSubdVertex	missing class	10	0	10	(whole class)		10	10
+MItSurfaceCV	missing class	17	0	17	(whole class)		20	20
+MIteratorType	missing class	9	0	9	(whole class)		10	10
+MLockMessage	missing class	4	0	4	(whole class)		5	5
+MMatrix	present	25	23	2	operator+=; operator-=	operator()(ref 0/kit 2)	33	3
+MMatrixArray	present	19	2	15	operator[]; set; setLength; length; remove; insert; append; copy; clear; setSizeIncrement; sizeIncrement; begin; end; cbegin; cend		24	20
+MMeshIntersector	present	6	11	0		MMeshIntersector(ref 1/kit 0); ~MMeshIntersector(ref 1/kit 0); create(ref 3/kit 2); isCreated(ref 1/kit 0)	6	5
+MMeshSmoothOptions	missing class	27	0	27	(whole class)		27	27
+MMessage	present	8	12	0			10	0
+MModelMessage	missing class	6	0	6	(whole class)		6	6
+MMutexLock	missing class	5	0	5	(whole class)		5	5
+MNamespace	missing class	18	0	18	(whole class)		19	19
+MNodeClass	missing class	15	0	15	(whole class)		17	17
+MNodeMessage	present	11	22	0			15	0
+MNurbsIntersector	missing class	8	0	8	(whole class)		8	8
+MObject	present	9	11	0			10	0
+MObjectArray	present	20	2	16	operator[]; set; setLength; length; remove; insert; append; copy; clear; setSizeIncrement; sizeIncrement; get; begin; end; cbegin; cend		26	21
+MObjectHandle	present	11	9	2	operator=; objectHashCode		16	4
+MObjectSetMessage	missing class	2	0	2	(whole class)		2	2
+MOpenCLBuffer	missing class	8	0	8	(whole class)		12	12
+MOpenCLInfo	present	10	9	3	createOpenCLCommandQueue; appendMessage; supportsDoublePrecision		11	4
+MPaintMessage	missing class	2	0	2	(whole class)		2	2
+MParentingEdit	missing class	6	0	6	(whole class)		6	6
+MPlane	missing class	6	0	6	(whole class)		9	9
+MPlug	present	90	85	17	getSetAttrCmds; isProcedural; connectionByPhysicalIndex; destinationsWithConversions; isChannelBoxFlagSet; isCachingFlagSet; setCaching; isFromReferencedFile; isIgnoredWhenRendering; isDefaultValue; constructHandle; destructHandle; setMPxData; setMDataHandle; setNumElements; operator MObject; operator!	setAttribute(ref 1/kit 2); setLocked(ref 1/kit 2)	148	46
+MPlugArray	present	20	2	16	operator[]; set; setLength; length; remove; insert; append; copy; clear; setSizeIncrement; sizeIncrement; get; begin; end; cbegin; cend		26	21
+MPluginCallableInfo	missing class	0	0	0	(whole class)		0	0
+MPoint	present	21	24	0		operator()(ref 0/kit 1)	44	1
+MPointArray	present	20	2	16	operator[]; set; setLength; length; remove; insert; append; copy; clear; get; setSizeIncrement; sizeIncrement; begin; end; cbegin; cend		33	26
+MPointOnMesh	present	6	12	0			6	0
+MPolyMessage	missing class	6	0	6	(whole class)		6	6
+MProfiler	missing class	33	0	33	(whole class)		37	37
+MProfilingScope	missing class	3	0	3	(whole class)		3	3
+MPxAnimCurveInterpolator	missing class	4	0	4	(whole class)		4	4
+MPxAssembly	missing class	52	0	52	(whole class)		52	52
+MPxAttributePatternFactory	missing class	6	0	6	(whole class)		6	6
+MPxBakeEngine	missing class	5	0	5	(whole class)		5	5
+MPxCacheConfigRuleFilter	missing class	3	0	3	(whole class)		3	3
+MPxCacheFormat	missing class	37	0	37	(whole class)		37	37
+MPxCameraSet	missing class	4	0	4	(whole class)		4	4
+MPxCommand	present	26	26	2	setUndoable; getCurrentResult		44	8
+MPxComponentShape	missing class	7	0	7	(whole class)		8	8
+MPxCustomEvaluator	missing class	18	0	18	(whole class)		18	18
+MPxData	present	9	11	0			9	0
+MPxEditData	missing class	5	0	5	(whole class)		5	5
+MPxFileResolver	missing class	13	0	13	(whole class)		13	13
+MPxFileTranslator	missing class	13	0	13	(whole class)		13	13
+MPxGeometryData	missing class	12	0	12	(whole class)		14	14
+MPxGeometryIterator	missing class	21	0	21	(whole class)		22	22
+MPxImageFile	missing class	6	0	6	(whole class)		6	6
+MPxImagePlane	missing class	9	0	9	(whole class)		9	9
+MPxMaterialInformation	missing class	7	0	7	(whole class)		7	7
+MPxMayaAsciiFilter	missing class	6	0	6	(whole class)		6	6
+MPxMayaAsciiFilterOutput	missing class	1	0	1	(whole class)		1	1
+MPxMotionPathNode	missing class	11	0	11	(whole class)		11	11
+MPxMultiPolyTweakUVCommand	missing class	6	0	6	(whole class)		6	6
+MPxNode	present	49	25	26	getInternalValue; setInternalValue; internalArrayCount; copyInternalData; legalConnection; legalDisconnection; preEvaluation; postEvaluation; getCacheSetup; configCache; transformInvalidationRange; hasInvalidationRangeTransformation; dependsOn; shouldSave; passThroughToOne; passThroughToMany; isTrackingTopology; getFilesToArchive; getExternalContent; addExternalContentForFileAttr; setExternalContentForFileAttr; setExternalContent; _setMPSafe; _forceCache; getInternalValueInContext; setInternalValueInContext	name(ref 0/kit 1)	51	30
+MPxObjectSet	missing class	5	0	5	(whole class)		5	5
+MPxPolyTrg	missing class	7	0	7	(whole class)		7	7
+MPxPolyTweakUVCommand	missing class	5	0	5	(whole class)		5	5
+MPxRepresentation	missing class	8	0	8	(whole class)		8	8
+MPxSurfaceShape	present	41	46	18	evalNodeAffectsDrawDb; convertToTweakNodePlug; weightedTransformUsing; weightedTweakUsing; vertexOffsetDirection; newControlPointComponent; matchComponent; renderGroupComponentType; canMakeLive; closestPoint; pointAtParm; geometryIteratorSetup; acceptsGeometryIterator; activeComponents; hasActiveComponents; isRenderable; setRenderable; getWorldMatrix		44	22
+MPxTopologyEvaluator	missing class	9	0	9	(whole class)		9	9
+MPxTransform	present	53	39	35	clearLimits; isLimited; limitValue; setLimit; enableLimit; getTranslation; translateTo; translateBy; getRotation; getEulerRotation; rotateTo; rotateBy; getScale; scaleTo; scaleBy; getShear; shearTo; shearBy; getScalePivot; getRotatePivot; getScalePivotTranslation; getRotatePivotTranslation; setScalePivot; setScalePivotTranslation; setRotatePivot; setRotatePivotTranslation; getRotationOrder; setRotationOrder; getRotateOrientation; setRotateOrientation; updateMatrixAttrs; copyInternalData; mustCallValidateAndSet; setNonAffineMatricesEnabled; isNonAffineMatricesEnabled		91	71
+MPxTransformPreRotation	missing class	4	0	4	(whole class)		5	5
+MPxTransformationMatrix	present	50	52	8	asScaleMatrixInverse; asRotateMatrixInverse; asInterpolationMatrix; eulerRotateOrientation; unSquishIt; unSquishMatrix; convertTransformationRotationOrder; convertEulerRotationOrder	transformBy(ref 1/kit 3); rotation(ref 2/kit 1); eulerRotation(ref 2/kit 1)	66	11
+MPxTransformationMatrixPreRotation	missing class	3	0	3	(whole class)		6	6
+MQuaternion	present	30	30	4	get; negateIt; scaleIt; operator MMatrix		40	4
+MRampAttribute	present	25	16	9	setColorAtIndex; setValueAtIndex; setPositionAtIndex; setInterpolationAtIndex; sampleColorRamp; sampleValueRamp; hasIndex; sort; pack	setRamp(ref 3/kit 4); createRamp(ref 7/kit 4)	40	22
+MRichSelection	missing class	9	0	9	(whole class)		11	11
+MSceneMessage	present	9	20	0			12	0
+MScriptUtil	missing class	103	0	103	(whole class)		119	119
+MSelectionList	present	19	20	3	replace; hasItemPartly; intersect		31	8
+MSetAttrEdit	missing class	4	0	4	(whole class)		4	4
+MSharedPtr< T >	missing class	7	0	7	(whole class)		11	11
+MSpinLock	missing class	5	0	5	(whole class)		5	5
+MStatus	present	13	14	3	pAPIerror; set; setSuccess		18	3
+MStreamUtils	missing class	12	0	12	(whole class)		12	12
+MString	present	40	46	2	setUTF8; setWChar		69	5
+MStringArray	present	20	2	16	operator[]; set; setLength; length; remove; insert; append; clear; get; indexOf; setSizeIncrement; sizeIncrement; begin; end; cbegin; cend		29	23
+MStringResource	missing class	4	0	4	(whole class)		4	4
+MStringResourceId	missing class	5	0	5	(whole class)		7	7
+MSyntax	present	18	31	0			20	1
+MTemplateAction< ActionClass, CommandName, CommandSyntax >	missing class	5	0	5	(whole class)		5	5
+MTemplateCommand< CommandClass, CommandName, CommandSyntax >	missing class	1	0	1	(whole class)		1	1
+MTemplateCreateNodeCommand< CommandClass, CommandName, NodeName >	missing class	3	0	3	(whole class)		3	3
+MTesselationParams	missing class	30	0	30	(whole class)		31	31
+MThreadAsync	missing class	4	0	4	(whole class)		4	4
+MThreadPool	present	6	7	0			6	1
+MThreadUtils	present	3	2	2	syncNumOpenMPThreads; getCacheLineSize		3	2
+MTime	present	29	25	5	operator*=; operator/=; operator++; operator--; ticksPerSecond		37	9
+MTimeArray	present	20	2	16	operator[]; set; setLength; length; remove; insert; append; clear; setSizeIncrement; sizeIncrement; get; begin; end; cbegin; cend; copy		26	21
+MTimer	missing class	9	0	9	(whole class)		10	10
+MTimerMessage	missing class	4	0	4	(whole class)		4	4
+MTopologyClusterNode	missing class	4	0	4	(whole class)		4	4
+MTransformationMatrix	present	44	40	9	operator=; addRotationQuaternion; addRotation; setToRotationAxis; addShear; scalePivotTranslation; setScalePivotTranslation; rotatePivotTranslation; setRotatePivotTranslation		54	16
+MTrimBoundaryArray	missing class	18	0	18	(whole class)		21	21
+MTypeId	present	7	6	0			10	2
+MURI	missing class	44	0	44	(whole class)		47	47
+MUint64Array	missing class	20	0	20	(whole class)		26	26
+MUintArray	missing class	20	0	20	(whole class)		26	26
+MUniqueString	missing class	12	0	12	(whole class)		18	18
+MUserEventMessage	missing class	6	0	6	(whole class)		6	6
+MUuid	present	12	11	1	operator MString		16	3
+MVector	present	26	30	0		operator()(ref 0/kit 1)	53	3
+MVectorArray	present	20	2	16	operator[]; set; setLength; length; remove; insert; append; copy; clear; get; setSizeIncrement; sizeIncrement; begin; end; cbegin; cend		31	24
+MWeight	missing class	8	0	8	(whole class)		9	9
+MaterialInputData	missing class	0	0	0	(whole class)		0	0

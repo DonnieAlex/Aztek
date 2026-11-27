@@ -107,6 +107,9 @@ loadPlugin "/path/to/build/myPlugin.so";
 
 A class or method the kit does not have yet fails the build and names it. Report it at https://github.com/srlegrand/Aztek/issues with the name.
 
+The audit against the reference's OpenMaya module, with every missing class, method and constant and the compliance
+plan and estimate, is in [openmaya_1_0/README.md](openmaya_1_0/README.md).
+
 Samples: `devkit/samples` (`helloCmd`, `scaleNode`, `rippleDeformer`).
 
 ```sh
