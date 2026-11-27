@@ -991,40 +991,50 @@ global proc saveCommandReporterOptionVars(string $reporter)
     optionVar -intValue ($key + "SuppressStackTrace") (eval($q + "-suppressStackTrace " + $reporter));
 }
 
-// Cuts a popup menu back to its first $keep items.
-proc sepTrimPopup(string $popup, int $keep)
+// A field's popup carries Aztek's own condensed menus. While the panel's menu bar is hidden, the bar's menus are added
+// after a divider whose name starts with sepBarCopy; everything from that divider down is the copy.
+proc int sepBarCopyAt(string $popup)
 {
-    if (!`popupMenu -exists $popup`)
-        return;
     string $items[] = `popupMenu -query -itemArray $popup`;
-    for ($i = $keep; $i < size($items); $i++)
-        catchQuiet(`deleteUI ($popup + "|" + $items[$i])`);
+    for ($k = 0; $k < size($items); $k++)
+        if (`gmatch $items[$k] "sepBarCopy*"`)
+            return $k;
+    return -1;
 }
 
+// The field a popup in $gCommandPopupMenus sits on: the history field first, then the executers in tab order.
+proc string sepPopupField(int $slot)
+{
+    global string $gCommandReporter;
+    global string $gCommandExecuter[];
+    if ($slot == 0)
+        return $gCommandReporter;
+    return $slot - 1 < size($gCommandExecuter) ? $gCommandExecuter[$slot - 1] : "";
+}
+
+// Brings every field's popup in line with the menu bar: the bar's menus are on a popup exactly when the bar is hidden.
+// Each popup is checked on its own, so a popup made after the bar was hidden gets its copy the first time it opens.
 global proc verifyCommandPopupMenus()
 {
     global int $gScriptEditorMenuBarVisible;
     global string $gCommandPopupMenus[];
-    global string $gCommandReporter;
-    global string $gCommandExecuter[];
     if (!`scriptedPanel -exists scriptEditorPanel1`)
         return;
-    int $visible = `scriptedPanel -query -menuBarVisible scriptEditorPanel1`;
-    if ($visible == $gScriptEditorMenuBarVisible)
-        return;
-    for ($i = 0; $i < size($gCommandPopupMenus); $i++)
-        sepTrimPopup($gCommandPopupMenus[$i], $i == 0 ? 5 : 13);
-    $gScriptEditorMenuBarVisible = $visible;
-    // With the menu bar hidden its menus are put on the popups instead.
-    if (!$visible && size($gCommandPopupMenus)) {
-        setParent -menu $gCommandPopupMenus[0];
-        menuItem -divider true;
-        buildScriptEditorMenus($gCommandPopupMenus[0], shortObjectName($gCommandReporter), true, true);
-        for ($i = 1; $i < size($gCommandPopupMenus); $i++) {
-            setParent -menu $gCommandPopupMenus[$i];
-            menuItem -divider true;
-            string $ex = $i - 1 < size($gCommandExecuter) ? $gCommandExecuter[$i - 1] : "";
-            buildScriptEditorMenus($gCommandPopupMenus[$i], shortObjectName($ex), true, false);
+    int $barShown = `scriptedPanel -query -menuBarVisible scriptEditorPanel1`;
+    $gScriptEditorMenuBarVisible = $barShown;
+    for ($slot = 0; $slot < size($gCommandPopupMenus); $slot++) {
+        string $popup = $gCommandPopupMenus[$slot];
+        if (!`popupMenu -exists $popup`)
+            continue;
+        int $at = sepBarCopyAt($popup);
+        if ($barShown && $at >= 0) {
+            string $items[] = `popupMenu -query -itemArray $popup`;
+            for ($k = size($items) - 1; $k >= $at; $k--)
+                catchQuiet(`deleteUI ($popup + "|" + $items[$k])`);
+        } else if (!$barShown && $at < 0) {
+            setParent -menu $popup;
+            menuItem -divider true sepBarCopy;
+            buildScriptEditorMenus($popup, shortObjectName(sepPopupField($slot)), true, $slot == 0);
         }
     }
 }
@@ -1687,6 +1697,27 @@ global proc removeClickedExecuterTab(int $tabIndexUnderMouse)
     removeExecuterTab($tabIndexUnderMouse, false);
 }
 
+// The executer flags that follow the Script Editor's preferences, as "-flag value" text.
+proc string sepExecuterPrefFlags()
+{
+    string $pairs[] = {
+        "showLineNumbers", "commandExecuterShowLineNumbers",
+        "commandCompletion", "commandExecuterCommandCompletion",
+        "objectPathCompletion", "commandExecuterPathCompletion",
+        "showTooltipHelp", "commandExecuterToolTipHelp",
+        "tabsForIndent", "commandExecuterTabsForIndent",
+        "showTabsAndSpaces", "commandExecuterShowTabsAndSpaces",
+        "autoCloseBraces", "commandExecuterAutoCloseBraces",
+        "spacesPerTab", "commandExecuterSpacesPerTab"
+    };
+    string $flags = "";
+    for ($k = 0; $k + 1 < size($pairs); $k += 2)
+        $flags += " -" + $pairs[$k] + " " + `optionVar -query $pairs[$k + 1]`;
+    return $flags;
+}
+
+// Makes the executer tab at $index (or at the end) holding $name: a file path, or a tab name whose text comes from its
+// backup. $userRequested tabs start empty.
 global proc buildNewExecuterTab(int $index, string $name, string $sourceType, int $userRequested)
 {
     global string $gCommandExecuterTabs;
@@ -1695,53 +1726,43 @@ global proc buildNewExecuterTab(int $index, string $name, string $sourceType, in
     global string $gCommandExecuterName[];
     global string $gCommandExecuterType[];
     global string $gCommandPopupMenus[];
-    global int $gScriptEditorMenuBarVisible;
 
-    if ($sourceType == "python" && !`exists python`)
-        $sourceType = "mel";
     if (!sepHasFields() || $gCommandExecuterTabs == "" || !`tabLayout -exists $gCommandExecuterTabs`)
         return;
-    int $count = size($gCommandExecuter);
-    if ($index < 0 || $index > $count)
-        $index = $count;
-    $gCommandExecuterType[$index] = $sourceType;
-    $gCommandExecuterName[$index] = $name;
-    string $label = basename($name, "");
+    string $type = ($sourceType == "python" && !`exists python`) ? "mel" : $sourceType;
+    int $at = ($index >= 0 && $index <= size($gCommandExecuter)) ? $index : size($gCommandExecuter);
 
+    // The field fills its tab.
     setParent $gCommandExecuterTabs;
     string $form = `formLayout`;
-    string $ex = eval("cmdScrollFieldExecuter -sourceType " + $sourceType
-        + " -showLineNumbers " + `optionVar -query commandExecuterShowLineNumbers`
-        + " -commandCompletion " + `optionVar -query commandExecuterCommandCompletion`
-        + " -objectPathCompletion " + `optionVar -query commandExecuterPathCompletion`
-        + " -showTooltipHelp " + `optionVar -query commandExecuterToolTipHelp`
-        + " -tabsForIndent " + `optionVar -query commandExecuterTabsForIndent`
-        + " -showTabsAndSpaces " + `optionVar -query commandExecuterShowTabsAndSpaces`
-        + " -autoCloseBraces " + `optionVar -query commandExecuterAutoCloseBraces`
-        + " -spacesPerTab " + `optionVar -query commandExecuterSpacesPerTab`
-        + " -searchWraps true");
-    $gCommandExecuter[$index] = $ex;
-    $gCommandExecuterLayout[$index] = $form;
+    string $ex = eval("cmdScrollFieldExecuter -sourceType " + $type + sepExecuterPrefFlags() + " -searchWraps true");
+    formLayout -edit -attachForm $ex "top" 0 -attachForm $ex "bottom" 0 -attachForm $ex "left" 0 -attachForm $ex "right" 0 $form;
 
-    string $popup = `popupMenu -markingMenu true -parent $ex -postMenuCommand "verifyCommandPopupMenus"`;
-    $gCommandPopupMenus[size($gCommandPopupMenus)] = $popup;
-    buildScriptEditorCondensedPopupMenus($popup, false);
+    $gCommandExecuter[$at] = $ex;
+    $gCommandExecuterLayout[$at] = $form;
+    $gCommandExecuterName[$at] = $name;
+    $gCommandExecuterType[$at] = $type;
 
-    formLayout -edit -attachForm $ex "top" 0 -attachForm $ex "left" 0 -attachForm $ex "right" 0 -attachForm $ex "bottom" 2 $form;
+    // A file's tab shows its file name, with the full path as the tooltip.
+    string $label = basename($name, "");
     tabLayout -edit -tabLabel $form $label $gCommandExecuterTabs;
-    eval("cmdScrollFieldExecuter -edit -receiveFocusCommand \"setLastFocusedCommandExecuter " + $ex + "\" " + $ex);
     if ($label != $name)
         tabLayout -edit -tabTooltip $form $name $gCommandExecuterTabs;
 
-    if (!$userRequested) {
-        if (isFullPathToScriptFile($name, "-r")) {
-            eval("cmdScrollFieldExecuter -edit -loadFile " + sepQuoted($name) + " " + $ex);
-            eval("cmdScrollFieldExecuter -edit -modificationChangedCommand executerTabModificationChanged -fileChangedCommand executerTabFileChanged " + $ex);
-        } else
-            eval("cmdScrollFieldExecuter -edit -loadContents " + sepBackupName($index) + " " + $ex);
-    }
+    // Not every executer takes a focus command; the tab works without one.
+    catchQuiet(eval("cmdScrollFieldExecuter -edit -receiveFocusCommand \"setLastFocusedCommandExecuter " + $ex + "\" " + $ex));
+    // Text goes in before the file callbacks are set, so loading it doesn't count as a change.
+    if (!$userRequested && isFullPathToScriptFile($name, "-r")) {
+        eval("cmdScrollFieldExecuter -edit -loadFile " + sepQuoted($name) + " " + $ex);
+        eval("cmdScrollFieldExecuter -edit -modificationChangedCommand executerTabModificationChanged -fileChangedCommand executerTabFileChanged " + $ex);
+    } else if (!$userRequested)
+        eval("cmdScrollFieldExecuter -edit -loadContents " + sepBackupName($at) + " " + $ex);
     eval("cmdScrollFieldExecuter -edit -select 0 0 " + $ex);
-    $gScriptEditorMenuBarVisible = 1;
+
+    // Its popup: the condensed menus now, and the menu bar's copy when it opens with the bar hidden.
+    string $popup = `popupMenu -markingMenu true -parent $ex -postMenuCommand "verifyCommandPopupMenus"`;
+    buildScriptEditorCondensedPopupMenus($popup, false);
+    $gCommandPopupMenus[size($gCommandPopupMenus)] = $popup;
 }
 
 global proc selectExecuterTabOffset(int $offset)
