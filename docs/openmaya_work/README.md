@@ -33,7 +33,8 @@ not an implementation branch.
 | `data/reference_class_matrix.tsv` | All reference classes with C++ and Python status |
 | `data/module_dependencies.tsv` | Module-to-module edge weights |
 | `data/dependency_edges.json` | Every class-to-class base or signature edge |
-| `data/probe_name_mismatches.py` | Live check for the confirmed 1.0 name mismatches |
+| `data/probe_name_mismatches.py` | Live YES/NO check for the confirmed 1.0 name aliases. See `data/README.md` for scope, exit status and side effects |
+| `data/README.md` | Description of every data file and of the probe's purpose, scope and limits |
 
 ## Status
 
@@ -67,7 +68,8 @@ can be searched with `grep` or loaded by an agent in sections.
 2. `dependencies.md` for the order of implementation.
 3. The module document for the class being implemented.
 4. `data/cpp_class_gaps.tsv` and `data/python_class_gaps.tsv` for the exact gaps.
-5. `SUBAGENT_RULES.md` before creating a branch or editing shared files.
+5. `data/README.md` before running `probe_name_mismatches.py`.
+6. `SUBAGENT_RULES.md` before creating a branch or editing shared files.
 
 ## Source and date
 

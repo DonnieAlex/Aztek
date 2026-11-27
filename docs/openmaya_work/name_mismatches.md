@@ -126,22 +126,28 @@ Rules for the wrappers:
 
 ## Reproduction
 
-From the repository root, with a built app:
+From the repository root, with a built app, run the committed live probe:
 
 ```sh
-build/Aztek/AppRun --batch --script /path/to/introspect_openmaya.py
+build/Aztek/AppRun --batch --script docs/openmaya_work/data/probe_name_mismatches.py
 ```
 
-The introspector walks `maya.OpenMaya`, `maya.OpenMayaAnim` and `maya.OpenMayaMPx`, records `dir()` and
-`inspect.signature()`, and writes JSON. The reference manifest is generated from the cached C++ pages under
-`help.autodesk.com/cloudhelp/2022/ENU/Maya-SDK/cpp_ref/`. `data/name_candidates.tsv` is the raw pairing output; the
-tables in this document are the reviewed subset.
+It prints one `Class.name=YES` or `Class.name=NO (kind)` line per check, then a summary. Exit status is 0 when every
+required name resolves and 1 while any confirmed name is still missing. It checks the 18 confirmed names, the 6
+probable names and the 2.0 controls, and it creates a sphere named `probeSphere` in the batch scene. It does not check
+signatures, return values or the rest of the 961 missing names. `data/README.md` has the full scope and usage.
+
+The full audit used a separate introspector that walks `maya.OpenMaya`, `maya.OpenMayaAnim` and `maya.OpenMayaMPx`,
+records `dir()` and `inspect.signature()`, and writes JSON. That script is not committed; the resulting records are
+`data/python_class_gaps.tsv`, `data/reference_class_matrix.tsv` and `data/name_candidates.tsv`. The reference manifest
+is generated from the cached C++ pages under `help.autodesk.com/cloudhelp/2022/ENU/Maya-SDK/cpp_ref/`. The tables in
+this document are the reviewed subset.
 
 ## Next steps
 
-1. Add the 25 confirmed aliases first. They are small, testable and directly unblock scripts.
-2. Verify the 8 probable rows against a real call signature before coding. `MQuaternion.setAxisAngle`,
+1. Add the 18 confirmed aliases first. They are small, testable and directly unblock scripts.
+2. Verify the 6 probable rows against a real call signature before coding. `MQuaternion.setAxisAngle`,
    `MPxCommand.currentIntResult` and `MFnNurbsSurface.getCVs` are the ones most likely to need a full wrapper.
-3. Re-run the introspection diff and the 1.0 test suite.
+3. Re-run `probe_name_mismatches.py` and the 1.0 unit tests after each alias.
 4. For the remaining 961 missing names, use the C++ gap records and the dependency document rather than treating them
    as naming work.

@@ -248,6 +248,7 @@ A Python 1.0 work item is done only when all of these hold:
 - A 1.0-style call works, including the out-parameter and `MStatus` contract.
 - A test in `crates/aztek_host/tests/python_api_v1.rs` would have failed before the change.
 - The introspection dump shows the name in the expected module.
+- `docs/openmaya_work/data/probe_name_mismatches.py` exits 0, and its output is pasted into the handoff note.
 - The name is removed from the mismatch record or marked as an accepted difference.
 
 A documentation work item is done only when the reference link, the signature and the module are present and the
@@ -275,6 +276,16 @@ For Python 1.0 on a built app:
 ```sh
 build/Aztek/AppRun --batch --script <introspection-or-test-script>.py
 ```
+
+For a name-alias work item, run the committed live probe first and after the change:
+
+```sh
+build/Aztek/AppRun --batch --script docs/openmaya_work/data/probe_name_mismatches.py
+```
+
+It prints `YES`/`NO` per name and exits 1 while any confirmed alias is still missing. It is a manual proof, not a
+substitute for the unit test in `crates/aztek_host/tests/python_api_v1.rs`. Its scope, output, exit status and side
+effects are in `docs/openmaya_work/data/README.md`.
 
 If the change is UI-facing, run the relevant UI check under Xvfb and attach the screenshot to the item. A green unit
 test is not enough for a viewport method.
