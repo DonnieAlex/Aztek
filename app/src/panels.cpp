@@ -229,9 +229,7 @@ QStringList selected_channels() {
 
 QStringList selected_input_plugs() {
     QStringList out;
-    for (const QString& a : g_channel_sel) {
-        if (!g_input_plugs.contains(a)) continue;
-        QString plug = g_input_plugs[a];
+    auto add = [&](const QString& plug) {
         QString attr = plug.section('.', -1);
         QStringList nodes = g_input_nodes.value(plug);
         if (nodes.isEmpty()) nodes << plug.section('.', 0, -2);
@@ -239,6 +237,21 @@ QStringList selected_input_plugs() {
             QString p = n + "." + attr;
             if (!out.contains(p)) out << p;
         }
+    };
+    // Read the labels, not only g_input_plugs: a drag over the names picks a run without a press on each label.
+    for (QLabel* l : g_channel_labels) {
+        if (!g_channel_sel.contains(l->property("attr").toString())) continue;
+        QVariant input = l->property("inputPlug");
+        if (input.isValid()) add(input.toString());
+    }
+    // A script's channelBox -select pick may have no label for the input yet.
+    for (const QString& a : g_channel_sel) {
+        if (!g_input_plugs.contains(a)) continue;
+        QString plug = g_input_plugs[a];
+        bool seen = false;
+        for (QLabel* l : g_channel_labels)
+            seen = seen || (l->property("attr").toString() == a && l->property("inputPlug").isValid());
+        if (!seen) add(plug);
     }
     return out;
 }
