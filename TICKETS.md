@@ -69,7 +69,7 @@ Requests waiting or in progress, newest detail kept. Move to Done with the date 
 - CI: `python_api_px` fails on rocky9 and ubuntu-2204 (sum 0.0 after reopening a plug-in's data); diagnostics are in,
   the "after reopening" output from the next failed run is wanted.
 - Found making the examples (09/11/2026), still so on 16/11/2026: `skinCluster` and `blendShape` don't take NURBS
-  curves (`cluster` does since #66); `nurbsSquare -sl2` and `vortex -ax/-ay/-az` are missing; `connectDynamic -f` with
+  curves (`cluster` does since #66); (`nurbsSquare -sl2` is in, and `vortex -ax/-ay/-az` since 27/11/2026); `connectDynamic -f` with
   a field's transform fails; `scriptJob -listJobs` lists ids, not the Python function. (`displaySmoothness -po` works
   since PLAN 1.12.)
 - Real plug cycles: `a.tx -> b.tx -> a.tx` is refused. The reference connects it and warns at evaluation; the evaluator needs a guard first.

@@ -4780,3 +4780,14 @@ optionVars in memory and wrote it over `optionVars.json` when autosave settings 
 the session started with. There is now one copy, the session's `option_vars`: the `optionVar` command, the
 Preferences window and the autosave settings all read and write it, and the core saves it after each command. A
 regression test reads the saved file after `autoSave` follows `upAxis`, as the Preferences Save does.
+
+### What changed (27/11/2026, vortex axis)
+
+`vortex -axisX -axisY -axisZ` (`-ax -ay -az`), from the reference's documentation: the axis the vortex turns about,
+0 1 0 by default, given on creation, changed one component at a time with `-e` and read with `-q`. It is kept as the
+field's `direction`, which Aztek's one field node already uses as a vortex's axis, so there is no `axisX` attribute to
+`getAttr`. A `vortexField` read from a `.ma` takes its `ax ay az` as that axis, and starts from the reference's
+defaults (magnitude 5, attenuation 1, axis 0 1 0) for what the file leaves out, where before it took the gravity
+field's 9.8, 0 and 0 -1 0, so a file's vortex turned the wrong way. Queries of every field command's number flags
+(`gravity -q -m`, `cmds.air(q=True, s=True)`) failed with "bad value"; they answer now. Still missing on `vortex`:
+the volume flags and `-perVertex`.

@@ -615,9 +615,18 @@ fn field_command(s: &mut Session, a: &Args, kind: usize) -> CmdResult {
         let Some(name) = a.named().into_iter().next() else { fail!("{}: name a field", FIELD_COMMANDS[kind].0) };
         let Some(fl) = resolve(g, &name, &[dy::FIELD]) else { fail!("{name} is not a field") };
         if a.bool("query") {
+            // From a script the flag asked about comes as queried, its value left out.
+            let asked = |flag: &str| a.has(flag) || a.get("queried").and_then(Value::as_array).is_some_and(|q| q.iter().any(|x| x == flag));
             for (flag, at) in FIELD_FLAGS {
-                if a.has(flag) {
+                if asked(flag) {
                     return Ok(json!(crate::dyn_solve::num(g, fl, at, 0.0)));
+                }
+            }
+            // A vortex's axis is the field's direction, one component a flag.
+            let dir = g.node(fl).unwrap().vec3(g.node(fl).unwrap().ty().attr_index("direction").unwrap());
+            for (flag, v) in [("axisX", dir.x), ("axisY", dir.y), ("axisZ", dir.z)] {
+                if kind == VORTEX && asked(flag) {
+                    return Ok(json!(v));
                 }
             }
             fail!("{}: query what?", FIELD_COMMANDS[kind].0);
@@ -661,7 +670,10 @@ fn field_command(s: &mut Session, a: &Args, kind: usize) -> CmdResult {
 
 const FIELD_FLAGS: &[(&str, &str)] = &[("magnitude", "magnitude"), ("attenuation", "attenuation"), ("maxDistance", "maxDistance"), ("speed", "speed"), ("inheritVelocity", "inheritVelocity"), ("frequency", "frequency"), ("minDistance", "minDistance")];
 
-fn field_flags(g: &mut Graph, fl: NodeId, a: &Args, _kind: usize) -> CmdResult<()> {
+/// The vortex's place in FIELD_COMMANDS.
+const VORTEX: usize = 7;
+
+fn field_flags(g: &mut Graph, fl: NodeId, a: &Args, kind: usize) -> CmdResult<()> {
     for (flag, at) in FIELD_FLAGS {
         if a.has(flag) {
             set(g, fl, at, a.float(flag, 0.0))?;
@@ -676,6 +688,12 @@ fn field_flags(g: &mut Graph, fl: NodeId, a: &Args, _kind: usize) -> CmdResult<(
     if a.has("directionX") || a.has("directionY") || a.has("directionZ") {
         let cur = g.node(fl).unwrap().vec3(g.node(fl).unwrap().ty().attr_index("direction").unwrap());
         let v = DVec3::new(a.float("directionX", cur.x), a.float("directionY", cur.y), a.float("directionZ", cur.z));
+        set(g, fl, "direction", PlugValue::Vec3(v))?;
+    }
+    // vortex -ax -ay -az: the axis it turns about, kept as the direction.
+    if kind == VORTEX && (a.has("axisX") || a.has("axisY") || a.has("axisZ")) {
+        let cur = g.node(fl).unwrap().vec3(g.node(fl).unwrap().ty().attr_index("direction").unwrap());
+        let v = DVec3::new(a.float("axisX", cur.x), a.float("axisY", cur.y), a.float("axisZ", cur.z));
         set(g, fl, "direction", PlugValue::Vec3(v))?;
     }
     Ok(())
@@ -927,8 +945,15 @@ pub fn register(c: &mut Commands<Session>) {
             .flag(f("solver", "sv", ArgType::String, "The solver new particles join.")),
     );
     for (k, (name, _)) in FIELD_COMMANDS.iter().enumerate() {
+        let mut cmd = q(Cmd::new(name, &format!("Make a {name} field acting on the selected bodies, or -q/-e one. Returns [field]."), move |s, a| field_command(s, a, k)));
+        if k == VORTEX {
+            cmd = cmd
+                .flag(f("axisX", "ax", ArgType::Float, "The axis it turns about, X (0 by default)."))
+                .flag(f("axisY", "ay", ArgType::Float, "The axis it turns about, Y (1 by default)."))
+                .flag(f("axisZ", "az", ArgType::Float, "The axis it turns about, Z (0 by default)."));
+        }
         c.register(
-            q(Cmd::new(name, &format!("Make a {name} field acting on the selected bodies, or -q/-e one. Returns [field]."), move |s, a| field_command(s, a, k)))
+            cmd
                 .positional("bodies to act on")
                 .flag(f("magnitude", "m", ArgType::Float, "Strength."))
                 .flag(f("attenuation", "att", ArgType::Float, "How fast it weakens with distance."))
@@ -941,7 +966,8 @@ pub fn register(c: &mut Commands<Session>) {
                 .flag(f("inheritVelocity", "iv", ArgType::Float, "Air: kept motion."))
                 .flag(f("frequency", "f", ArgType::Float, "Turbulence: noise frequency."))
                 .flag(f("minDistance", "mnd", ArgType::Float, "Newton: least distance."))
-                .flag(f("position", "pos", ArgType::Vec3, "Where it is.")),
+                .flag(f("position", "pos", ArgType::Vec3, "Where it is."))
+                .flag(f("queried", "", ArgType::List, "The flags asked about in query mode.")),
         );
     }
     c.register(

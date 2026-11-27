@@ -155,7 +155,23 @@ pub(super) fn translate(doc: &mut Doc) -> Vec<String> {
         }
         let t = types::find(ours).expect(ours);
         let name = doc.nodes[i].name.clone();
-        let sets = std::mem::take(&mut doc.nodes[i].sets);
+        let mut sets = std::mem::take(&mut doc.nodes[i].sets);
+        // A vortex's axis is our field's direction. The file leaves out what is at the reference's defaults
+        // (magnitude 5, attenuation 1, axis 0 1 0), which are not our field's, so those go first.
+        if old == "vortexField" {
+            let d = aztek_dyn::Field::new(aztek_dyn::FieldKind::Vortex);
+            let defaults = [("magnitude", d.magnitude), ("attenuation", d.attenuation), ("directionX", d.direction.x), ("directionY", d.direction.y), ("directionZ", d.direction.z)];
+            sets.splice(0..0, defaults.into_iter().map(|(n, v)| num_set(n, v)));
+            for st in sets.iter_mut() {
+                let to = match st.path.first().map(|g| g.name.as_str()) {
+                    Some("ax" | "axisX") => "directionX",
+                    Some("ay" | "axisY") => "directionY",
+                    Some("az" | "axisZ") => "directionZ",
+                    _ => continue,
+                };
+                st.path[0].name = to.into();
+            }
+        }
         let (on_transform, rest): (Vec<SetAttr>, Vec<SetAttr>) = if split_shape { sets.into_iter().partition(|s| s.path.first().is_some_and(|g| is_transform_attr(&g.name))) } else { (Vec::new(), sets) };
         let (mut kept, lines, names) = split(rest, &t);
         // Settings that mean something different here.
