@@ -1756,7 +1756,8 @@ global proc buildNewExecuterTab(int $index, string $name, string $sourceType, in
         eval("cmdScrollFieldExecuter -edit -loadFile " + sepQuoted($name) + " " + $ex);
         eval("cmdScrollFieldExecuter -edit -modificationChangedCommand executerTabModificationChanged -fileChangedCommand executerTabFileChanged " + $ex);
     } else if (!$userRequested)
-        eval("cmdScrollFieldExecuter -edit -loadContents " + sepBackupName($at) + " " + $ex);
+        // A tab with no backup yet (the first start) opens empty.
+        catchQuiet(eval("cmdScrollFieldExecuter -edit -loadContents " + sepBackupName($at) + " " + $ex));
     eval("cmdScrollFieldExecuter -edit -select 0 0 " + $ex);
 
     // Its popup: the condensed menus now, and the menu bar's copy when it opens with the bar hidden.
