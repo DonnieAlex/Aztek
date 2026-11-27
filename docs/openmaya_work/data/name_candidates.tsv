@@ -1,0 +1,48 @@
+class	documented	doc_decl	implemented	py_sig	ratio
+MArgDatabase	getCommandArgument	MStatus getCommandArgument (unsigned int index, MTime &result) const	commandArgumentInt	(*a, **k)	0.91
+MArgParser	commandArgumentMAngle	MAngle commandArgumentMAngle (unsigned int index, MStatus *ReturnStatus=NULL) const	commandArgumentAngle	(*a, **k)	0.98
+MArgParser	commandArgumentMDistance	MDistance commandArgumentMDistance (unsigned int index, MStatus *ReturnStatus=NULL) const	commandArgumentDistance	(*a, **k)	0.98
+MArgParser	commandArgumentMTime	MTime commandArgumentMTime (unsigned int index, MStatus *ReturnStatus=NULL) const	commandArgumentTime	(*a, **k)	0.97
+MArgParser	flagArgumentMAngle	MAngle flagArgumentMAngle (const char *flag, unsigned int index, MStatus *ReturnStatus=NULL) const	flagArgumentAngle	(*a, **k)	0.97
+MArgParser	flagArgumentMDistance	MDistance flagArgumentMDistance (const char *flag, unsigned int index, MStatus *ReturnStatus=NULL) const	flagArgumentDistance	(*a, **k)	0.98
+MArgParser	flagArgumentMTime	MTime flagArgumentMTime (const char *flag, unsigned int index, MStatus *ReturnStatus=NULL) const	flagArgumentTime	(*a, **k)	0.97
+MArgParser	getCommandArgument	MStatus getCommandArgument (unsigned int index, MTime &result) const	commandArgumentTime	(*a, **k)	0.88
+MColor	MColor	MColor (MColorType colorModel, double c1, double c2, double c3, double alpha=1.0)	getColor	(*a, **k)	0.91
+MFnDagNode	objectColorRGB	MColor objectColorRGB (MStatus *ReturnStatus=NULL) const	isObjectColor	(*a, **k)	0.88
+MFnDagNode	setIntermediateObject	MStatus setIntermediateObject (bool isIntermediate)	setIsIntermediateObject	(self, value)	0.95
+MFnDagNode	setObjectColor	MStatus setObjectColor (const MColor &color)	isObjectColor	(*a, **k)	1.00
+MFnDagNode	setUseObjectColor	MStatus setUseObjectColor (bool useObjectColor)	isObjectColor	(*a, **k)	0.88
+MFnMatrixAttribute	getDefault	MStatus getDefault (MFloatMatrix &def)	default	(*a, **k)	1.00
+MFnNumericAttribute	getDefault	MStatus getDefault (void *&def1)	default	(*a, **k)	1.00
+MFnNurbsSurface	degreeU	int degreeU (MStatus *ReturnStatus=NULL) const	degreeInU	(*a, **k)	0.88
+MFnNurbsSurface	degreeV	int degreeV (MStatus *ReturnStatus=NULL) const	degreeInV	(*a, **k)	0.88
+MFnNurbsSurface	getDerivativesAtParm	MStatus getDerivativesAtParm (double paramInU, double paramInV, MPoint &pos, MVector &dU, MVector &dV, MSpace::Space space, MVector *dUU=NULL, MVector *dVV=NULL, MVector *dUV=NULL) const	getDerivativesAtParam	(*a, **k)	0.97
+MFnNurbsSurface	getKnotDomain	MStatus getKnotDomain (double &startU, double &endU, double &startV, double &endV) const	isKnotDomainInU	(*a, **k)	0.87
+MFnNurbsSurface	getTangents	MStatus getTangents (double paramInU, double paramInV, MVector &vectorInU, MVector &vectorInV, MSpace::Space space=MSpace::kObject) const	tangents	(*a, **k)	1.00
+MFnSet	setAnnotation	MStatus setAnnotation (const MString &annotation)	isAnnotation	(*a, **k)	1.00
+MFnUnitAttribute	getDefault	MStatus getDefault (MDistance &defaultValue)	default	(*a, **k)	1.00
+MItMeshFaceVertex	faceVertId	int faceVertId (MStatus *ReturnStatus=NULL) const	faceVertexId	(*a, **k)	0.91
+MItMeshPolygon	isConnectedToEdge	bool isConnectedToEdge (int index, MStatus *ReturnStatus=NULL)	connectedEdges	(*a, **k)	0.90
+MItMeshPolygon	isConnectedToFace	bool isConnectedToFace (int index, MStatus *ReturnStatus=NULL)	connectedFaces	(*a, **k)	0.90
+MPlug	setCaching	MStatus setCaching (bool caching)	isCaching	(*a, **k)	1.00
+MPxCommand	currentIntResult	static int currentIntResult (MStatus *ReturnStatus=NULL)	currentResult		0.90
+MPxCommand	getCurrentResult	static MStatus getCurrentResult (MStringArray &val)	currentResult		1.00
+MPxTransform	getMatrix	virtual MMatrix getMatrix (const MDGContext &, MStatus *ReturnStatus=NULL)	matrix		1.00
+MPxTransform	getRotatePivot	virtual MPoint getRotatePivot (MSpace::Space, const MDGContext &, MStatus *ReturnStatus=NULL)	rotatePivot		1.00
+MPxTransform	getRotatePivotTranslation	virtual MVector getRotatePivotTranslation (MSpace::Space, const MDGContext &, MStatus *ReturnStatus=NULL)	rotatePivotTranslate		0.90
+MPxTransform	getScale	virtual MVector getScale (MSpace::Space, const MDGContext &, MStatus *ReturnStatus=NULL)	scale		1.00
+MPxTransform	getScalePivot	virtual MPoint getScalePivot (MSpace::Space, const MDGContext &, MStatus *ReturnStatus=NULL)	scalePivot		1.00
+MPxTransform	getScalePivotTranslation	virtual MVector getScalePivotTranslation (MSpace::Space, const MDGContext &, MStatus *ReturnStatus=NULL)	scalePivotTranslate		0.90
+MPxTransform	getShear	virtual MVector getShear (MSpace::Space, const MDGContext &, MStatus *ReturnStatus=NULL)	shear		1.00
+MPxTransform	rotateBy	virtual MStatus rotateBy (const MEulerRotation &, MSpace::Space, const MDGContext &)	rotateY		0.93
+MPxTransform	scaleBy	virtual MStatus scaleBy (const MVector &, MSpace::Space, const MDGContext &)	scaleY		0.92
+MPxTransform	setRotatePivot	virtual MStatus setRotatePivot (const MPoint &, MSpace::Space, bool balance, const MDGContext &)	rotatePivot		1.00
+MPxTransform	setRotatePivotTranslation	virtual MStatus setRotatePivotTranslation (const MVector &, MSpace::Space, const MDGContext &)	rotatePivotTranslate		0.90
+MPxTransform	setScalePivot	virtual MStatus setScalePivot (const MPoint &, MSpace::Space, bool balance, const MDGContext &)	scalePivot		1.00
+MPxTransform	setScalePivotTranslation	virtual MStatus setScalePivotTranslation (const MVector &, MSpace::Space, const MDGContext &)	scalePivotTranslate		0.90
+MPxTransform	translateBy	virtual MStatus translateBy (const MVector &, MSpace::Space, const MDGContext &)	translateY		0.95
+MPxTransform	translateTo	virtual MStatus translateTo (const MVector &, MSpace::Space, const MDGContext &)	translate		0.90
+MPxTransformationMatrix	asTransformationMatrix	virtual MTransformationMatrix asTransformationMatrix () const	baseTransformationMatrixId		0.92
+MQuaternion	getAxisAngle	bool getAxisAngle (MVector &axis, double &theta) const	asAxisAngle	(*a, **k)	0.90
+MQuaternion	setAxisAngle	MQuaternion & setAxisAngle (const MVector &axis, double theta)	asAxisAngle	(*a, **k)	0.90
+MRampAttribute	getNumEntries	unsigned int getNumEntries (MStatus *ReturnStatus=nullptr)	numEntries	(*a, **k)	1.00

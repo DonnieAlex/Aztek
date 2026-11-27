@@ -1,0 +1,8 @@
+source_module	target_module	edge_weight
+OpenMayaUI	OpenMaya	1234
+OpenMayaAnim	OpenMaya	1115
+OpenMayaRender	OpenMaya	1080
+OpenMayaFX	OpenMaya	616
+OpenMayaUI	OpenMayaRender	44
+OpenMaya	OpenMayaAnim	4
+OpenMaya	OpenMayaRender	1
