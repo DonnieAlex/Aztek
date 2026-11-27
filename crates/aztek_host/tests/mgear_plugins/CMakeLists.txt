@@ -5,7 +5,7 @@
 #   mgear_solvers     mGear's solver nodes (mgear_curveCns, mgear_ikfk2Bone, mgear_matrixConstraint ...), from
 #                     mGear 5's src/ (github.com/mgear-dev/mgear), unchanged
 #   mGearWeightDriver mGear's RBF and vector angle node (github.com/mgear-dev/mgear), unchanged
-#   cvwrap            the cvWrap deformer and command, mGear's copy (github.com/mgear-dev/cvwrap), unchanged
+#   cvwrap            the cvWrap deformer and command, mGear's copy (github.com/mgear-dev/cvwrap), without its GPU override
 #
 # They are written to plug-ins/ in the build folder, which the tests put on the plug-in path.
 

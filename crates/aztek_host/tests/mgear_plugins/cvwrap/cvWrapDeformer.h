@@ -11,12 +11,6 @@
 #include <maya/MThreadPool.h>
 #include <maya/MPxDeformerNode.h>
 
-#if MAYA_API_VERSION >= 201600
-#include <maya/MPxGPUDeformer.h>
-#include <maya/MGPUDeformerRegistry.h>
-#include <maya/MOpenCLInfo.h>
-#include <clew/clew_cl.h>
-#endif
 
 #include <map>
 #include <vector>
@@ -90,91 +84,5 @@ private:
 
 
 
-#if MAYA_API_VERSION >= 201600
-// the GPU override implementation of the offsetNode
-// 
-
-class CVWrapGPU : public MPxGPUDeformer {
- public:
-	// Virtual methods from MPxGPUDeformer
-	CVWrapGPU();
-	virtual ~CVWrapGPU();
-
-#if MAYA_API_VERSION <= 201700
-	virtual MPxGPUDeformer::DeformerStatus evaluate(MDataBlock& block, const MEvaluationNode&,
-                                                  const MPlug& plug, unsigned int numElements,
-                                                  const MAutoCLMem, const MAutoCLEvent,
-                                                  MAutoCLMem, MAutoCLEvent&);
-#else
-	virtual MPxGPUDeformer::DeformerStatus evaluate(MDataBlock& block, const MEvaluationNode& evaluationNode,
-													const MPlug& plug, const MGPUDeformerData& inputData,
-													MGPUDeformerData& outputData);
-#endif
-	virtual void terminate();
-
-	static MGPUDeformerRegistrationInfo* GetGPUDeformerInfo();
-	static bool ValidateNode(MDataBlock& block, const MEvaluationNode&, const MPlug& plug, MStringArray* messages);
-  /**< The path of where the plug-in is loaded from.  Used to find the cl kernel. */
-  static MString pluginLoadPath;
-
-private:
-	// helper methods
-	MStatus EnqueueBindData(MDataBlock& data, const MEvaluationNode& evaluationNode, const MPlug& plug);
-	MStatus EnqueueDriverData(MDataBlock& data, const MEvaluationNode& evaluationNode, const MPlug& plug);
-	MStatus EnqueuePaintMapData(MDataBlock& data, const MEvaluationNode& evaluationNode, unsigned int numElements, const MPlug& plug);
-
-	// Storage for data on the GPU
-	MAutoCLMem driverPoints_;
-	MAutoCLMem driverNormals_;
-	MAutoCLMem paintWeights_;
-	MAutoCLMem bindMatrices_;
-	MAutoCLMem sampleCounts_;
-	MAutoCLMem sampleOffsets_;
-	MAutoCLMem sampleIds_;
-	MAutoCLMem sampleWeights_;
-	MAutoCLMem triangleVerts_;
-	MAutoCLMem baryCoords_;
-	MAutoCLMem drivenMatrices_;
-
-	unsigned int numElements_;
-
-	// Kernel
-	MAutoCLKernel kernel_;
-};
-
-
-/**
-  The 
-*/
-class CVWrapGPUDeformerInfo : public MGPUDeformerRegistrationInfo {
- public:
-	CVWrapGPUDeformerInfo(){}
-	virtual ~CVWrapGPUDeformerInfo(){}
-
-	virtual MPxGPUDeformer* createGPUDeformer()	{
-		return new CVWrapGPU();
-	}
-	
-
-
-#if MAYA_API_VERSION >= 201650
-	virtual bool validateNodeInGraph(MDataBlock&, const MEvaluationNode&,
-                                   const MPlug&, MStringArray*)	{
-		return true;
-	}
-
-	virtual bool validateNodeValues(MDataBlock&, const MEvaluationNode&,
-                                  const MPlug&, MStringArray*) {
-		return true;
-	}
-#else
-  virtual bool validateNode(MDataBlock&, const MEvaluationNode&,
-                            const MPlug&, MStringArray*) {
-		return true;
-	}
-#endif
-};
-
-#endif // End Maya 2016
 
 #endif
