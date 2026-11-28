@@ -32694,8 +32694,8 @@ shadingNode	icm	done	auto
 shadingNode	isColorManaged	done	auto
 shadingNode	n	done	auto
 shadingNode	name	done	auto
-shadingNode	p	missing	
-shadingNode	parent	missing	
+shadingNode	p	done	auto
+shadingNode	parent	done	auto
 shadingNode	s	done	auto
 shadingNode	shared	done	auto
 shadingNode	skipSelect	done	auto

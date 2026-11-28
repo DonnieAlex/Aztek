@@ -606,7 +606,8 @@ pub fn register(c: &mut Commands<Session>) {
                 return Ok(json!(g.path(id)));
             }
         }
-        let (tr, _) = make(g, &ty, &name, NO_NODE)?;
+        let parent = crate::ref_scene::shading_parent(g, a)?;
+        let (tr, _) = make(g, &ty, &name, parent)?;
         if !a.bool("skipSelect") {
             g.select(&[tr], SelectMode::Replace);
         }

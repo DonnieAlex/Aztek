@@ -4796,3 +4796,11 @@ defaults (magnitude 5, attenuation 1, axis 0 1 0) for what the file leaves out, 
 field's 9.8, 0 and 0 -1 0, so a file's vortex turned the wrong way. Queries of every field command's number flags
 (`gravity -q -m`, `cmds.air(q=True, s=True)`) failed with "bad value"; they answer now. Still missing on `vortex`:
 the volume flags and `-perVertex`.
+
+### What changed (28/11/2026, shadingNode -parent)
+
+`shadingNode -parent` (`-p`), from the reference's documentation ("the parent in the DAG under which the new node
+belongs"): a light made with `-asLight` goes under the named transform, transform and shape together, and so does a
+DAG utility such as `place3dTexture`. A name that isn't there, or isn't a transform, is an error and makes nothing.
+Unverified (WANTED.md): what the flag does for a dependency node such as `lambert`; here it is left out of the DAG
+as it would be without the flag.

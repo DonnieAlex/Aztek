@@ -2309,11 +2309,16 @@ pub fn register(c: &mut Commands<Session>) {
                     return Ok(json!(s.graph.path(id)));
                 }
             }
-            let id = s.graph.create_node(&t, &a.string("name", ""), NO_NODE, true)?;
+            // -parent puts a DAG node (place3dTexture and the like) under that transform; a dependency node has no
+            // place in the DAG, so the flag leaves it as it is.
+            let parent = shading_parent(&s.graph, a)?;
+            let parent = if t.dag { parent } else { NO_NODE };
+            let id = s.graph.create_node(&t, &a.string("name", ""), parent, true)?;
             crate::utility_nodes::seed(&mut s.graph, id)?;
             Ok(json!(s.graph.path(id)))
         })
         .positional("type")
+        .flag(f("parent", "p", S, "The transform the new node goes under, for a DAG node such as a light or a place3dTexture."))
         .flag(f("isColorManaged", "icm", B, "The node's colours are colour managed. Accepted: textures read their colour space here."))
         .flag(f("asRendering", "ar", B, "A rendering node."))
         .flag(f("asUtility", "au", B, "A utility."))
@@ -3116,5 +3121,18 @@ fn objects_of(a: &Args, g: &Graph) -> Vec<String> {
         g.selection().iter().map(|&i| g.path(i)).collect()
     } else {
         named
+    }
+}
+
+/// shadingNode -parent: the transform named, or none when the flag isn't given.
+pub(crate) fn shading_parent(g: &Graph, a: &Args) -> CmdResult<NodeId> {
+    let name = a.string("parent", "");
+    if name.is_empty() {
+        return Ok(NO_NODE);
+    }
+    match g.find(&name)? {
+        Some(id) if g.node(id).is_some_and(|n| n.ty().is_a("transform")) => Ok(id),
+        Some(_) => fail!("shadingNode: {name} is not a transform."),
+        None => fail!("shadingNode: No object matches name: {name}"),
     }
 }

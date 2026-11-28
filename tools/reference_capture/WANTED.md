@@ -67,5 +67,6 @@ Each is a guess in a test, marked `// unverified:` at the line. `calls.json` car
 | What does `emit` do before the particles' start frame (an error, a warning, an empty array)? Which short names does `-attribute` take (`vel`, `rgb`)? From Python, how do the values pair with several `attribute=` names? Is a mid-solve emit undone? | `emit.rs` | `emit.before_start`, `emit.ids` |
 | Spline IK `twistType` Ease In / Ease Out / Ease In Out and `rootTwistMode`: each joint's twist (five joints along X, `twist` 90) | `ik_spline_options.rs` `ease_in_gathers_the_twist_toward_the_end` | none yet |
 | Every grooming default, the commands the Generate menu and the grooming tools run, how a groom is stored in `.ma` and `.mb` | XJEN, all steps | `xgen_capture.py` |
+| `shadingNode -asShader lambert -p group1` (a dependency node with `-parent`): an error, a warning, or the flag ignored? | `lights.rs` `shading_node_parent_puts_a_light_or_place3d_texture_under_a_transform` | none yet |
 
 Add a row, and a call in `calls.json`, whenever a test takes a guess.
