@@ -321,7 +321,7 @@ A 3D application for modelling, UVs, rigging, animation, dynamics and rendering,
 geometry, Vulkan viewport), Qt Widgets shell in C++, a MEL interpreter, and embedded Python with `aztek.cmds`,
 compatibility modules so existing scripts import unchanged, and the Python API, OpenAztek (`aztek.api.OpenAztek`, and 1.0 as
 `aztek.OpenAztek`), which those scripts reach as `maya.api.OpenMaya` and `maya.OpenMaya`. Reads and writes `.ma` and `.mb` files; USD and OBJ come as plug-ins (mayaUsdPlugin, objExport), as in the reference. [PARITY.md](PARITY.md) has the behaviour
-target and status, including known differences; [docs/COMMANDS.md](docs/COMMANDS.md) lists all 1328 commands;
+target and status, including known differences; [docs/COMMANDS.md](docs/COMMANDS.md) lists all 1513 commands;
 [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md) lists the environment variables and which are read.
 
 Website: [srlegrand.github.io/Aztek](https://srlegrand.github.io/Aztek/). Licence: [MIT-0](LICENSE).
@@ -624,7 +624,7 @@ On Linux that folder is `~/.config/aztek` by default, and Aztek copies existing 
 
 ## Install
 
-Packages are on the [releases page](https://github.com/srlegrand/Aztek/releases): each build of the main branch is a release of its own, numbered 2.N where N counts the changes so far. A build from source of the same commit shows the same number in Help > About. Each package goes out on its own: one whose build or check failed is left out of that release and the rest are published, and the website links every download to the newest release that has it.
+Packages are on the [releases page](https://github.com/srlegrand/Aztek/releases): every change to the main branch is built, and a release is made from one of those builds when it is started by hand or by a `v*` tag, numbered 2.N where N counts the changes so far. A build from source of the same commit shows the same number in Help > About. Each package goes out on its own: one whose build or check failed is left out of that release and the rest are published, and the website links every download to the newest release that has it.
 
 **Updates.** On its first start Aztek asks whether to check for new versions when it starts; the answer can be changed in
 Preferences > Interface, and Help > Check for Updates works either way. The check asks GitHub for the latest release and

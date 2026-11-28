@@ -263,7 +263,7 @@ gh pr create --fill</code></pre>
 <section class="download" id="download">
   <div class="dl-head">
     <h2>Download</h2>
-    <p class="build-line" id="build-line">Built from every change to the main branch.</p>
+    <p class="build-line" id="build-line">Released from builds of the main branch.</p>
   </div>
   <div class="dl-grid">
     <a class="dl win" data-asset="setup-x64.exe" href="https://github.com/srlegrand/Aztek/releases">
@@ -616,7 +616,7 @@ cmds.setKeyframe(cube, at='ty', t=24, v=5)</code></pre>
 </section>
 
 <section class="docs-links">
-  <a href="https://github.com/srlegrand/Aztek/blob/main/docs/COMMANDS.md"><strong>Command reference</strong><span>All 1328 commands and their flags</span></a>
+  <a href="https://github.com/srlegrand/Aztek/blob/main/docs/COMMANDS.md"><strong>Command reference</strong><span>All 1513 commands and their flags</span></a>
   <a href="https://github.com/srlegrand/Aztek/blob/main/PARITY.md"><strong>Parity</strong><span>What matches the reference and what doesn't yet</span></a>
   <a href="https://github.com/srlegrand/Aztek/issues"><strong>Issues</strong><span>Report a difference or a bug</span></a>
 </section>
@@ -650,7 +650,7 @@ cmds.setKeyframe(cube, at='ty', t=24, v=5)</code></pre>
         link.href = hit.browser_download_url;
         link.title = hit.name + ' (' + from.name + ')';
       });
-      if (list[0] && list[0].name) document.getElementById('build-line').textContent = 'Newest: ' + list[0].name + ', built ' + new Date(list[0].published_at).toISOString().slice(0, 10).split('-').reverse().join('/') + '. Built from every change to the main branch.';
+      if (list[0] && list[0].name) document.getElementById('build-line').textContent = 'Newest: ' + list[0].name + ', built ' + new Date(list[0].published_at).toISOString().slice(0, 10).split('-').reverse().join('/') + '. Released from builds of the main branch.';
     })
     .catch(function () { /* links stay on the releases page */ });
 })();

@@ -1,8 +1,9 @@
 # Packaging
 
-Everything is built by `.github/workflows/build.yml` and attached to the `latest` pre-release (each push to main) and to
-versioned releases (`v*` tags). The version comes from `Cargo.toml`, `[workspace.package]`. The scripts below also run
-by hand.
+Everything is built by `.github/workflows/build.yml` on each push to main, hourly, and on pull
+requests. A release is made only when the workflow is started by hand (tagged `v2.N.0`) or by a `v*` tag (from
+27/11/2026); other runs keep their packages as workflow artifacts. The workflow writes the version, 2.<commits on main>,
+into `Cargo.toml`'s `[workspace.package]` before building. The scripts below also run by hand.
 
 The workflow trades speed for builds that finish (from 14/11/2026):
 
