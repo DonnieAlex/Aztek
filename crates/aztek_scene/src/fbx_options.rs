@@ -1,5 +1,5 @@
 //! The FBX plug-in's settings, as the reference keeps them: one command a setting (FBXImportSkins -v true, FBXImportSkins
-//! -q), the Autodesk Media & Entertainment preset's values to start with, FBXResetImport and FBXResetExport to go back
+//! -q), the Media & Entertainment preset's values to start with, FBXResetImport and FBXResetExport to go back
 //! to them, FBXPushSettings and FBXPopSettings around a script's changes, and the take queries of a file read with
 //! FBXRead. The import and export options windows set these same commands.
 
@@ -353,11 +353,11 @@ pub fn register(c: &mut Commands<Session>) {
         .undoable(false),
     );
     let plain = |name: &str, doc: &str, f: fn(&mut Session, &Args) -> CmdResult| CommandDef::<Session>::new(name, doc, f).undoable(false);
-    c.register(plain("FBXResetImport", "Every import setting back to the Autodesk Media & Entertainment preset.", |_s, _a| {
+    c.register(plain("FBXResetImport", "Every import setting back to the Media & Entertainment preset.", |_s, _a| {
         reset_import();
         Ok(Value::Null)
     }));
-    c.register(plain("FBXResetExport", "Every export setting back to the Autodesk Media & Entertainment preset.", |_s, _a| {
+    c.register(plain("FBXResetExport", "Every export setting back to the Media & Entertainment preset.", |_s, _a| {
         reset_export();
         Ok(Value::Null)
     }));
@@ -386,13 +386,13 @@ pub fn register(c: &mut Commands<Session>) {
             .undoable(false),
         );
     }
-    c.register(plain("FBXLoadMBImportPresetFile", "The MotionBuilder import preset: constraints and skeleton definitions on.", |_s, _a| {
+    c.register(plain("FBXLoadMBImportPresetFile", "The motion capture import preset: constraints and skeleton definitions on.", |_s, _a| {
         reset_import();
         let _ = set("FBXImportConstraints", &json!(true));
         let _ = set("FBXImportSkeletonType", &json!("humanik"));
         Ok(Value::Null)
     }));
-    c.register(plain("FBXLoadMBExportPresetFile", "The MotionBuilder export preset: constraints and skeleton definitions on.", |_s, _a| {
+    c.register(plain("FBXLoadMBExportPresetFile", "The motion capture export preset: constraints and skeleton definitions on.", |_s, _a| {
         reset_export();
         let _ = set("FBXExportConstraints", &json!(true));
         let _ = set("FBXExportSkeletonDefinitions", &json!(true));

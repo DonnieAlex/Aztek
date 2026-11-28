@@ -682,7 +682,7 @@ void direct(vec3 base, vec3 n, vec3 v, out vec3 diff, out vec3 spec, out vec3 co
             // The emitter's half size over its distance: how wide it looks from here.
             area_angle = 0.5 * (length(ua.xyz) + length(ub.xyz)) / max(d, 0.0001);
             if (dir.w > 1.5) {
-                // Falling off as Arnold's: its radiance (colour, intensity and exposure, normalised over the area, as
+                // Falling off as the reference renderer's: its radiance (colour, intensity and exposure, normalised over the area, as
                 // Harold's: without the pi the viewport's own lights take) through the rectangle's exact irradiance for
                 // the diffuse, and as a point of the same power at the nearest point for the base of the highlight.
                 // The highlight's lobe is widened by the emitter's angular size below, as a real one is.

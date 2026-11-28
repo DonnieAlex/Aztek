@@ -8,7 +8,7 @@ use glam::{Mat4, Vec2, Vec3, Vec4};
 use crate::bvh::{Aabb, Bvh};
 use crate::math::Ray;
 
-/// Which rays see a shape, as Arnold's visibility flags and Maya's render stats.
+/// Which rays see a shape, as the ai visibility flags and the reference's render stats.
 pub mod vis {
     pub const CAMERA: u8 = 1;
     pub const SHADOW: u8 = 2;
@@ -45,7 +45,7 @@ pub struct MeshData {
     pub curves: Option<Curves>,
 }
 
-/// How a curve is drawn across its width, as Arnold's curves `mode`.
+/// How a curve is drawn across its width, as the reference renderer's curves `mode`.
 #[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum CurveMode {
     /// A flat strip always turned to the ray: hair and fur.
@@ -334,7 +334,7 @@ pub struct Instance {
     pub xforms: Vec<Mat4>,
     pub inverses: Vec<Mat4>,
     pub visibility: u8,
-    /// Shadow rays pass it, its opacity ignored, when false (Arnold's opaque off reads opacity; on treats it as solid).
+    /// Shadow rays pass it, its opacity ignored, when false (the ai opaque setting off reads opacity; on treats it as solid).
     pub opaque: bool,
     pub matte: bool,
     /// Materials, by the mesh's per triangle index.
@@ -620,7 +620,7 @@ impl Geometry {
         let i = c.seg[h.prim as usize] as usize;
         let along = c.along[i] + (c.along[i + 1] - c.along[i]) * h.u;
         let ci = c.seg_curve[h.prim as usize] as usize;
-        // Textures on hair read the root's place on the skin, as Arnold's uparamcoord and vparamcoord; with none, the
+        // Textures on hair read the root's place on the skin, as the reference renderer's uparamcoord and vparamcoord; with none, the
         // offset across and the distance along.
         let uv = c.root_uv.get(ci).copied().unwrap_or(Vec2::new(h.v * 0.5 + 0.5, along));
         let shader = inst.shaders.get(mesh.tri_shader[h.prim as usize] as usize).or(inst.shaders.first()).copied().unwrap_or(0);

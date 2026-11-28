@@ -312,7 +312,7 @@ Preferences::Preferences(QWidget* parent) : QDialog(parent) {
         const QJsonObject uf = ask("aztekUserFolder", QJsonObject{{"query", true}}).toObject();
         const QString mode = uf["mode"].toString("aztek"), detected = uf["detected"].toString();
         auto* own = new QRadioButton("Aztek's own folder", this);
-        auto* link = new QRadioButton("Use a Maya folder where it is", this);
+        auto* link = new QRadioButton("Use an existing user folder (from the reference) where it is", this);
         auto* custom = new QRadioButton("A custom folder", this);
         own->setObjectName("userFolderOwn");
         link->setObjectName("userFolderLink");
@@ -342,10 +342,10 @@ Preferences::Preferences(QWidget* parent) : QDialog(parent) {
         f->addRow(own);
         f->addRow(note(uf["ownFolder"].toString() + ", with scripts, plug-ins, modules and prefs folders inside."));
         f->addRow(link);
-        const auto link_w_link_edit = folder_row(mode == "link" ? uf["folder"].toString() : detected, "Maya Folder");
+        const auto link_w_link_edit = folder_row(mode == "link" ? uf["folder"].toString() : detected, "Existing User Folder");
         const auto link_w = link_w_link_edit.first;
         const auto link_edit = link_w_link_edit.second;
-        link_edit->setPlaceholderText(detected.isEmpty() ? "No Maya folder was found: browse to one" : detected);
+        link_edit->setPlaceholderText(detected.isEmpty() ? "No existing user folder (from the reference) was found: browse to one" : detected);
         f->addRow(link_w);
         auto* version = new QComboBox(this);
         auto fill_versions = [version, link_edit](const QString& keep) {
@@ -383,7 +383,7 @@ Preferences::Preferences(QWidget* parent) : QDialog(parent) {
         user_setup->setChecked(uf["userSetup"].toBool(true));
         f->addRow(user_setup);
 
-        auto* copy = new QPushButton("Copy a Maya Folder into Aztek's...", this);
+        auto* copy = new QPushButton("Copy an Existing User Folder into Aztek's...", this);
         copy->setToolTip("Copies its scripts, plug-ins, modules and preferences into Aztek's own folder and uses that. Nothing already there is replaced, and the folder copied from is left as it is.");
         auto* shelves = new QPushButton("Import Its Shelves", this);
         shelves->setToolTip("Adds the shelves saved in the folder in use (prefs/shelves/shelf_*.mel) to the shelf bar.");
@@ -529,7 +529,11 @@ void MainWindow::apply_prefs() {
     QSettings s;
     QFont f = qApp->font();
     f.setPointSize(s.value("prefs/fontSize", 9).toInt());
-    qApp->setFont(f);
+    if (f != qApp->font()) {
+        qApp->setFont(f);
+        // Refresh the fonts already resolved by the theme stylesheet.
+        qApp->setStyleSheet(qApp->styleSheet());
+    }
     statusBar()->setVisible(s.value("prefs/helpLine", true).toBool());
     auto bar = [this, &s](const char* name, const char* key) {
         if (QWidget* t = findChild<QWidget*>(name, Qt::FindDirectChildrenOnly)) t->setVisible(s.value(QString("prefs/") + key, true).toBool());

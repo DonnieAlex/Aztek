@@ -1,6 +1,6 @@
 # XJEN
 
-XJEN is Aztek's counterpart of the reference's XGen: hair, fur and feathers grown on meshes, groomed with brushes and
+XJEN is Aztek's counterpart of the reference's grooming system: hair, fur and feathers grown on meshes, groomed with brushes and
 modifiers, drawn in the views and rendered by Harold. It ships as the `xjenToolkit` plug-in (the reference's
 `xgenToolkit`), loaded at start. Its node types, commands and Python module keep the reference's names (`xgm*`,
 `xgenm`), as Harold keeps the `ai*` node types, so the reference's scenes, presets and scripts load unchanged.
@@ -35,7 +35,7 @@ Two systems, both current in the 2027 release.
   (Copy, Copy Variance, Cut, Noise, Noise Frequency, Noise Correlation, Copy Scale, Noise Scale). Noise has Frequency,
   Correlation, Preserve Length and Live or Baked (to Alembic). Guide has Blend and region maps; Linear Wire has
   Smoothness, Breakage and Reference State; both create guides or wires (10 percent of the hair density by default),
-  take selected curves, and can be made dynamic through an nHair system. Curve to Spline takes scene curves or an
+  take selected curves, and can be made dynamic through a dynamic hair system. Curve to Spline takes scene curves or an
   Alembic cache, with Align To Normal.
 - Tools (Generate > Interactive Groom Tools, the Hair shelf): Density, Place, Length, Cut, Width, Twist, Comb, Grab,
   Smooth, Noise, Clump, Part, Freeze, Select. Common settings: Size (screen space), Strength, Collide with Meshes (off),
@@ -54,7 +54,7 @@ Two systems, both current in the 2027 release.
   (offset and length into per-vertex arrays), positions, widths, texcoords (V from 0 at the root to 1 at the tip) and
   the root's patch UV, with motion samples. The devkit's `XgSplineApi.h` (`XgFnSpline`, `XgItSpline`) reads it.
 
-**XGen** (the original system, still shipped, often called legacy). Collections (palettes) of descriptions whose data
+**Collections** (the original system, still shipped, often called legacy). Collections (palettes) of descriptions whose data
 lives in files beside the scene.
 
 - Files: `.xgen` (collection: descriptions, modifiers, patch bindings, guide attributes), `.xdsc` (description),
@@ -70,8 +70,8 @@ lives in files beside the scene.
   (`fxModules`, `addFXModule`, `moveFXModule`), culling, binding, file IO (`importPalette`, `exportPalette`, deltas,
   `importDescription`, `exportDescription`), callbacks, messages, repositories; the reference's extension (guides, patches,
   `modifyFaceBinding`, `bakedGroomManagerBake`); commands `xgmGuideGeom`, `xgmPatchInfo`, `xgmBakeGuideVertices`.
-- Generate menu: XGen Editor, XGen Library, Create Description, Import and Export Collections or Descriptions, Export
-  Selection as Archive(s), Batch Convert Scene to XGen Archive(s), Convert XGen Primitives to Polygons, Convert to
+- Generate menu: the editor, the library, Create Description, Import and Export Collections or Descriptions, Export
+  Selection as Archive(s), Batch Convert Scene to Archive(s), Convert Primitives to Polygons, Convert to
   Interactive Groom, Import Preset, Export as Preset, then the Interactive Groom items, Cache and Display HUD.
 
 Sources (2027 documentation): [Interactive Groom Editor](https://help.autodesk.com/cloudhelp/2027/ENU/Maya-CharEffEnvBuild/files/GUID-5371B34C-3630-4F65-B6EA-8B99DF73F0B0.htm),
@@ -104,7 +104,7 @@ Each step ends with tests stating the reference's result, the plug-in loading an
 round trips, and screenshots.
 
 1. **Strands in Harold and in the views.** Harold gets a curve primitive (round, ribbon and oriented ribbon, the
-   Arnold curve modes, with minimum pixel width), its own BVH leaves for curve segments, motion keys, and the
+   reference renderer's curve modes, with minimum pixel width), its own BVH leaves for curve segments, motion keys, and the
    `aiStandardHair` shader. The views draw strands as tapered, tube-shaded lines in one GPU buffer per description,
    fast at millions of segments. Both are tested on plain NURBS curves first (the reference renders curves with
    `aiRenderCurve`).
@@ -121,8 +121,8 @@ round trips, and screenshots.
 5. **Editor and the rest of the menu.** The Interactive Groom Editor, the Hair shelf, presets (export and import),
    Transfer, Convert Interactive Groom to Polygons, Select Splines on Selected Face.
 6. **Alembic** (PLAN 4.2), then the Cache menu, Spline Cache, Noise baked, Curve to Spline from a cache.
-7. **XGen (collections).** `.xgen` and `.xdsc` read and written, primitives, generators, guides, the sixteen FX modules,
-   SeExpr expressions, Ptex maps, archives, the XGen Editor and Library, the `xgenm` Python API, Convert to
+7. **Collections.** `.xgen` and `.xdsc` read and written, primitives, generators, guides, the sixteen FX modules,
+   SeExpr expressions, Ptex maps, archives, the editor and library, the `xgenm` Python API, Convert to
    Interactive Groom. Needs an expression language and a Ptex reader; both have permissive licences (SeExpr Apache
    2.0, Ptex BSD) and are to be checked before they are taken.
 8. **Dynamics.** Make Guides and Wires Dynamic once the unified solver simulates hair. Under way: `hairSystem`
@@ -230,7 +230,7 @@ round trips, and screenshots.
 - Noise Baked: `xjenBakeModifier noise1 -file -frameRange` writes the modifier's output and sets Mode to Baked, which
   plays the file; Live again on Mode 0.
 - Curve to Spline: Cache File reads its curves from an Alembic file instead of connected curves.
-- The reference's cache layout for descriptions (what XGen writes under a description in Alembic) is to be read from
+- The reference's cache layout for descriptions (what the reference writes under a description in Alembic) is to be read from
   a file the reference wrote; until then Aztek's caches play in Aztek.
 
 The aim beyond parity, kept for after it: views that draw hair as Harold renders it.

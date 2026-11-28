@@ -1,4 +1,4 @@
-//! Dynamic hair, as the reference's nHair: follicles hold the start curves and hand them to a hairSystem, which moves
+//! Dynamic hair, as the reference's dynamic hair: follicles hold the start curves and hand them to a hairSystem, which moves
 //! each strand's points a frame at a time (gravity, damping, drag, stretch and bend resistance, start curve attract)
 //! and hands the moved curves back to the follicles, whose output curves draw them. Made with makeCurvesDynamic.
 //!

@@ -4,6 +4,7 @@
 
 pub mod bake;
 pub mod commands;
+pub mod compat;
 pub mod displace;
 pub mod lights;
 pub mod materials;
@@ -113,7 +114,7 @@ pub fn render_shapes(g: &mut Graph) -> Vec<NodeId> {
     out
 }
 
-/// Subdivision levels for a shape: Arnold's subdivision settings, or the smooth preview's.
+/// Subdivision levels for a shape: its ai subdivision settings, or the smooth preview's.
 fn subdiv_levels(g: &mut Graph, id: NodeId, smooth: i32, ignore: bool) -> u32 {
     if ignore {
         return 0;
@@ -225,7 +226,7 @@ fn camera_at(g: &mut Graph, shape: NodeId) -> aztek_render::camera::Camera {
     }
 }
 
-/// Visibility bits from Maya's render stats and Arnold's visibility settings.
+/// Visibility bits from the reference's render stats and the ai visibility settings.
 fn visibility_of(g: &mut Graph, id: NodeId) -> u8 {
     let mut m = 0u8;
     let on = |g: &mut Graph, a: &str| get_b(g, id, a, true);
@@ -484,7 +485,7 @@ pub fn translate(s: &mut Session, tr: &mut Translator, req: &Request) -> Result<
     scene.network = net;
     scene.materials = mats;
     scene.material_names = names;
-    // A default light when there are none and the globals ask for one, as Maya's own default light. Glowing surfaces
+    // A default light when there are none and the globals ask for one, as the reference's own default light. Glowing surfaces
     // don't count: they are lights only to the renderer.
     let no_lights = scene.lights.is_empty();
     lights::emissive(&mut scene);

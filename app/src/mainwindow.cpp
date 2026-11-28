@@ -2139,7 +2139,7 @@ void MainWindow::open_scene() {
     if (!confirm_unsaved()) return;
     // The reference's scene types, then the plug-in types that open a file while their plug-ins are loaded.
     auto plugin_loaded = [](const char* name) { return ask("pluginInfo", QJsonObject{{"args", QJsonArray{name}}, {"query", true}, {"loaded", true}}).toBool(); };
-    QString filter = "Maya Scenes (*.ma *.mb);;mayaAscii (*.ma);;mayaBinary (*.mb)";
+    QString filter = "Scenes (*.ma *.mb);;mayaAscii (*.ma);;mayaBinary (*.mb)";
     if (plugin_loaded("fbx")) filter += ";;FBX (*.fbx)";
     if (plugin_loaded("objExport")) filter += ";;OBJ (*.obj)";
     if (plugin_loaded("mayaUsdPlugin")) filter += ";;USD Import (*.usd *.usda *.usdc *.usdz)";

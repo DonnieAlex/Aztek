@@ -663,8 +663,8 @@ global proc refreshHeadsUpDisplayMenu(string $parent)
         deleteUI -menuItem xgenInfoItem;
     else if ($xgen && !`menuItem -exists xgenInfoItem` && `menuItem -exists viewportRendererItem`) {
         setParent -menu $parent;
-        menuItem -insertAfter viewportRendererItem -checkBox `optionVar -query xgenHUDVisibility` -label "XGen Info"
-            -annotation "XGen information: the primitives and their counts" -command "ToggleXGenDisplayHUD" xgenInfoItem;
+        menuItem -insertAfter viewportRendererItem -checkBox `optionVar -query xgenHUDVisibility` -label "Groom Info"
+            -annotation "Groom information: the primitives and their counts" -command "ToggleXGenDisplayHUD" xgenInfoItem;
     }
 }
 

@@ -1,0 +1,860 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+  # A fresh set of packages every hour, if main has moved since the last one.
+  schedule:
+    - cron: "7 * * * *"
+
+# A build in progress finishes: cancelling it for each push meant a busy day released nothing. One newer run waits.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+
+# Slow and sure: every build here runs two jobs at a time, so a runner never runs out of memory, and every download is
+# tried again before it fails. A step that still fails is run again (tools/ci/retry.sh) with one job at a time.
+env:
+  CARGO_BUILD_JOBS: 2
+  CMAKE_BUILD_PARALLEL_LEVEL: 2
+  RUST_TEST_THREADS: 2
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_DEV_DEBUG: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+  CARGO_NET_RETRY: 10
+  CARGO_HTTP_TIMEOUT: 300
+  CARGO_TERM_COLOR: never
+  PIP_RETRIES: 10
+  PIP_DEFAULT_TIMEOUT: 120
+  HOMEBREW_NO_AUTO_UPDATE: 1
+
+jobs:
+  # Whether there's anything to build: only the hourly run can find nothing new.
+  gate:
+    runs-on: ubuntu-24.04
+    outputs:
+      go: ${{ steps.check.outputs.go }}
+      version: ${{ steps.check.outputs.version }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # The version a user sees: 2.<commits on main>, so every build is newer than the last and says so.
+      - id: check
+        run: |
+          version="2.$(git rev-list --count HEAD).0"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          go=true
+          if [ "${{ github.event_name }}" = "schedule" ] && gh release view "v$version" >/dev/null 2>&1; then
+            go=false
+          fi
+          echo "go=$go" >> "$GITHUB_OUTPUT"
+          echo "Building $version: $go"
+
+  # The plug-in kit and the plug-ins the tests build under clang (as on macOS) and GCC, in a minute: a compile error shows here
+  # before the long builds reach it.
+  kit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile
+        run: tools/check_kit.sh
+
+  # The shell's C++ as strict C++17 under clang and GCC, in a few minutes: what would stop the Windows (MSVC) or macOS
+  # (AppleClang) compile stops here first, and those builds don't start on code that can't compile.
+  app:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependencies
+        run: tools/ci/retry.sh 3 bash -c "sudo apt-get update && sudo apt-get install -y --no-install-recommends qt6-base-dev ninja-build cmake clang"
+      - name: Compile
+        run: tools/check_app.sh
+
+  linux:
+    needs: gate
+    if: needs.gate.outputs.go == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk
+        run: tools/ci/free-disk.sh
+
+      - name: Version
+        shell: bash
+        run: sed -i 's/^version = ".*"/version = "${{ needs.gate.outputs.version }}"/' Cargo.toml
+
+      - name: Dependencies
+        run: |
+          tools/ci/retry.sh 5 bash -c 'sudo apt-get -o Acquire::Retries=10 update && sudo apt-get -o Acquire::Retries=10 install -y build-essential dpkg-dev cmake ninja-build curl libglvnd-dev libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-shape0 libxcb-sync1 libxcb-xfixes0 libxcb-xkb1 libxcb-xinerama0 libxkbcommon-dev libxkbcommon-x11-dev libfontconfig1-dev libfreetype-dev libdbus-1-dev libglib2.0-dev libvulkan-dev xvfb xdotool imagemagick openbox mesa-vulkan-drivers'
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            . -> target
+            . -> build/cargo
+
+      - name: Bundle cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            build/qt
+            build/python
+          key: bundle-qt-6.8.3-python-3.13.18-linux
+
+      # The Python 3.13 the build bundles, for the tests' pyo3 too. Its sysconfig names the folder it was built in, so the
+      # library's folder is given to the linker, and the test programs find the library there.
+      - name: Python 3.13
+        shell: bash
+        run: |
+          P=$(tools/python/fetch-python.sh "$PWD/build/python")
+          echo "PYO3_PYTHON=$P/bin/python3.13" >> "$GITHUB_ENV"
+          echo "RUSTFLAGS=-L $P/lib -C link-arg=-Wl,-rpath,$P/lib" >> "$GITHUB_ENV"
+
+      - name: Test
+        run: tools/ci/retry.sh 2 cargo test --workspace
+
+      - name: Build
+        run: tools/ci/retry.sh 3 ./build.sh
+
+      - name: Bundle check
+        run: tools/check_bundle.sh build/Aztek
+
+      # The real program with no display: exit statuses, then the basics end to end. AppRun is what users start, and it
+      # sets PYTHONHOME, PYTHONNOUSERSITE and LD_LIBRARY_PATH for the bundle.
+      - name: Batch
+        run: AZTEK_BIN="$PWD/build/Aztek/AppRun" tools/ci/retry.sh 2 cargo test -p aztek_host --test batch --test basics --test basics_python
+
+      - name: Examples
+        run: tools/ci/retry.sh 2 tools/check_examples.sh build/Aztek/AppRun
+
+      - name: Channel Box under Xvfb
+        run: tools/ci/retry.sh 2 python3 tools/ui_checks/channel_box.py build/Aztek/AppRun
+
+      - name: Package
+        run: |
+          tar -czf aztek-linux-x86_64.tar.gz -C build Aztek
+          tools/ci/retry.sh 3 packaging/deb/build-deb.sh build dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aztek-linux-x86_64
+          path: aztek-linux-x86_64.tar.gz
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aztek-deb-ubuntu24.04
+          path: dist/*.deb
+
+  # Ubuntu 26.04 has its own Qt, so it gets its own package. It has no Python 3.13: the package carries one.
+  ubuntu-2604:
+    needs: gate
+    if: needs.gate.outputs.go == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 340
+    container:
+      image: ubuntu:26.04
+      # Set here because a step that adds to PATH (rust-toolchain adds ~/.cargo/bin) gets the image's own PATH appended
+      # by the runner, and when the image config gives none the next step has only ~/.cargo/bin: "bash: executable
+      # file not found".
+      env:
+        PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      volumes:
+        - /usr/share/dotnet:/host/usr/share/dotnet
+        - /usr/local/lib/android:/host/usr/local/lib/android
+        - /opt/ghc:/host/opt/ghc
+        - /usr/local/.ghcup:/host/usr/local/.ghcup
+        - /opt/hostedtoolcache/CodeQL:/host/opt/hostedtoolcache/CodeQL
+        - /usr/local/share/powershell:/host/usr/local/share/powershell
+        - /usr/local/share/chromium:/host/usr/local/share/chromium
+    steps:
+      - uses: actions/checkout@v4
+
+      # The runner's unused SDKs, seen through the container's volumes: the build needs the room.
+      - name: Free disk
+        run: tools/ci/free-disk.sh /host
+
+      - name: Version
+        shell: bash
+        run: sed -i 's/^version = ".*"/version = "${{ needs.gate.outputs.version }}"/' Cargo.toml
+
+      - name: Dependencies
+        run: |
+          for i in 1 2 3 4 5; do
+            apt-get -o Acquire::Retries=10 update && apt-get -o Acquire::Retries=10 install -y build-essential dpkg-dev cmake ninja-build libgl-dev libegl-dev libglx-dev libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-shape0 libxcb-sync1 libxcb-xfixes0 libxcb-xkb1 libxcb-xinerama0 libvulkan-dev ca-certificates curl file libxkbcommon-dev libxkbcommon-x11-dev libfontconfig1-dev libfreetype-dev libdbus-1-dev libglib2.0-dev && break
+            [ "$i" = 5 ] && exit 1
+            sleep $((i * 60))
+          done
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            . -> target
+            . -> build/cargo
+
+      - name: Bundle cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            build/qt
+            build/python
+          key: bundle-qt-6.8.3-python-3.13.18-ubuntu2604
+
+      # The Python 3.13 the package will carry, for the tests too. Its sysconfig names the folder it was built in, so
+      # the library's folder is given to the linker, and the test programs find the library there.
+      - name: Python 3.13
+        run: |
+          P=$(tools/python/fetch-python.sh "$PWD/build/python")
+          echo "PYO3_PYTHON=$P/bin/python3.13" >> "$GITHUB_ENV"
+          echo "RUSTFLAGS=-L $P/lib -C link-arg=-Wl,-rpath,$P/lib" >> "$GITHUB_ENV"
+
+      - name: Test
+        run: tools/ci/retry.sh 2 cargo test --workspace
+
+      - name: Build
+        run: tools/ci/retry.sh 3 ./build.sh
+
+      - name: Package
+        run: tools/ci/retry.sh 3 packaging/deb/build-deb.sh build dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aztek-deb-ubuntu26.04
+          path: dist/*.deb
+
+  # Rocky 8 has no Qt 6 packages, so its RPM bundles Qt 6.8 from aqtinstall. Rocky 9 uses EPEL's Qt.
+  rocky:
+    needs: gate
+    if: needs.gate.outputs.go == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 340
+    container:
+      image: rockylinux:${{ matrix.el }}
+      # Set here because a step that adds to PATH (rust-toolchain adds ~/.cargo/bin) gets the image's own PATH appended
+      # by the runner, and when the image config gives none the next step has only ~/.cargo/bin: "bash: executable
+      # file not found".
+      env:
+        PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      volumes:
+        - /usr/share/dotnet:/host/usr/share/dotnet
+        - /usr/local/lib/android:/host/usr/local/lib/android
+        - /opt/ghc:/host/opt/ghc
+        - /usr/local/.ghcup:/host/usr/local/.ghcup
+        - /opt/hostedtoolcache/CodeQL:/host/opt/hostedtoolcache/CodeQL
+        - /usr/local/share/powershell:/host/usr/local/share/powershell
+        - /usr/local/share/chromium:/host/usr/local/share/chromium
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - el: 8
+            qt: "6.8.3"
+          - el: 9
+            qt: "6.8.3"
+    steps:
+      - uses: actions/checkout@v4
+
+      # The runner's unused SDKs, seen through the container's volumes: the build needs the room.
+      - name: Free disk
+        run: tools/ci/free-disk.sh /host
+
+      - name: Version
+        shell: bash
+        run: sed -i 's/^version = ".*"/version = "${{ needs.gate.outputs.version }}"/' Cargo.toml
+
+      - name: Dependencies
+        run: tools/ci/retry.sh 5 packaging/rpm/install-build-deps.sh
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: el${{ matrix.el }}
+          workspaces: |
+            . -> target
+            . -> build/cargo
+
+      - name: Bundle cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            build/qt
+            build/python
+          key: bundle-qt-${{ matrix.qt }}-python-3.13.18-rocky${{ matrix.el }}
+
+      # The Python 3.13 the build bundles, for the tests' pyo3 too. Its sysconfig names the folder it was built in, so the
+      # library's folder is given to the linker, and the test programs find the library there.
+      - name: Python 3.13
+        shell: bash
+        run: |
+          P=$(tools/python/fetch-python.sh "$PWD/build/python")
+          echo "PYO3_PYTHON=$P/bin/python3.13" >> "$GITHUB_ENV"
+          echo "RUSTFLAGS=-L $P/lib -C link-arg=-Wl,-rpath,$P/lib" >> "$GITHUB_ENV"
+
+      - name: Test
+        run: tools/ci/retry.sh 2 cargo test --workspace
+
+      - name: RPM
+        run: tools/ci/retry.sh 3 packaging/rpm/build-rpm.sh build dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aztek-rpm-el${{ matrix.el }}
+          path: dist/*.rpm
+
+      # One file for every other Linux: built here, on the oldest C library, so it runs on anything newer.
+      # A failure here leaves the release without an AppImage rather than without a release.
+      - name: AppImage
+        if: matrix.el == 8
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +u; . /opt/rh/gcc-toolset-14/enable; set -u
+          tools/ci/retry.sh 3 ./build.sh
+          VERSION=$(sed -n 's/^version *= *"\(.*\)"/\1/p' Cargo.toml | head -n1)
+          tools/ci/retry.sh 3 packaging/appimage/pack-appimage.sh build/Aztek "appimage/aztek-$VERSION-x86_64.AppImage"
+
+      - uses: actions/upload-artifact@v4
+        if: matrix.el == 8
+        with:
+          name: aztek-appimage
+          path: appimage/*.AppImage
+
+  # The AppImage for 64-bit ARM (#193): built on GitHub's ARM runner in Rocky 9 with its Qt 6 bundled, as Qt's own
+  # ARM kit needs a newer C library than Rocky 8's. It runs on systems with glibc 2.34 or newer (Ubuntu 22.04, Debian
+  # 12, Raspberry Pi OS 12, Fedora 35 and later) that have a Vulkan driver. It can't fail the run or hold a release back.
+  appimage-arm64:
+    needs: gate
+    if: needs.gate.outputs.go == 'true'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 340
+    continue-on-error: true
+    container:
+      image: rockylinux:9
+      env:
+        PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Version
+        shell: bash
+        run: sed -i 's/^version = ".*"/version = "${{ needs.gate.outputs.version }}"/' Cargo.toml
+
+      - name: Dependencies
+        run: tools/ci/retry.sh 5 packaging/rpm/install-build-deps.sh --system-qt
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: el9-arm64
+          workspaces: |
+            . -> build/cargo
+
+      - name: AppImage
+        shell: bash
+        run: tools/ci/retry.sh 3 packaging/appimage/build-appimage.sh build appimage
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aztek-appimage-arm64
+          path: appimage/*.AppImage
+
+  # The ARM AppImage unpacked and started in a clean Ubuntu 24.04 on the ARM runner.
+  verify-appimage-arm64:
+    needs: appimage-arm64
+    if: always()
+    runs-on: ubuntu-24.04-arm
+    continue-on-error: true
+    container:
+      image: ubuntu:24.04
+      env:
+        PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: pkg
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: aztek-appimage-arm64
+          path: pkg
+
+      - name: Install what a desktop has
+        if: steps.pkg.outcome == 'success'
+        run: |
+          for i in 1 2 3 4 5; do
+            apt-get -o Acquire::Retries=10 update && apt-get -o Acquire::Retries=10 install -y xvfb xauth file libvulkan1 libgl1 libegl1 libfontconfig1 libfreetype6 libx11-6 libx11-xcb1 libxcb1 libglib2.0-0 libdbus-1-3 && break
+            [ "$i" = 5 ] && exit 1
+            sleep $((i * 60))
+          done
+
+      - name: Smoke test
+        if: steps.pkg.outcome == 'success'
+        run: |
+          chmod +x pkg/*.AppImage
+          pkg/*.AppImage --appimage-extract >/dev/null
+          AZTEK_BIN="$PWD/squashfs-root/AppRun" tools/ci/retry.sh 2 packaging/linux/smoke-test.sh
+
+      - name: Mark
+        if: steps.pkg.outcome == 'success'
+        run: mkdir -p ok && touch ok/ok-appimage-arm64
+
+      - if: steps.pkg.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ok-appimage-arm64
+          path: ok
+
+  # Each package installed in a clean container, where only its declared dependencies can satisfy it.
+  # Each one runs for whatever package was built, whichever other build failed, and leaves a mark (ok-<package>) that
+  # the release reads: a package goes out when its own check passed, and nothing else decides it.
+  verify-rpm:
+    needs: rocky
+    if: always()
+    runs-on: ubuntu-24.04
+    container:
+      image: rockylinux:${{ matrix.el }}
+      env:
+        PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    strategy:
+      fail-fast: false
+      matrix:
+        el: [8, 9]
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: pkg
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: aztek-rpm-el${{ matrix.el }}
+          path: pkg
+
+      # Rocky 8 gets no EPEL here: its package must install from the base repositories alone.
+      - name: Install
+        if: steps.pkg.outcome == 'success'
+        run: |
+          for i in 1 2 3 4 5; do
+            { [ "${{ matrix.el }}" != 9 ] || dnf -y --setopt=retries=10 install epel-release; } \
+              && dnf -y --setopt=retries=10 install ./pkg/*.rpm xorg-x11-server-Xvfb xorg-x11-xauth which && break
+            [ "$i" = 5 ] && exit 1
+            dnf clean all; sleep $((i * 60))
+          done
+
+      - name: Smoke test
+        if: steps.pkg.outcome == 'success'
+        run: tools/ci/retry.sh 2 packaging/linux/smoke-test.sh
+
+      - name: Mark
+        if: steps.pkg.outcome == 'success'
+        run: mkdir -p ok && touch ok/ok-rpm-el${{ matrix.el }}
+
+      - if: steps.pkg.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ok-rpm-el${{ matrix.el }}
+          path: ok
+
+  verify-deb:
+    needs: [linux, ubuntu-2604]
+    if: always()
+    runs-on: ubuntu-24.04
+    container:
+      image: ubuntu:${{ matrix.ubuntu }}
+      env:
+        PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    strategy:
+      fail-fast: false
+      matrix:
+        ubuntu: ["24.04", "26.04"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: pkg
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: aztek-deb-ubuntu${{ matrix.ubuntu }}
+          path: pkg
+
+      - name: Install
+        if: steps.pkg.outcome == 'success'
+        run: |
+          for i in 1 2 3 4 5; do
+            apt-get -o Acquire::Retries=10 update && apt-get -o Acquire::Retries=10 install -y ./pkg/*.deb xvfb xauth && break
+            [ "$i" = 5 ] && exit 1
+            sleep $((i * 60))
+          done
+
+      - name: Smoke test
+        if: steps.pkg.outcome == 'success'
+        run: tools/ci/retry.sh 2 packaging/linux/smoke-test.sh
+
+      - name: Mark
+        if: steps.pkg.outcome == 'success'
+        run: mkdir -p ok && touch ok/ok-deb-ubuntu${{ matrix.ubuntu }}
+
+      - if: steps.pkg.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ok-deb-ubuntu${{ matrix.ubuntu }}
+          path: ok
+
+  # The AppImage unpacked and started on systems newer than the one it was built on, with no Qt or Python of theirs.
+  verify-appimage:
+    needs: rocky
+    if: always()
+    runs-on: ubuntu-24.04
+    container:
+      image: ubuntu:${{ matrix.ubuntu }}
+      env:
+        PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    strategy:
+      fail-fast: false
+      matrix:
+        ubuntu: ["24.04", "rolling"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: pkg
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: aztek-appimage
+          path: pkg
+
+      - name: Install what a desktop has
+        if: steps.pkg.outcome == 'success'
+        run: |
+          for i in 1 2 3 4 5; do
+            apt-get -o Acquire::Retries=10 update && apt-get -o Acquire::Retries=10 install -y xvfb xauth file libvulkan1 libgl1 libegl1 libfontconfig1 libfreetype6 libx11-6 libx11-xcb1 libxcb1 libglib2.0-0 libdbus-1-3 && break
+            [ "$i" = 5 ] && exit 1
+            sleep $((i * 60))
+          done
+
+      # Unpacked rather than mounted: a container has no FUSE.
+      - name: Smoke test
+        if: steps.pkg.outcome == 'success'
+        run: |
+          chmod +x pkg/*.AppImage
+          pkg/*.AppImage --appimage-extract >/dev/null
+          AZTEK_BIN="$PWD/squashfs-root/AppRun" tools/ci/retry.sh 2 packaging/linux/smoke-test.sh
+
+      - name: Mark
+        if: steps.pkg.outcome == 'success'
+        run: mkdir -p ok && touch ok/ok-appimage-${{ matrix.ubuntu }}
+
+      - if: steps.pkg.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ok-appimage-${{ matrix.ubuntu }}
+          path: ok
+
+  windows:
+    needs: [gate, app]
+    if: needs.gate.outputs.go == 'true'
+    runs-on: windows-2022
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Version
+        shell: pwsh
+        run: (Get-Content Cargo.toml) -replace '^version = ".*"', 'version = "${{ needs.gate.outputs.version }}"' | Set-Content Cargo.toml
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      # build.ps1 fetches Qt, Python and PySide6 into build\ itself; the cache keeps later runs from downloading again.
+      - name: Bundle cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            build\qt
+            build\python
+          key: bundle-qt-6.8.3-python-3.13.18-windows
+
+      - name: Ninja
+        run: python -m pip install ninja
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            . -> target
+            . -> build/cargo
+
+      # The Rust tests, as the Linux jobs run them, against the Python 3.13 setup-python put on PATH.
+      - name: Test
+        shell: bash
+        run: PYO3_PYTHON="$pythonLocation/python.exe" tools/ci/retry.sh 2 cargo test --workspace
+
+      # Tried three times; after a failure, one job at a time.
+      - name: Build
+        shell: pwsh
+        run: |
+          for ($i = 1; $i -le 3; $i++) {
+            $ok = $false
+            $global:LASTEXITCODE = 0
+            try {
+              .\build.ps1
+              $ok = ($LASTEXITCODE -eq 0)
+            } catch {
+              Write-Host $_
+            }
+            if ($ok) { exit 0 }
+            if ($i -eq 3) { throw "build failed 3 times" }
+            Write-Host "::warning::build attempt $i failed; trying again with one job at a time"
+            $env:CARGO_BUILD_JOBS = "1"; $env:CMAKE_BUILD_PARALLEL_LEVEL = "1"
+            Start-Sleep -Seconds (60 * $i)
+          }
+
+      # The real binary: a clean script exits 0, the basics pass, a failing script exits 1.
+      - name: Batch
+        shell: pwsh
+        run: |
+          $exe = "build\dist\aztek.exe"
+          $p = Start-Process $exe -ArgumentList "--batch", "--script", "crates\aztek_host\tests\batch\basics.py" -Wait -PassThru -NoNewWindow
+          if ($p.ExitCode -ne 0) { throw "basics: exit code $($p.ExitCode)" }
+          $p = Start-Process $exe -ArgumentList "--batch", "--command", "error `"no`";" -Wait -PassThru -NoNewWindow
+          if ($p.ExitCode -ne 1) { throw "a failing script gave exit code $($p.ExitCode), not 1" }
+
+      - name: Package
+        shell: pwsh
+        run: |
+          Compress-Archive -Path build\dist\* -DestinationPath aztek-windows-x86_64.zip
+          .\packaging\windows\build-installer.ps1 -OutputDir dist
+
+      - name: Installer check
+        shell: pwsh
+        run: .\packaging\windows\smoke-test.ps1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aztek-windows-x86_64
+          path: aztek-windows-x86_64.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aztek-windows-setup
+          path: dist/*.exe
+
+  # Apple silicon. Not yet a condition of a release: a failure here leaves the other packages to go out without it.
+  macos:
+    needs: [gate, app]
+    if: needs.gate.outputs.go == 'true'
+    runs-on: macos-15
+    timeout-minutes: 340
+    # Without this the app would ask for the runner's own macOS.
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "14.0"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Version
+        run: sed -i '' 's/^version = ".*"/version = "${{ needs.gate.outputs.version }}"/' Cargo.toml
+
+      # python@3.13 is for the tests' pyo3; the app fetches its own Python 3.13 into build/python.
+      - name: Dependencies
+        run: tools/ci/retry.sh 5 brew install ninja python@3.13 molten-vk
+
+      - name: Bundle cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            build/qt
+            build/python
+          key: bundle-qt-6.8.3-python-3.13.18-macos
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            . -> target
+            . -> build/cargo
+
+      - name: Test
+        continue-on-error: true
+        run: PYO3_PYTHON="$(brew --prefix python@3.13)/bin/python3.13" cargo test --workspace --no-fail-fast
+
+      # The Developer ID certificate and the App Store Connect API key, from the repository's secrets, when they are
+      # there: MACOS_CERTIFICATE (the .p12, base64), MACOS_CERTIFICATE_PASSWORD,
+      # APPLE_API_KEY or APPLE_API_KEY_P8 (the .p8, PEM or base64),
+      # APPLE_API_KEY_ID and APPLE_API_ISSUER. Without them the app is signed ad hoc, as before.
+      - name: Signing
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY || secrets.APPLE_API_KEY_P8 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          if [ -z "$MACOS_CERTIFICATE" ]; then
+            echo "::warning::No MACOS_CERTIFICATE secret: the macOS app is signed ad hoc and not notarized."
+            exit 0
+          fi
+          KC="$RUNNER_TEMP/signing.keychain-db"
+          KCPW=$(openssl rand -hex 24)
+          echo "$MACOS_CERTIFICATE" | base64 --decode >"$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$KCPW" "$KC"
+          security set-keychain-settings -lut 21600 "$KC"
+          security unlock-keychain -p "$KCPW" "$KC"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KC" -P "$MACOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KCPW" "$KC" >/dev/null
+          security list-keychains -d user -s "$KC" $(security list-keychains -d user | tr -d '"')
+          rm -f "$RUNNER_TEMP/cert.p12"
+          ID=$(security find-identity -v -p codesigning "$KC" | sed -n 's/.*"\(Developer ID Application: .*\)"/\1/p' | head -1)
+          [ -n "$ID" ] || { echo "::error::No Developer ID Application identity in MACOS_CERTIFICATE"; exit 1; }
+          { echo "AZTEK_SIGN_IDENTITY=$ID"; echo "AZTEK_SIGN_KEYCHAIN=$KC"; } >>"$GITHUB_ENV"
+          if [ -n "$APPLE_API_KEY" ]; then
+            umask 077
+            if [[ "$APPLE_API_KEY" == '-----BEGIN PRIVATE KEY-----'* ]]; then
+              printf '%s\n' "$APPLE_API_KEY" >"$RUNNER_TEMP/AuthKey.p8"
+            else
+              printf '%s' "$APPLE_API_KEY" | base64 --decode >"$RUNNER_TEMP/AuthKey.p8"
+            fi
+            {
+              echo "AZTEK_NOTARY_KEY=$RUNNER_TEMP/AuthKey.p8"
+              echo "AZTEK_NOTARY_KEY_ID=$APPLE_API_KEY_ID"
+              echo "AZTEK_NOTARY_ISSUER=$APPLE_API_ISSUER"
+            } >>"$GITHUB_ENV"
+          else
+            echo "::warning::No APPLE_API_KEY or APPLE_API_KEY_P8 secret: the macOS app is signed but not notarized."
+          fi
+
+      # The same script as on a Mac: Aztek.app with Qt, Python, PySide6 and MoltenVK inside, signed (and notarized
+      # when the Signing step found the secrets) and zipped, the examples inside it. build-macos.sh fetches Qt and Python itself.
+      - name: Build and package
+        run: tools/ci/retry.sh 3 ./build-macos.sh --package
+
+      - name: Batch
+        continue-on-error: true
+        run: AZTEK_BIN="$PWD/build/aztek.app/Contents/MacOS/aztek" PYO3_PYTHON="$(brew --prefix python@3.13)/bin/python3.13" cargo test -p aztek_host --no-fail-fast --test batch --test basics --test basics_python
+
+      - name: Check
+        run: |
+          otool -L dist/Aztek/Aztek.app/Contents/MacOS/aztek
+          codesign -dv --verbose=2 dist/Aztek/Aztek.app 2>&1 | grep -E '^(Authority|TeamIdentifier|Runtime|Signature)' || true
+          spctl --assess --type execute --verbose=4 dist/Aztek/Aztek.app || true
+
+      - name: Remove the signing keychain
+        if: always()
+        run: |
+          [ -n "${AZTEK_SIGN_KEYCHAIN:-}" ] && security delete-keychain "$AZTEK_SIGN_KEYCHAIN" || true
+          rm -f "$RUNNER_TEMP/AuthKey.p8"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aztek-macos-arm64
+          path: dist/aztek-macos-arm64.zip
+
+  # Every push to main makes a release of what built; a v* tag makes a versioned release. A platform that failed is
+  # left out of that release and named in its notes: one platform failing holds back none of the others.
+  release:
+    needs: [gate, linux, ubuntu-2604, rocky, verify-rpm, verify-deb, verify-appimage, appimage-arm64, verify-appimage-arm64, windows, macos]
+    if: >-
+      always() && needs.gate.outputs.go == 'true'
+      && (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+      && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      # The history, for the notes: the commits since the last release.
+      - uses: actions/checkout@v4
+        with:
+          path: src
+          fetch-depth: 0
+
+      # Each package on its own: what built goes out, and a Linux package only once its own install-and-start check
+      # left its mark. No other platform's failure keeps anything back.
+      - name: Keep what was checked
+        id: keep
+        run: |
+          shopt -s nullglob
+          missing=()
+          keep() { # file pattern, its mark (or none), the name in the notes
+            local f found=0
+            for f in $1; do
+              if [ -n "$2" ] && [ ! -e "$2" ]; then rm -f "$f"; else found=1; fi
+            done
+            [ $found = 1 ] || missing+=("$3")
+          }
+          keep "aztek-*windows*setup*.exe aztek-*setup-x64.exe" "" "Windows installer"
+          keep "aztek-windows-x86_64.zip" "" "Windows zip"
+          keep "aztek-macos-arm64.zip" "" "macOS"
+          keep "aztek-linux-x86_64.tar.gz" "" "Linux tar.gz"
+          keep "aztek_*ubuntu24.04*.deb" ok-deb-ubuntu24.04 "Ubuntu 24.04 .deb"
+          keep "aztek_*ubuntu26.04*.deb" ok-deb-ubuntu26.04 "Ubuntu 26.04 .deb"
+          keep "aztek-*el8*.rpm" ok-rpm-el8 "Rocky 8 .rpm"
+          keep "aztek-*el9*.rpm" ok-rpm-el9 "Rocky 9 .rpm"
+          keep "aztek-*-x86_64.AppImage" ok-appimage-24.04 "AppImage"
+          keep "aztek-*-aarch64.AppImage" ok-appimage-arm64 "ARM AppImage"
+          rm -f ok-*
+          files=(aztek-* aztek_*)
+          printf '%s\n' "${files[@]}" > files.txt
+          echo "count=${#files[@]}" >> "$GITHUB_OUTPUT"
+          # The notes are the changes, in the words of their commits since the last release; what's missing from this
+          # release goes on the run's summary page, where it isn't the same line in every release.
+          prev=$(gh release list --limit 1 --exclude-drafts --json tagName --jq '.[0].tagName' 2>/dev/null || true)
+          if [ -n "$prev" ] && git -C src rev-parse -q --verify "refs/tags/$prev" >/dev/null; then
+            range="$prev..$GITHUB_SHA"
+          else
+            range="-20 $GITHUB_SHA"
+          fi
+          {
+            echo "notes<<EOF"
+            git -C src log --no-merges --format='- %s' $range
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "Not in this release, as its build or check failed: $(IFS=';'; echo "${missing[*]}" | sed 's/;/; /g')." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          cat files.txt
+
+      - name: Release
+        if: github.ref == 'refs/heads/main' && steps.keep.outputs.count != '0'
+        env:
+          VERSION: ${{ needs.gate.outputs.version }}
+          NOTES: ${{ steps.keep.outputs.notes }}
+        run: |
+          tag="v$VERSION"
+          short="${VERSION%.0} (${GITHUB_SHA::7})"
+          mapfile -t files < files.txt
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            gh release create "$tag" "${files[@]}" --target "$GITHUB_SHA" --latest --title "Aztek $short" --notes "$NOTES"
+          fi
+          # The old rolling pre-release, from before builds had numbers of their own.
+          gh release delete latest --yes --cleanup-tag 2>/dev/null || true
+
+      - name: Versioned release
+        if: startsWith(github.ref, 'refs/tags/v') && steps.keep.outputs.count != '0'
+        env:
+          NOTES: ${{ steps.keep.outputs.notes }}
+        run: |
+          mapfile -t files < files.txt
+          gh release create "$GITHUB_REF_NAME" "${files[@]}" --title "Aztek $GITHUB_REF_NAME" --notes "$NOTES"

@@ -1,4 +1,4 @@
-# Writes what XJEN's tests need from the reference's XGen. Run it in the reference's Script Editor (Python tab), in a
+# Writes what XJEN's tests need from the reference's grooming system. Run it in the reference's Script Editor (Python tab), in a
 # session where a groom was made by hand as below, or start the steps from the top: it records the commands the menus
 # run while you work.
 #

@@ -1,0 +1,272 @@
+class	module	status	ref_methods	python_members	missing_count	missing_methods	missing_constants	extra_constants
+MAddRemoveAttrEdit		missing class	6	0	6	(whole class)		
+MAngle	maya.OpenMaya	present	20	16	6	as; setInternalUnit; setUnit; setValue; unit; value		
+MArgDatabase	maya.OpenMaya	present	6	29	1	getCommandArgument		
+MArgList	maya.OpenMaya	present	21	17	1	get		
+MArgParser	maya.OpenMaya	present	27	24	9	commandArgumentMAngle; commandArgumentMDistance; commandArgumentMTime; flagArgumentMAngle; flagArgumentMDistance; flagArgumentMTime; getCommandArgument; getFlagArgument; getObjects		
+MArrayDataBuilder		missing class	12	0	12	(whole class)		
+MArrayDataHandle	maya.OpenMaya	present	16	12	6	builder; elementIndex; inputArrayValue; jumpToElement; outputArrayValue; set		
+MAtomic		missing class	8	0	8	(whole class)		
+MAttributeIndex		missing class	19	0	19	(whole class)		
+MAttributePattern		missing class	13	0	13	(whole class)		
+MAttributePatternArray		missing class	19	0	19	(whole class)		
+MAttributeSpec		missing class	10	0	10	(whole class)		
+MAttributeSpecArray		missing class	19	0	19	(whole class)		
+MAutoCLEvent		missing class	14	0	14	(whole class)		
+MAutoCLKernel		missing class	14	0	14	(whole class)		
+MAutoCLMem		missing class	14	0	14	(whole class)		
+MBoundingBox	maya.OpenMaya	present	14	11	0			
+MCacheConfigRuleRegistry		missing class	5	0	5	(whole class)		
+MCacheFormatDescription		missing class	18	0	18	(whole class)		
+MCallbackIdArray	maya.OpenMaya	present	20	18	4	begin; cbegin; cend; end		
+MCameraMessage		missing class	3	0	3	(whole class)		
+MCameraSetMessage		missing class	3	0	3	(whole class)		
+MColor	maya.OpenMaya	present	16	15	1	set		kByte; kFloat; kShort
+MColorArray	maya.OpenMaya	present	20	18	4	begin; cbegin; cend; end		
+MCommandMessage		missing class	5	0	5	(whole class)		
+MCommandResult	maya.OpenMaya	present	6	14	0		kInt64; kInt64Array	
+MCommonSystemUtils		missing class	4	0	4	(whole class)		
+MComputation		missing class	12	0	12	(whole class)		
+MConditionMessage		missing class	4	0	4	(whole class)		
+MConnectDisconnectAttrEdit		missing class	7	0	7	(whole class)		
+MContainerMessage		missing class	3	0	3	(whole class)		
+MCurveAttribute		missing class	19	0	19	(whole class)		
+MCustomEvaluatorClusterNode		missing class	7	0	7	(whole class)		
+MDAGDrawOverrideInfo		missing class	0	0	0	(whole class)		
+MDGContext	maya.OpenMaya	present	9	3	3	current; isCurrent; makeCurrent		kNormal
+MDGContextGuard		missing class	2	0	2	(whole class)		
+MDGMessage	maya.OpenMaya	present	9	16	0			kDefaultAction; kDoAction; kDoNotDoAction
+MDGModifier	maya.OpenMaya	present	36	22	11	addExtensionAttribute; deleteMetadata; linkExtensionAttributeToPlugin; newPlugValueInt64; removeExtensionAttribute; removeExtensionAttributeIfUnset; removeMultiInstance; renameAttribute; setMetadata; setNodeLockState; unlinkExtensionAttributeFromPlugin		
+MDagMessage	maya.OpenMaya	present	21	74	0			kDefaultAction; kDoAction; kDoNotDoAction
+MDagModifier	maya.OpenMaya	present	5	23	0			
+MDagPath	maya.OpenMaya	present	36	27	5	getAllPathsBelow; getDrawOverrideInfo; isTemplated; matchTransform; pathCount		kInvalid
+MDagPathArray	maya.OpenMaya	present	19	18	4	begin; cbegin; cend; end		
+MDataBlock	maya.OpenMaya	present	11	7	1	setContext		
+MDataHandle	maya.OpenMaya	present	96	51	44	acceptedTypeIds; asAddr; asDouble2; asDouble4; asFloat2; asGenericBool; asGenericChar; asGenericDouble; asGenericFloat; asGenericInt; asGenericInt64; asGenericShort; asInt2; asLong2; asLong3; asNurbsCurve; asNurbsCurveTransformed; asNurbsSurface; asNurbsSurfaceTransformed; asShort2; asSubdSurface; asSubdSurfaceTransformed; asUChar; attribute; copyWritable; datablock; geometryTransformMatrix; isGeneric; numericType; set; set2Double; set2Float; set2Int; set2Short; set4Double; setGenericBool; setGenericChar; setGenericDouble; setGenericFloat; setGenericInt; setGenericInt64; setGenericShort; type; typeId		
+MDistance	maya.OpenMaya	present	24	24	6	as; setInternalUnit; setUnit; setValue; unit; value		kInvalid; kLast
+MDoubleArray	maya.OpenMaya	present	20	18	4	begin; cbegin; cend; end		
+MEdit		missing class	10	0	10	(whole class)		
+MEulerRotation	maya.OpenMaya	present	32	37	0			kTolerance
+MEvaluationGraph		missing class	6	0	6	(whole class)		
+MEvaluationManager		missing class	4	0	4	(whole class)		
+MEvaluationNode		missing class	15	0	15	(whole class)		
+MEvaluationNodeIterator		missing class	8	0	8	(whole class)		
+MEventMessage	maya.OpenMaya	present	3	9	0			kDefaultAction; kDoAction; kDoNotDoAction
+MExternalContentInfoTable		missing class	7	0	7	(whole class)		
+MExternalContentLocationTable		missing class	6	0	6	(whole class)		
+MFcurveEdit		missing class	4	0	4	(whole class)		
+MFileIO		missing class	66	0	66	(whole class)		
+MFileObject	maya.OpenMaya	present	31	23	12	fullName; getResolvedFullName; isAbsolutePath; ithFullName; ithPath; name; path; pathCount; resolveMethod; setFullName; setName; setResolveMethod	kBaseName; kInputReference; kReferenceMappings	
+MFloatArray	maya.OpenMaya	present	20	18	4	begin; cbegin; cend; end		
+MFloatMatrix	maya.OpenMaya	present	24	15	0			kTolerance
+MFloatPoint	maya.OpenMaya	present	22	12	1	setCast		kTolerance
+MFloatPointArray	maya.OpenMaya	present	20	18	4	begin; cbegin; cend; end		
+MFloatVector	maya.OpenMaya	present	24	26	0			kTolerance; kWaxis; kXaxis; kYaxis; kZaxis
+MFloatVectorArray	maya.OpenMaya	present	20	18	4	begin; cbegin; cend; end		
+MFn	maya.OpenMaya	present	1	1215	0		kLast	kACos; kASin; kATan; kATan2; kAbsolute; kAimMatrix; kAnd; kAngleToDoubleNode; kArubaTesselate; kAverage; kAxisFromMatrix; kBlendFalloff; kBlendMatrix; kCeil; kClampRange; kColumnFromMatrix; kComponentFalloff; kComponentMatch; kComposeMatrix; kCos; kCreaseSet; kCrossProduct; kDecomposeMatrix; kDeterminant; kDivide; kDotProduct; kDoubleToAngleNode; kEqual; kFalloffEval; kFloor; kGreaterThan; kInverseLinearInterpolation; kKeyingGroup; kLength; kLessThan; kLinearInterpolation; kLog; kMax; kMentalRayTexture; kMin; kModulo; kMultiply; kMultiplyPointByMatrix; kMultiplyVectorByMatrix; kNegate; kNormalize; kNot; kOpaqueAttribute; kOpenPBRSurface; kOr; kPIConstant; kParentMatrix; kPickMatrix; kPolyAxis; kPolyBevelCutback; kPolyCBoolOp; kPolyPassThru; kPolyReFormManip; kPolyReFormManipContainer; kPolySmartExtrude; kPolySmartExtrudeManip; kPolyUnsmooth; kPower; kPrimitiveFalloff; kProximityFalloff; kReForm; kReorderUVSet; kRotateVector; kRotationFromMatrix; kRound; kRowFromMatrix; kScaleFromMatrix; kSequenceManager; kSequencer; kShot; kShotLabel; kSin; kSmoothStep; kSubsetFalloff; kSubtract; kSum; kTan; kTransferFalloff; kTranslationFromMatrix; kTruncate; kUfeProxyTransform; kUniformFalloff; kWeightFunctionData
+MFnAmbientLight		missing class	11	0	11	(whole class)		
+MFnAnisotropyShader		missing class	21	0	21	(whole class)		
+MFnAreaLight		missing class	5	0	5	(whole class)		
+MFnArrayAttrsData		missing class	17	0	17	(whole class)		
+MFnAssembly		missing class	31	0	31	(whole class)		
+MFnAttribute	maya.OpenMaya	present	59	77	14	accepts; acceptsAttribute; addToCategory; getAddAttrCmd; getCategories; hasCategory; internal; isChannelBoxFlagSet; isExtension; isProxyAttribute; parent; removeFromCategory; setInternal; setProxyAttribute		kNothingChanged
+MFnBase	maya.OpenMaya	present	8	4	0			
+MFnBlinnShader		missing class	9	0	9	(whole class)		
+MFnCamera		missing class	137	0	137	(whole class)		
+MFnCameraSet		missing class	21	0	21	(whole class)		
+MFnComponent	maya.OpenMaya	present	14	13	4	setComplete; setWeight; setWeights; weight		
+MFnComponentListData		missing class	11	0	11	(whole class)		
+MFnCompoundAttribute	maya.OpenMaya	present	10	83	0			kDelete; kNothing; kNothingChanged; kReset
+MFnContainerNode		missing class	15	0	15	(whole class)		
+MFnDagNode	maya.OpenMaya	present	53	67	22	activeColor; dormantColor; drawOverrideColor; drawOverrideEnabled; drawOverrideIsReference; drawOverrideIsTemplate; getConnectedSetsAndMembers; hiliteColor; isInstanced; isInstancedAttribute; model; objectColorIndex; objectColorRGB; objectColorType; removeChildAt; setInstanceable; setIntermediateObject; setObjectColor; setObjectColorType; setUseObjectColor; usingHiliteColor; usingObjectColor	kUseDefaultColor; kUseIndexColor; kUseRGBColor	kExtensionAttr; kInvalidAttr; kLocalDynamicAttr; kNormalAttr; kTimerOff; kTimerOn
+MFnData	maya.OpenMaya	present	4	21	1	type	kDynSweptGeometry; kFalloffFunction; kMatrixArray; kNId; kNObject; kSubdSurface	kLast
+MFnDependencyNode	maya.OpenMaya	present	69	36	44	addExternalContentForFileAttr; affectsAnimation; allocateFlag; attributeClass; canBeWritten; classification; deallocateAllFlags; deallocateFlag; deleteMetadata; dgCallbackIds; dgCallbacks; dgTimer; dgTimerOff; dgTimerOn; dgTimerQueryState; dgTimerReset; enableDGTiming; getAffectedByAttributes; getAliasAttr; getAliasList; getExternalContent; getPlugsAlias; hasUniqueName; icon; isFlagSet; isNewAttribute; isTrackingEdits; metadata; parentNamespace; plugsAlias; reorderedAttribute; setAffectsAnimation; setAlias; setDoNotWrite; setExternalContent; setExternalContentForFileAttr; setFlag; setIcon; setLocked; setMetadata; setUuid; uniqueName; uuid; validateMetadata	kTimerInvalidState; kTimerMetric_callback; kTimerMetric_callbackNotViaAPI; kTimerMetric_callbackViaAPI; kTimerMetric_compute; kTimerMetric_computeDuringCallback; kTimerMetric_computeNotDuringCallback; kTimerMetric_dirty; kTimerMetric_draw; kTimerMetric_fetch; kTimerMetrics; kTimerType_count; kTimerType_inclusive; kTimerType_self; kTimerTypes; kTimerUninitialized	
+MFnDirectionalLight		missing class	9	0	9	(whole class)		
+MFnDoubleArrayData		missing class	10	0	10	(whole class)		
+MFnDoubleIndexedComponent	maya.OpenMaya	present	11	18	2	getCompleteData; setCompleteData		
+MFnEnumAttribute	maya.OpenMaya	present	13	84	4	defaultValue; fieldIndex; getDefault; setDefault		kDelete; kNothing; kNothingChanged; kReset
+MFnExpression		missing class	15	0	15	(whole class)		
+MFnFalloffData		missing class	6	0	6	(whole class)		
+MFnFloatArrayData		missing class	10	0	10	(whole class)		
+MFnFloatVectorArrayData		missing class	10	0	10	(whole class)		
+MFnGenericAttribute	maya.OpenMaya	present	11	82	6	addAccept; addDataAccept; addNumericDataAccept; removeAccept; removeDataAccept; removeNumericDataAccept		kDelete; kNothing; kNothingChanged; kReset
+MFnGeometryData	maya.OpenMaya	present	32	7	25	addComponentTag; addObjectGroup; addObjectGroupComponent; changeObjectGroupId; componentTagCategory; componentTagContents; componentTagExpressionSubsetState; componentTagType; copyObjectGroups; getMatrix; hasObjectGroup; matrixIsIdentity; matrixIsNotIdentity; objectGroup; objectGroupComponent; objectGroupCount; objectGroupSubsetState; objectGroupType; removeComponentTag; removeObjectGroup; removeObjectGroupComponent; renameComponentTag; setComponentTagContents; setMatrix; setObjectGroupComponent		
+MFnIntArrayData		missing class	10	0	10	(whole class)		
+MFnLambertShader		missing class	27	0	27	(whole class)		
+MFnLatticeData		missing class	6	0	6	(whole class)		
+MFnLayeredShader		missing class	17	0	17	(whole class)		
+MFnLight		missing class	25	0	25	(whole class)		
+MFnLightDataAttribute		missing class	8	0	8	(whole class)		
+MFnMatrixArrayData		missing class	10	0	10	(whole class)		
+MFnMatrixAttribute	maya.OpenMaya	present	7	83	1	getDefault		kDelete; kNothing; kNothingChanged; kReset
+MFnMatrixData	maya.OpenMaya	present	9	8	1	isTransformation		
+MFnMesh	maya.OpenMaya	present	214	137	153	addHoles; addPolygon; assignColor; assignColors; assignUV; binaryBlindDataComponentId; booleanOp; booleanOps; cachedIntersectionAcceleratorInfo; cleanupEdgeSmoothing; clearBlindData; clearColors; clearGlobalIntersectionAcceleratorInfo; clearUVs; collapseEdges; collapseFaces; componentTypeFromName; componentTypeName; copy; copyInPlace; copyUVSetWithName; createBlindDataType; createColorSet; createColorSetWithName; createInPlace; currentColorSetName; deleteColorSet; deleteEdge; deleteFace; deleteVertex; displayColors; duplicateFaces; extractFaces; extrudeEdges; extrudeFaces; freeCachedIntersectionAccelerator; generateSmoothMesh; getAssociatedColorSetInstances; getAssociatedUVSetInstances; getAssociatedUVSetTextures; getAxisAtPoint; getBinaryBlindData; getBinormals; getBlindDataAttrNames; getBlindDataFaceVertexIndices; getBlindDataTypes; getBoolBlindData; getCheckSamePointTwice; getClosestUVs; getColor; getColorIndex; getColorRepresentation; getColorSetFamilyNames; getColorSetNames; getColorSetsInFamily; getColors; getConnectedShaders; getCreaseEdges; getCreaseVertices; getCurrentColorSetName; getDoubleBlindData; getFaceUVSetNames; getFaceVertexBinormal; getFaceVertexBinormals; getFaceVertexBlindDataIndex; getFaceVertexColorIndex; getFaceVertexColors; getFaceVertexTangent; getFaceVertexTangents; getFloatBlindData; getHoles; getIntBlindData; getInvisibleFaces; getPinUVs; getPointsAtUV; getRawDoublePoints; getRawNormals; getRawPoints; getSmoothMeshDisplayOptions; getStringBlindData; getTangentId; getTangents; getTriangleOffsets; getUV; getUVAtPoint; getUVSetFamilyNames; getUVSetsInFamily; getUvShellsIds; getVertexColors; globalIntersectionAcceleratorsInfo; hasAlphaChannels; hasBlindData; hasBlindDataComponentId; hasColorChannels; intersect; intersectFaceAtUV; isBlindDataTypeUsed; isColorClamped; isColorSetPerInstance; isEdgeSmooth; isNormalLocked; isPolygonUVReversed; isRightHandedTangent; isUVSetPerInstance; lockFaceVertexNormals; lockVertexNormals; metadata; polyTriangulate; removeFaceColors; removeFaceVertexColors; removeVertexColors; setBinaryBlindData; setBoolBlindData; setCheckSamePointTwice; setColor; setColors; setCreaseEdges; setCreaseVertices; setCurrentColorSetName; setDisplayColors; setDoubleBlindData; setEdgeSmoothing; setEdgeSmoothings; setFaceColor; setFaceColors; setFaceVertexColor; setFaceVertexColors; setFaceVertexNormal; setFaceVertexNormals; setFloatBlindData; setIntBlindData; setInvisibleFaces; setIsColorClamped; setMetadata; setNormals; setPinUVs; setSmoothMeshDisplayOptions; setSomeColors; setSomeUVs; setStringBlindData; setUV; setVertexColor; setVertexColors; setVertexNormal; setVertexNormals; sortIntersectionFaceTriIds; split; stringBlindDataComponentId; subdivideEdges; subdivideFaces; unlockFaceVertexNormals; unlockVertexNormals; validateMetadata	kAlpha; kDifference; kInternalPoint; kIntersection; kInvalid; kOnEdge; kRGB; kRGBA; kUnion	kAlphaColor; kExtensionAttr; kIntersectTolerance; kInvalidAttr; kLocalDynamicAttr; kNextPos; kNormalAttr; kPointTolerance; kRGBAColor; kRGBColor; kTimerOff; kTimerOn
+MFnMeshData		missing class	5	0	5	(whole class)		
+MFnMessageAttribute	maya.OpenMaya	present	5	78	0			kDelete; kNothing; kNothingChanged; kReset
+MFnNonAmbientLight		missing class	6	0	6	(whole class)		
+MFnNonExtendedLight		missing class	22	0	22	(whole class)		
+MFnNumericAttribute	maya.OpenMaya	present	24	92	8	child; createAddr; getDefault; getSoftMax; getSoftMin; hasSoftMax; hasSoftMin; unitType		kDelete; kNothing; kNothingChanged; kReset
+MFnNumericData	maya.OpenMaya	present	26	30	19	getData2Double; getData2Float; getData2Int; getData2Short; getData3Double; getData3Float; getData3Int; getData3Short; getData4Double; numericType; setData2Double; setData2Float; setData2Int; setData2Short; setData3Double; setData3Float; setData3Int; setData3Short; setData4Double		
+MFnNurbsCurve	maya.OpenMaya	present	43	108	16	area; copy; createWithEditPoints; cv; cvs; distanceToPoint; getDerivativesAtParm; hasHistoryOnCreate; isPlanar; makeMultipleEndKnots; normal; rebuild; removeKnot; reverse; setKnot; setKnots		kExtensionAttr; kFindParamTolerance; kInvalidAttr; kLocalDynamicAttr; kNextPos; kNormalAttr; kPointTolerance; kTimerOff; kTimerOn
+MFnNurbsCurveData		missing class	5	0	5	(whole class)		
+MFnNurbsSurface	maya.OpenMaya	present	86	125	59	assignUV; assignUVs; boundaryType; clearUVs; copy; cv; cvsInU; cvsInV; degreeU; degreeV; edge; getAssignedUVs; getCV; getCVs; getConnectedShaders; getDataObject; getDerivativesAtParm; getKnotDomain; getKnotsInU; getKnotsInV; getPatchUV; getPatchUVid; getPatchUVs; getTangents; getTrimBoundaries; getUV; getUVs; hasHistoryOnCreate; intersect; isBezier; isFlipNorm; isFoldedOnBispan; isKnotU; isKnotV; isPointInTrimmedRegion; isUniform; numBoundaries; numEdges; numNonZeroSpansInU; numNonZeroSpansInV; numRegions; numUVs; projectCurve; removeKnotInU; removeKnotInV; removeOneKnotInU; removeOneKnotInV; setCV; setCVs; setKnotInU; setKnotInV; setKnotsInU; setKnotsInV; setUV; setUVs; tesselate; trim; trimWithBoundaries; updateSurface		kExtensionAttr; kInvalidAttr; kLocalDynamicAttr; kNextPos; kNormalAttr; kPointTolerance; kTimerOff; kTimerOn
+MFnNurbsSurfaceData		missing class	5	0	5	(whole class)		
+MFnPartition		missing class	8	0	8	(whole class)		
+MFnPhongEShader		missing class	11	0	11	(whole class)		
+MFnPhongShader		missing class	7	0	7	(whole class)		
+MFnPlugin	maya.OpenMaya	present	70	20	50	addMenuItem; deregisterAnimCurveInterpolator; deregisterAttributePatternFactory; deregisterCacheFormat; deregisterConstraintCommand; deregisterContextCommand; deregisterControlCommand; deregisterDevice; deregisterDisplayFilter; deregisterDragAndDropBehavior; deregisterEvaluator; deregisterIkSolver; deregisterImageFile; deregisterModelEditorCommand; deregisterRenderPassImpl; deregisterRenderer; deregisterTopologyEvaluator; deregisterURIFileResolver; findPlugin; getCallableInfo; isNodeRegistered; matrixTypeIdFromXformId; registerAnimCurveInterpolator; registerAttributePatternFactory; registerBakeEngine; registerCacheFormat; registerConstraintCommand; registerContextCommand; registerControlCommand; registerDevice; registerDisplayFilter; registerDragAndDropBehavior; registerEvaluator; registerIkSolver; registerImageFile; registerMaterialInfo; registerModelEditorCommand; registerRenderPassImpl; registerRenderer; registerTopologyEvaluator; registerTransform; registerUIStrings; registerURIFileResolver; registeringCallableScript; removeMenuItem; setCallableInfo; setRegisteringCallableScript; setVersion; unregisterBakeEngine; unregisterMaterialInfo		
+MFnPluginData	maya.OpenMaya	present	8	7	1	constData		
+MFnPointArrayData		missing class	10	0	10	(whole class)		
+MFnPointLight		missing class	5	0	5	(whole class)		
+MFnReference		missing class	18	0	18	(whole class)		
+MFnReflectShader		missing class	12	0	12	(whole class)		
+MFnSet	maya.OpenMaya	present	19	52	5	getIntersection; getUnion; hasRestrictions; intersectsWith; setAnnotation		kExtensionAttr; kInvalidAttr; kLocalDynamicAttr; kNormalAttr; kTimerOff; kTimerOn
+MFnSingleIndexedComponent	maya.OpenMaya	present	12	20	1	elementMax		
+MFnSphereData		missing class	7	0	7	(whole class)		
+MFnSpotLight		missing class	21	0	21	(whole class)		
+MFnStandardSurfaceShader		missing class	83	0	83	(whole class)		
+MFnStringArrayData		missing class	10	0	10	(whole class)		
+MFnStringData	maya.OpenMaya	present	7	7	0			
+MFnSubd		missing class	80	0	80	(whole class)		
+MFnSubdData		missing class	5	0	5	(whole class)		
+MFnSubdNames		missing class	25	0	25	(whole class)		
+MFnToolContext		missing class	6	0	6	(whole class)		
+MFnTransform	maya.OpenMaya	present	43	100	10	clearRestPosition; enableLimit; getTranslation; isLimited; limitValue; restPosition; rotateByQuaternion; set; setLimit; setRestPosition	kRotateMaxX; kRotateMaxY; kRotateMaxZ; kRotateMinX; kRotateMinY; kRotateMinZ; kScaleMaxX; kScaleMaxY; kScaleMaxZ; kScaleMinX; kScaleMinY; kScaleMinZ; kShearMaxXY; kShearMaxXZ; kShearMaxYZ; kShearMinXY; kShearMinXZ; kShearMinYZ; kTranslateMaxX; kTranslateMaxY; kTranslateMaxZ; kTranslateMinX; kTranslateMinY; kTranslateMinZ	kExtensionAttr; kInvalidAttr; kLocalDynamicAttr; kNextPos; kNormalAttr; kScaleMinLimit; kTimerOff; kTimerOn
+MFnTripleIndexedComponent		missing class	11	0	11	(whole class)		
+MFnTypedAttribute	maya.OpenMaya	present	8	79	2	getDefault; setDefault		kDelete; kNothing; kNothingChanged; kReset
+MFnUInt64ArrayData		missing class	10	0	10	(whole class)		
+MFnUint64SingleIndexedComponent		missing class	11	0	11	(whole class)		
+MFnUintArrayData		missing class	10	0	10	(whole class)		
+MFnUnitAttribute	maya.OpenMaya	present	20	98	5	getDefault; getSoftMax; getSoftMin; hasSoftMax; hasSoftMin		kDelete; kNothing; kNothingChanged; kReset
+MFnVectorArrayData		missing class	10	0	10	(whole class)		
+MFnVolumeLight		missing class	19	0	19	(whole class)		
+MGlobal	maya.OpenMaya	present	92	39	63	addToModel; addToModelAt; animSelectionMask; callPythonFunction; catchAndReportPythonException; closeErrorLog; componentSelectionMask; currentToolContext; customVersion; customVersionClient; customVersionMajor; customVersionMinor; customVersionString; defaultErrorLogPathName; deleteNode; disableStow; doErrorLogEntry; errorLogPathName; errorLoggingIsOn; executeTaskOnIdle; formatPythonError; getAbsolutePathToResources; getAssociatedSets; getOptionVarValue; getPreselectionHiliteList; getRichSelection; getUILanguage; isCustomVersion; isDefaultLanguage; isSelected; miscSelectionMask; objectSelectionMask; optionVarDoubleValue; optionVarExists; optionVarIntValue; optionVarStringValue; removeFromModel; removeOptionVar; resetToDefaultErrorLogPathName; selectCommand; selectFromScreen; selectionMethod; selectionMode; setAnimSelectionMask; setComponentSelectionMask; setDisableStow; setDisplayCVs; setErrorLogPathName; setHiliteList; setMiscSelectionMask; setObjectSelectionMask; setOptionVarValue; setPreselectionHiliteList; setRichSelection; setSelectionMode; setTrackSelectionOrderEnabled; sourceFile; startErrorLogging; stopErrorLogging; trackSelectionOrderEnabled; unselect; unselectByName; viewFrame	kHighIdlePriority; kLowIdlePriority; kSelectLeafMode; kSelectRootMode; kSelectTemplateMode; kSurfaceSelectMethod; kVeryLowIdlePriority; kWireframeSelectMethod	
+MGraphNodeIterator		missing class	6	0	6	(whole class)		
+MIffFile		missing class	15	0	15	(whole class)		
+MIffTag		missing class	3	0	3	(whole class)		
+MImage		missing class	29	0	29	(whole class)		
+MImageFileInfo		missing class	10	0	10	(whole class)		
+MInt64Array		missing class	20	0	20	(whole class)		
+MIntArray	maya.OpenMaya	present	20	18	4	begin; cbegin; cend; end		
+MItCurveCV		missing class	14	0	14	(whole class)		
+MItDag	maya.OpenMaya	present	20	18	3	getType; traverseUnderWorld; willTraverseUnderWorld		
+MItDependencyGraph	maya.OpenMaya	present	38	20	23	atNodeLevel; currentDirection; currentLevel; currentRelationship; currentTraversal; disablePruningOnFilter; enablePruningOnFilter; getNodePath; getPlugPath; isDirectionDownStream; isPruningOnFilter; isTraversalDepthFirst; isTraversingOverWorldSpaceDependents; previousPlug; resetFilter; setCurrentFilter; setCurrentRelationship; setTraversalOverWorldSpaceDependents; thisNode; thisNodeHasUnknownType; toggleDirection; toggleLevel; toggleTraversal	kConnectedTo; kDependsOn; kEvaluationGraph	
+MItDependencyNodes	maya.OpenMaya	present	8	5	0			
+MItEdits		missing class	16	0	16	(whole class)		
+MItGeometry	maya.OpenMaya	present	18	13	2	component; positionIndex		
+MItInstancer		missing class	15	0	15	(whole class)		
+MItMeshEdge	maya.OpenMaya	present	27	23	5	cleanupSmoothing; edge; geomChanged; isSmooth; setSmoothing		
+MItMeshFaceVertex	maya.OpenMaya	present	26	19	8	faceVertId; geomChanged; getBinormal; getColorIndex; getTangent; tangentId; updateSurface; vertId		
+MItMeshPolygon	maya.OpenMaya	present	65	42	25	geomChanged; getAxisAtUV; getColor; getColorIndex; getColorIndices; getColors; getPointAtUV; getUVArea; getUVAtPoint; getUVSetNames; hasColor; hasValidTriangulation; isConnectedToEdge; isConnectedToFace; isConnectedToVertex; isHoled; isLamina; isStarlike; isUVReversed; numColors; polygon; setUV; setUVs; tangentIndex; zeroUVArea		
+MItMeshVertex	maya.OpenMaya	present	38	29	10	geomChanged; getColorIndices; getColors; getNormalIndices; getOppositeVertex; getUVIndices; hasColor; setUV; setUVs; vertex		
+MItSelectionList	maya.OpenMaya	present	13	16	0			kUnknownItem
+MItSubdEdge		missing class	13	0	13	(whole class)		
+MItSubdFace		missing class	10	0	10	(whole class)		
+MItSubdVertex		missing class	10	0	10	(whole class)		
+MItSurfaceCV		missing class	17	0	17	(whole class)		
+MIteratorType		missing class	9	0	9	(whole class)		
+MLockMessage		missing class	4	0	4	(whole class)		
+MMatrix	maya.OpenMaya	present	25	15	0			kTolerance
+MMatrixArray	maya.OpenMaya	present	19	18	4	begin; cbegin; cend; end		
+MMeshIntersector		missing class	6	0	6	(whole class)		
+MMeshSmoothOptions		missing class	27	0	27	(whole class)		
+MMessage	maya.OpenMaya	present	8	7	3	registeringCallableScript; setRegisteringCallableScript; stopRegisteringCallableScript		
+MModelMessage		missing class	6	0	6	(whole class)		
+MMutexLock		missing class	5	0	5	(whole class)		
+MNamespace		missing class	18	0	18	(whole class)		
+MNodeClass		missing class	15	0	15	(whole class)		
+MNodeMessage	maya.OpenMaya	present	11	37	0			kDefaultAction; kDoAction; kDoNotDoAction
+MNurbsIntersector		missing class	8	0	8	(whole class)		
+MObject	maya.OpenMaya	present	9	6	0			
+MObjectArray	maya.OpenMaya	present	20	18	4	begin; cbegin; cend; end		
+MObjectHandle	maya.OpenMaya	present	11	5	2	objectHashCode; objectRef		
+MObjectSetMessage		missing class	2	0	2	(whole class)		
+MOpenCLBuffer		missing class	8	0	8	(whole class)		
+MOpenCLInfo		missing class	10	0	10	(whole class)		
+MPaintMessage		missing class	2	0	2	(whole class)		
+MParentingEdit		missing class	6	0	6	(whole class)		
+MPlane	maya.OpenMaya	present	6	5	0			
+MPlug	maya.OpenMaya	present	90	73	18	asInt64; asMDataHandle; connectionByPhysicalIndex; constructHandle; destructHandle; getSetAttrCmds; isCachingFlagSet; isChannelBoxFlagSet; isFreeToChange; numConnectedChildren; numConnectedElements; selectAncestorLogicalIndex; setAttribute; setCaching; setInt64; setMDataHandle; setMPxData; setNumElements		
+MPlugArray	maya.OpenMaya	present	20	18	4	begin; cbegin; cend; end		
+MPluginCallableInfo		missing class	0	0	0	(whole class)		
+MPoint	maya.OpenMaya	present	21	12	0			kTolerance
+MPointArray	maya.OpenMaya	present	20	18	4	begin; cbegin; cend; end		
+MPointOnMesh		missing class	6	0	6	(whole class)		
+MPolyMessage		missing class	6	0	6	(whole class)		
+MProfiler		missing class	33	0	33	(whole class)		
+MProfilingScope		missing class	3	0	3	(whole class)		
+MPxAnimCurveInterpolator		missing class	4	0	4	(whole class)		
+MPxAssembly		missing class	52	0	52	(whole class)		
+MPxAttributePatternFactory		missing class	6	0	6	(whole class)		
+MPxBakeEngine		missing class	5	0	5	(whole class)		
+MPxCacheConfigRuleFilter		missing class	3	0	3	(whole class)		
+MPxCacheFormat		missing class	37	0	37	(whole class)		
+MPxCameraSet		missing class	4	0	4	(whole class)		
+MPxCommand	maya.OpenMayaMPx	present	26	19	9	commandString; currentDoubleResult; currentIntResult; currentStringResult; getCurrentResult; isHistoryOn; setCommandString; setHistoryOn; setUndoable		
+MPxComponentShape		missing class	7	0	7	(whole class)		
+MPxCustomEvaluator		missing class	18	0	18	(whole class)		
+MPxData	maya.OpenMayaMPx	present	9	10	0			
+MPxEditData		missing class	5	0	5	(whole class)		
+MPxFileResolver		missing class	13	0	13	(whole class)		
+MPxFileTranslator	maya.OpenMayaMPx	present	13	27	0			kImport; kNone; kOpen; kOverwriteFile; kReference
+MPxGeometryData		missing class	12	0	12	(whole class)		
+MPxGeometryIterator		missing class	21	0	21	(whole class)		
+MPxImageFile		missing class	6	0	6	(whole class)		
+MPxImagePlane		missing class	9	0	9	(whole class)		
+MPxMaterialInformation		missing class	7	0	7	(whole class)		
+MPxMayaAsciiFilter		missing class	6	0	6	(whole class)		
+MPxMayaAsciiFilterOutput		missing class	1	0	1	(whole class)		
+MPxMotionPathNode		missing class	11	0	11	(whole class)		
+MPxMultiPolyTweakUVCommand		missing class	6	0	6	(whole class)		
+MPxNode	maya.OpenMayaMPx	present	49	43	34	_forceCache; _setMPSafe; addExternalContentForFileAttr; configCache; connectionBroken; connectionMade; copyInternalData; dependsOn; getCacheSetup; getExternalContent; getFilesToArchive; getInternalValue; getInternalValueInContext; hasInvalidationRangeTransformation; internalArrayCount; isPassiveOutput; isTrackingTopology; legalConnection; legalDisconnection; passThroughToMany; passThroughToOne; postEvaluation; preEvaluation; schedulingType; setDependentsDirty; setExistWithoutInConnections; setExistWithoutOutConnections; setExternalContent; setExternalContentForFileAttr; setInternalValue; setInternalValueInContext; shouldSave; transformInvalidationRange; type	kDefaultScheduling; kGloballySerial; kGloballySerialize; kParallel; kSerial; kSerialize; kUntrusted	kEvaluatedDirectly; kEvaluatedIndirectly; kLeaveDirty; kPostEvaluationTypeLast
+MPxObjectSet		missing class	5	0	5	(whole class)		
+MPxPolyTrg		missing class	7	0	7	(whole class)		
+MPxPolyTweakUVCommand		missing class	5	0	5	(whole class)		
+MPxRepresentation		missing class	8	0	8	(whole class)		
+MPxSurfaceShape	maya.OpenMayaMPx	present	41	120	17	closestPoint; convertToTweakNodePlug; evalNodeAffectsDrawDb; geometryIteratorSetup; getComponentSelectionMask; getShapeSelectionMask; isRenderable; newControlPointComponent; pointAtParm; renderGroupComponentType; setRenderable; transformUsing; tweakUsing; type; vertexOffsetDirection; weightedTransformUsing; weightedTweakUsing		kAssembly; kBlendShape; kCameraSetNode; kClientDeviceNode; kConstraintNode; kDeformerNode; kDependNode; kEmitterNode; kEvaluatedDirectly; kEvaluatedIndirectly; kFieldNode; kFluidEmitterNode; kGeometryFilter; kHardwareShader; kHwShaderNode; kIkSolverNode; kImagePlaneNode; kLast; kLeaveDirty; kLocatorNode; kManipContainer; kManipulatorNode; kMotionPathNode; kObjectSet; kParticleAttributeMapperNode; kPostEvaluationTypeLast; kSkinCluster; kSpringNode; kSurfaceShape; kThreadedDeviceNode; kTransformNode
+MPxTopologyEvaluator		missing class	9	0	9	(whole class)		
+MPxTransform	maya.OpenMayaMPx	present	53	123	37	clearLimits; copyInternalData; enableLimit; getEulerRotation; getMatrix; getMatrixInverse; getRotateOrientation; getRotatePivot; getRotatePivotTranslation; getRotation; getRotationOrder; getScale; getScalePivot; getScalePivotTranslation; getShear; getTranslation; isLimited; isNonAffineMatricesEnabled; limitValue; mustCallValidateAndSet; rotateBy; rotateTo; scaleBy; scaleTo; setLimit; setNonAffineMatricesEnabled; setRotateOrientation; setRotatePivot; setRotatePivotTranslation; setRotationOrder; setScalePivot; setScalePivotTranslation; shearBy; shearTo; translateBy; translateTo; validateAndSetValue		kAssembly; kBlendShape; kCameraSetNode; kClientDeviceNode; kConstraintNode; kDeformerNode; kDependNode; kEmitterNode; kEvaluatedDirectly; kEvaluatedIndirectly; kFieldNode; kFluidEmitterNode; kGeometryFilter; kHardwareShader; kHwShaderNode; kIkSolverNode; kImagePlaneNode; kLast; kLeaveDirty; kLocatorNode; kManipContainer; kManipulatorNode; kMotionPathNode; kObjectSet; kParticleAttributeMapperNode; kPostEvaluationTypeLast; kSkinCluster; kSpringNode; kSurfaceShape; kThreadedDeviceNode; kTransformNode
+MPxTransformPreRotation		missing class	4	0	4	(whole class)		
+MPxTransformationMatrix	maya.OpenMayaMPx	present	50	61	13	asInterpolationMatrix; asRotateMatrixInverse; asScaleMatrixInverse; asTransformationMatrix; convertEulerRotationOrder; convertRotationOrder; convertTransformationRotationOrder; eulerRotateOrientation; reverse; setRotationOrder; transformBy; unSquishIt; unSquishMatrix		kInvalid; kLast; kTolerance; kXYZ; kXZY; kYXZ; kYZX; kZXY; kZYX
+MPxTransformationMatrixPreRotation		missing class	3	0	3	(whole class)		
+MQuaternion	maya.OpenMaya	present	30	26	3	getAxisAngle; scaleIt; setAxisAngle		kTolerance
+MRampAttribute	maya.OpenMaya	present	25	23	3	getNumEntries; sampleColorRamp; sampleValueRamp		
+MRichSelection		missing class	9	0	9	(whole class)		
+MSceneMessage	maya.OpenMaya	present	9	68	0			kDefaultAction; kDoAction; kDoNotDoAction
+MScriptUtil	maya.OpenMaya	present	103	89	15	asUint2Ptr; asUint3Ptr; asUint4Ptr; getShort2ArrayItem; getShort3ArrayItem; getShort4ArrayItem; getUint2ArrayItem; getUint3ArrayItem; getUint4ArrayItem; setShort2ArrayItem; setShort3ArrayItem; setShort4ArrayItem; setUint2ArrayItem; setUint3ArrayItem; setUint4ArrayItem		
+MSelectionList	maya.OpenMaya	present	19	19	1	intersect		
+MSetAttrEdit		missing class	4	0	4	(whole class)		
+MSharedPtr< T >		missing class	7	0	7	(whole class)		
+MSpinLock		missing class	5	0	5	(whole class)		
+MStatus	maya.OpenMaya	present	13	14	3	pAPIerror; set; setSuccess		
+MStreamUtils		missing class	12	0	12	(whole class)		
+MString	maya.OpenMaya	present	40	52	25	asDouble; asFloat; asInt; asShort; asUnsigned; asWChar; clear; expandEnvironmentVariablesAndTilde; expandFilePath; indexW; isDouble; isFloat; isInt; isShort; isUnsigned; rindexW; set; setUTF8; setWChar; substitute; substituteFirst; substring; substringW; toLowerCase; toUpperCase		
+MStringArray	maya.OpenMaya	present	20	18	5	begin; cbegin; cend; end; indexOf		
+MStringResource		missing class	4	0	4	(whole class)		
+MStringResourceId		missing class	5	0	5	(whole class)		
+MSyntax	maya.OpenMaya	present	18	28	4	canEdit; canQuery; enableEdit; enableQuery		
+MTemplateAction< ActionClass, CommandName, CommandSyntax >		missing class	5	0	5	(whole class)		
+MTemplateCommand< CommandClass, CommandName, CommandSyntax >		missing class	1	0	1	(whole class)		
+MTemplateCreateNodeCommand< CommandClass, CommandName, NodeName >		missing class	3	0	3	(whole class)		
+MTesselationParams		missing class	30	0	30	(whole class)		
+MThreadAsync		missing class	4	0	4	(whole class)		
+MThreadPool		missing class	6	0	6	(whole class)		
+MThreadUtils		missing class	3	0	3	(whole class)		
+MTime	maya.OpenMaya	present	29	55	5	as; setUnit; setValue; unit; value	k23_976FPS; k29_97DF; k29_97FPS; k44100FPS; k47_952FPS; k48000FPS; k59_94FPS; k90FPS; kUserDef	
+MTimeArray	maya.OpenMaya	present	20	18	4	begin; cbegin; cend; end		
+MTimer		missing class	9	0	9	(whole class)		
+MTimerMessage		missing class	4	0	4	(whole class)		
+MTopologyClusterNode		missing class	4	0	4	(whole class)		
+MTransformationMatrix	maya.OpenMaya	present	44	51	4	addRotation; addRotationQuaternion; addShear; setToRotationAxis		kTolerance
+MTrimBoundaryArray		missing class	18	0	18	(whole class)		
+MTypeId	maya.OpenMaya	present	7	1	0			
+MURI		missing class	44	0	44	(whole class)		
+MUint64Array		missing class	20	0	20	(whole class)		
+MUintArray	maya.OpenMaya	present	20	18	4	begin; cbegin; cend; end		
+MUniqueString		missing class	12	0	12	(whole class)		
+MUserEventMessage		missing class	6	0	6	(whole class)		
+MUuid	maya.OpenMaya	present	12	4	1	get		
+MVector	maya.OpenMaya	present	26	26	0			kTolerance
+MVectorArray	maya.OpenMaya	present	20	18	4	begin; cbegin; cend; end		
+MWeight		missing class	8	0	8	(whole class)		
+MaterialInputData		missing class	0	0	0	(whole class)		

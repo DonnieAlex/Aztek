@@ -236,7 +236,7 @@ impl Writer<'_> {
             if !crate::harold_nodes::is_shared_node(name) {
                 continue;
             }
-            // A scene that never made them still gets them, as a scene from Maya has them.
+            // A scene that never made them still gets them, as a scene from the reference has them.
             let lines = self.s.graph.find(name).ok().flatten().map(|id| self.plain_attr_lines(id)).unwrap_or_default();
             let _ = write!(self.out, "createNode {ty} -s -n {};\n{lines}", quoted(name));
         }

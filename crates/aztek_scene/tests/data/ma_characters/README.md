@@ -1,6 +1,6 @@
 # Character and clip test file
 
-A public `.ma` file written by the reference (Maya ASCII 2018), used only by `tests/ma_characters.rs`. It is not part of the program.
+A public `.ma` file written by the reference (ASCII, 2018), used only by `tests/ma_characters.rs`. It is not part of the program.
 
 | File | Source | Commit | Path there | Licence |
 | --- | --- | --- | --- | --- |

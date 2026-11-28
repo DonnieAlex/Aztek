@@ -19,7 +19,7 @@ namespace az {
 
 void ask_user_folder_at_first_start(QWidget* parent, QWidget* splash) {
     const QJsonObject uf = ask("aztekUserFolder", QJsonObject{{"query", true}}).toObject();
-    const QString maya = uf["detected"].toString();
+    const QString detected = uf["detected"].toString();
     // Asked on the first start, and again whenever the folder in use is gone: Aztek's own deleted, a linked one moved.
     if (!uf["needsChoice"].toBool()) return;
     if (splash) splash->hide();
@@ -30,8 +30,8 @@ void ask_user_folder_at_first_start(QWidget* parent, QWidget* splash) {
     QDialog d(parent);
     d.setWindowTitle("User Folder");
     auto* v = new QVBoxLayout(&d);
-    // No Maya folder to take from: only whether to make Aztek's own.
-    if (maya.isEmpty()) {
+    // No existing user folder from the reference to take from: only whether to make Aztek's own.
+    if (detected.isEmpty()) {
         auto* intro = new QLabel(QString("Aztek keeps your scripts, plug-ins, modules and preferences in <b>%1</b>, which isn't there yet.<br>Create it now?").arg(shown(own).toHtmlEscaped()), &d);
         intro->setWordWrap(true);
         v->addWidget(intro);
@@ -50,7 +50,7 @@ void ask_user_folder_at_first_start(QWidget* parent, QWidget* splash) {
     const QString missing = uf["mode"].toString() != "aztek" && uf["chosen"].toBool()
                                 ? QString("The folder Aztek was set to use, <b>%1</b>, isn't there any more.<br><br>").arg(shown(uf["folder"].toString()).toHtmlEscaped())
                                 : (!own_exists ? QString("Aztek's own user folder, <b>%1</b>, isn't there %2.<br><br>").arg(shown(own).toHtmlEscaped(), uf["chosen"].toBool() ? "any more" : "yet") : QString());
-    auto* intro = new QLabel(missing + QString("A Maya user folder was found at <b>%1</b>. It holds scripts, plug-ins, modules, shelves and preferences.<br>How should Aztek use it?").arg(shown(maya).toHtmlEscaped()), &d);
+    auto* intro = new QLabel(missing + QString("An existing user folder (from the reference) was found at <b>%1</b>. It holds scripts, plug-ins, modules, shelves and preferences.<br>How should Aztek use it?").arg(shown(detected).toHtmlEscaped()), &d);
     intro->setWordWrap(true);
     v->addWidget(intro);
 
@@ -68,9 +68,9 @@ void ask_user_folder_at_first_start(QWidget* parent, QWidget* splash) {
     };
     QRadioButton* copy = option(
         QString("Copy it into Aztek's own folder (%1)").arg(shown(own)),
-        own_exists ? "What is missing there is added. Nothing already there is replaced, and the Maya folder is only read." : "The folder is made. The Maya folder is only read, and what you change in Aztek afterwards stays out of it.", 0);
-    QRadioButton* link = option("Use the Maya folder directly (risky)", "Aztek reads its scripts, plug-ins, modules and preferences from it and saves its own settings elsewhere, but a Maya script you run in Aztek can write there, into the folder Maya uses. What you add there for Maya shows up here.", 1);
-    QRadioButton* none = option(own_exists ? QString("Keep Aztek's own folder as it is (%1)").arg(shown(own)) : QString("Create an empty folder (%1)").arg(shown(own)), "Nothing is taken from the Maya folder.", 2);
+        own_exists ? "What is missing there is added. Nothing already there is replaced, and the existing user folder is only read." : "The folder is made. The existing user folder is only read, and what you change in Aztek afterwards stays out of it.", 0);
+    QRadioButton* link = option("Use the existing user folder (from the reference) directly (risky)", "Aztek reads its scripts, plug-ins, modules and preferences from it and saves its own settings elsewhere, but a script you run in Aztek can write there, into the folder the reference uses. What you add there for the reference shows up here.", 1);
+    QRadioButton* none = option(own_exists ? QString("Keep Aztek's own folder as it is (%1)").arg(shown(own)) : QString("Create an empty folder (%1)").arg(shown(own)), "Nothing is taken from the existing user folder.", 2);
     // With a folder of Aztek's already there, it is left alone unless asked; with none, the copy is the start most want.
     (own_exists ? none : copy)->setChecked(true);
 
@@ -86,7 +86,7 @@ void ask_user_folder_at_first_start(QWidget* parent, QWidget* splash) {
     v->addLayout(row);
     auto* setup = new QCheckBox("Run its userSetup scripts at start", &d);
     setup->setChecked(true);
-    setup->setToolTip("userSetup.mel and userSetup.py were written for Maya: one that asks for something Aztek hasn't got stops with an error.");
+    setup->setToolTip("userSetup.mel and userSetup.py were written for the reference: one that asks for something Aztek hasn't got stops with an error.");
     v->addWidget(setup);
     auto sync = [&] {
         const bool uses = !none->isChecked();
@@ -112,14 +112,14 @@ void ask_user_folder_at_first_start(QWidget* parent, QWidget* splash) {
 
     const QString ver = version->currentData().toString();
     if (copy->isChecked()) {
-        const QJsonObject r = exec_quiet("aztekUserFolder", QJsonObject{{"copyFrom", maya}, {"version", ver}}).toObject();
+        const QJsonObject r = exec_quiet("aztekUserFolder", QJsonObject{{"copyFrom", detected}, {"version", ver}}).toObject();
         if (!r.isEmpty()) log(QString("// User Folder: %1 files copied to %2, %3 already there and kept //").arg(r["copied"].toInt()).arg(shown(r["to"].toString())).arg(r["kept"].toInt()), 0);
         const QJsonArray failed = r["failed"].toArray();
         if (!failed.isEmpty()) log(QString("// Warning: User Folder: %1 files could not be copied, the first %2 //").arg(failed.size()).arg(failed.at(0).toString()), 4);
         exec_quiet("aztekUserFolder", QJsonObject{{"mode", "aztek"}, {"userSetup", setup->isChecked()}});
     } else if (link->isChecked()) {
-        exec_quiet("aztekUserFolder", QJsonObject{{"mode", "link"}, {"folder", maya}, {"version", ver}, {"userSetup", setup->isChecked()}});
-        log(QString("// User Folder: using %1 where it is //").arg(shown(maya)), 0);
+        exec_quiet("aztekUserFolder", QJsonObject{{"mode", "link"}, {"folder", detected}, {"version", ver}, {"userSetup", setup->isChecked()}});
+        log(QString("// User Folder: using %1 where it is //").arg(shown(detected)), 0);
     } else {
         exec_quiet("aztekUserFolder", QJsonObject{{"mode", "aztek"}});
     }

@@ -11,7 +11,12 @@ released by srlegrand at https://github.com/srlegrand/Aztek. PARITY.md holds the
   attribute names, defaults, hotkeys, menus, marking menus, channel box colours. When in doubt, do what the reference does.
 - Name the reference only where nothing else works: module, command, node, attribute, file-format and plug-in names that
   scripts and files depend on (`maya.cmds`, `mayaUSDImport`, `mayaAscii`, `MAYA_SCRIPT_PATH`, the `.ma` header). Everywhere
-  else, code identifiers, comments, docs, help text, tests and the interface, write "the reference". No logo, icons,
+  else, code identifiers, comments, docs, help text, tests and the interface, write "the reference".
+- The reference's renderer is treated the same way: Harold is ours and mirrors it. Its name appears only where files
+  and scripts depend on it (the `ai` node types and attributes, USD's `arnold:` tokens, the `arnoldRender` command);
+  its settings node names and renderer name live in `aztek_scene/src/harold/compat.rs`, which maps them to Harold's
+  (`defaultHaroldRenderOptions`, renderer `harold`) and back on saving. Everywhere else write Harold, the `ai` nodes, or
+  "the reference's renderer". No logo, icons,
   branding or artwork from it. The project's history and any earlier code it came from are not mentioned.
 - The Python API is `aztek.cmds`; `maya.cmds` / `maya.mel` are thin shims onto it so existing scripts run.
 - Scope: modelling, UVs, rigging, animation, viewport navigation, manipulators, script editor, preferences, one unified dynamics system (cloth, particles, rigid bodies), the Harold renderer, and Bicurious, which is part of the dynamics rather than a separate system. Dynamics and rendering deliberately depart from the reference where it carries old overlapping systems: `.ma` files using any of them load into the one system, and the interface says only Cloth, Particles and Harold.

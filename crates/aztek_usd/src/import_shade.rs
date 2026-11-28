@@ -156,7 +156,7 @@ fn build_material(c: &mut Ctx, path: &sdf::Path) -> Result<Option<String>, Strin
     }
     let Some(sh) = surface_shader(c, &mat) else { return Ok(None) };
     if shader_id(&sh).starts_with("arnold:") {
-        let Some(shader_name) = arnold_node(c, &sh)? else { return Ok(None) };
+        let Some(shader_name) = ai_node(c, &sh)? else { return Ok(None) };
         let sg = make_group(c, &mat_name)?;
         connect(c, &format!("{shader_name}.outColor"), &format!("{sg}.surfaceShader"))?;
         return Ok(Some(sg));
@@ -223,9 +223,9 @@ fn build_material(c: &mut Ctx, path: &sdf::Path) -> Result<Option<String>, Strin
     Ok(Some(sg))
 }
 
-/// The node type for an Arnold shader id: arnold:flat is aiFlat, arnold:standard_surface aiStandardSurface, as the
-/// reference's Arnold plug-in names them.
-fn arnold_type(id: &str) -> Option<String> {
+/// The node type for a shader id from the reference renderer's USD: arnold:flat is aiFlat, arnold:standard_surface
+/// aiStandardSurface, as the reference names them.
+fn ai_type(id: &str) -> Option<String> {
     let id = id.strip_prefix("arnold:")?;
     aztek_scene::harold_nodes::register_types();
     let mut out = String::from("ai");
@@ -255,15 +255,15 @@ fn camel(name: &str) -> String {
     out
 }
 
-/// An Arnold shader prim (info:id arnold:...) as its node, with its inputs set and the shaders it reads made and
+/// A shader prim from the reference renderer's USD (info:id arnold:...) as its node, with its inputs set and the shaders it reads made and
 /// connected. Shared by every input that reads it. None for a shader with no node here.
-fn arnold_node(c: &mut Ctx, sh: &Prim) -> Result<Option<String>, String> {
-    let key = format!("arnold node {}", sh.path().as_str());
+fn ai_node(c: &mut Ctx, sh: &Prim) -> Result<Option<String>, String> {
+    let key = format!("ai node {}", sh.path().as_str());
     if let Some(Some(made)) = c.materials.get(&key) {
         return Ok(Some(made.clone()));
     }
-    let Some(ty) = arnold_type(&shader_id(sh)) else {
-        c.warnings.push(format!("{}: no node for the Arnold shader {}", sh.path(), shader_id(sh)));
+    let Some(ty) = ai_type(&shader_id(sh)) else {
+        c.warnings.push(format!("{}: no node for the shader {}", sh.path(), shader_id(sh)));
         return Ok(None);
     };
     let flag = match aztek_scene::harold_nodes::classification(&ty).unwrap_or_default() {
@@ -286,7 +286,7 @@ fn arnold_node(c: &mut Ctx, sh: &Prim) -> Result<Option<String>, String> {
         let Some(attr) = attr else { continue };
         if let Some((src, out)) = source_of(c, &a) {
             if shader_id(&src).starts_with("arnold:") {
-                if let Some(from) = arnold_node(c, &src)? {
+                if let Some(from) = ai_node(c, &src)? {
                     let colour = get_v3(&mut c.s.graph, id, &attr).is_some();
                     let out = out.strip_prefix("outputs:").unwrap_or("out");
                     let plug = match (out, colour) {
@@ -315,9 +315,9 @@ fn arnold_node(c: &mut Ctx, sh: &Prim) -> Result<Option<String>, String> {
     Ok(Some(node_name_made))
 }
 
-/// The options' background, as Arnold's USD writes it: a RenderSettings (or, from older writers, an ArnoldOptions) prim
+/// The options' background, as the reference renderer's USD writes it: a RenderSettings (or, from older writers, an ArnoldOptions) prim
 /// whose arnold:global:background names an ArnoldNodeGraph, whose outputs:background reads the shader. That shader is
-/// made and connected to defaultArnoldRenderOptions.background, as the reference's Arnold plug-in connects it.
+/// made and connected to defaultHaroldRenderOptions.background, as the reference connects it.
 pub fn read_background(c: &mut Ctx) -> Result<(), String> {
     let mut found = None;
     let mut todo: Vec<Prim> = c.stage.root_prims().unwrap_or_default().iter().filter_map(|n| c.stage.prim(format!("/{}", n.as_str()).as_str()).ok()).collect();
@@ -347,9 +347,9 @@ pub fn read_background(c: &mut Ctx) -> Result<(), String> {
         let Some((sh, _)) = source_of(c, &prim.attribute("outputs:background")) else { return Ok(()) };
         prim = sh;
     }
-    let Some(node) = arnold_node(c, &prim)? else { return Ok(()) };
+    let Some(node) = ai_node(c, &prim)? else { return Ok(()) };
     c.s.graph.without_undo(aztek_scene::harold_nodes::make_defaults);
-    connect(c, &format!("{node}.outColor"), "defaultArnoldRenderOptions.background")
+    connect(c, &format!("{node}.outColor"), "defaultHaroldRenderOptions.background")
 }
 
 /// The material a prim is bound to, inherited down namespace.

@@ -9,7 +9,7 @@ it differs; this file is what to do next.
 Ahead of the phases below. XJEN first is srlegrand's call (16/11/2026); the order after it is proposed, for srlegrand to change.
 
 1. XJEN, steps 1 to 6 of [docs/XJEN.md](docs/XJEN.md): strands in Harold and the views, the Interactive Groom core,
-   the grooming tools, the modifiers, the editor and menus, then Alembic (4.2 below) and caching. Step 7 (XGen
+   the grooming tools, the modifiers, the editor and menus, then Alembic (4.2 below) and caching. Step 7 (groom
    collections, SeExpr, Ptex) and step 8 (dynamic guides) follow the rest of this list. srlegrand runs
    `tools/reference_capture/xgen_capture.py` once so step 2 on is tested against the reference, not the documentation.
 2. The new core (`aztek_dg`, `aztek_api`, PARITY.md "A new core"): commands on it, then the scene's node types moved
@@ -230,7 +230,7 @@ What studio tools need before they run at all.
 - [ ] 7.2 One deformer node across several meshes, as the reference (today one node per mesh); skinCluster with its set
   so membership limits a skin.
 - [~] 7.3 (17/11/2026: the reference's 2027 ikHandle page says `weight` and `poWeight` have no effect on single-chain (ikRPsolver, ikSCsolver) or spline handles, the only solvers Aztek has, so they stay stored only; `priority` matters only for handles sharing joints, and chained handles already solve parent first through the graph; `stickiness` is interactive only; whether `stiffness` changes an RP or SC solve the joint page doesn't say: in WANTED.md) IK handle `weight`, `poWeight`, `priority`, `stickiness` and joint `stiffness` change the solve.
-- [ ] 7.4 HumanIK Custom Rig and the full body solve with Pull, Stiffness, Reach and pinning.
+- [ ] 7.4 Humanoid IK Custom Rig and the full body solve with Pull, Stiffness, Reach and pinning.
 - [ ] 7.5 The remaining items: `combinationShape` formula against a capture, `skeletonEmbed`, `flexor`, the deformer
   differences PARITY.md lists.
 
@@ -260,7 +260,7 @@ Bicurious in their own order; this plan doesn't reorder them. macOS: CI builds a
 ## Not planned
 
 Out of scope unless srlegrand says otherwise: Paint Effects, the reference's fluids (Bicurious covers liquids and smoke),
-MotionMaker, the reference's help chatbot and its cloud service button. Hair grooming (XJEN) and MASH were here until
+MotionMaker, the reference's help chatbot and its cloud service button. Hair grooming (XJEN) and motion graphics were here until
 12/11/2026: they are in "Plug-ins that ship" below.
 
 ## Plug-ins that ship (started 12/11/2026)
@@ -290,7 +290,7 @@ Three states:
 | lookdevKit, shaderFXPlugin | shading utility nodes, viewport shaders | | not checked |
 | LookdevX | MaterialX and USD shading | | none |
 | Substance | Substance materials | | none. The format and its engine are their owner's: a reader would have to be theirs |
-| xgenToolkit | grooming and instancing | XJEN (`xjenToolkit`) | plug-in (16/11/2026: Interactive Groom, steps 1 to 6 of docs/XJEN.md; XGen collections not yet) |
+| xgenToolkit | grooming and instancing | XJEN (`xjenToolkit`) | plug-in (16/11/2026: Interactive Groom, steps 1 to 6 of docs/XJEN.md; groom collections not yet) |
 | MASH | motion graphics | | none |
 | bifrostGraph, bifrostvisplugin | procedural graphs | | none |
 | modelingToolkit | Quad Draw, Multi-Cut | Quad Draw, Multi-Cut | core |
@@ -300,7 +300,7 @@ Three states:
 | Type | 3D type | text | not checked |
 | meshReorder | vertex reordering | mesh reorder | core |
 | gnQuadFill | quad fill | | not checked |
-| mayaHIK | HumanIK | HIK | core |
+| mayaHIK | Humanoid IK | HIK | core |
 | ik2Bsolver, ikSpringSolver | IK solvers | | none by those names |
 | matrixNodes, quatNodes | utility nodes | matrix and quaternion nodes | core |
 | bluePencil | drawing in the view | | none |

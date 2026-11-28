@@ -23,8 +23,6 @@ pub(crate) struct Ui {
     /// 0 hierarchy (roots), 1 object, 2 component.
     scope: i32,
     prefs: Map<String, Value>,
-    option_vars: Map<String, Value>,
-    loaded: bool,
     run_time: BTreeMap<String, Value>,
     name_commands: BTreeMap<String, Value>,
     pub(crate) huds: BTreeMap<String, Value>,
@@ -54,43 +52,17 @@ fn option_var_file() -> PathBuf {
     crate::user_folder::prefs_base().join("optionVars.json")
 }
 
-fn load_option_vars(u: &mut Ui) {
-    if u.loaded {
-        return;
-    }
-    u.loaded = true;
-    if let Ok(t) = std::fs::read_to_string(option_var_file()) {
-        if let Ok(Value::Object(m)) = serde_json::from_str::<Value>(&t) {
-            u.option_vars = m;
-        }
-    }
+/// An optionVar's value, if set. The session's optionVars are the one copy kept: the command, the preferences window
+/// and the interface's own settings all read and write these, so a value one of them changed is what the others see.
+pub(crate) fn option_var(s: &Session, name: &str) -> Option<Value> {
+    s.option_vars.get(name).cloned()
 }
 
-fn save_option_vars(u: &Ui) {
-    let p = option_var_file();
-    if let Some(d) = p.parent() {
-        let _ = std::fs::create_dir_all(d);
+/// Sets optionVars in the session's one copy. They reach the file after the command, as every optionVar does.
+pub(crate) fn set_option_vars(s: &mut Session, values: &[(&str, Value)]) {
+    for (k, v) in values {
+        s.option_vars.insert(k.to_string(), v.clone());
     }
-    let _ = std::fs::write(p, Value::Object(u.option_vars.clone()).to_string());
-}
-
-/// An optionVar's value, if set.
-pub(crate) fn option_var(name: &str) -> Option<Value> {
-    with_ui(|u| {
-        load_option_vars(u);
-        u.option_vars.get(name).cloned()
-    })
-}
-
-/// Sets optionVars and keeps them.
-pub(crate) fn set_option_vars(values: &[(&str, Value)]) {
-    with_ui(|u| {
-        load_option_vars(u);
-        for (k, v) in values {
-            u.option_vars.insert(k.to_string(), v.clone());
-        }
-        save_option_vars(u);
-    })
 }
 
 /// What a pick selects, by the selection scope: the root of the hierarchy, or the node itself.
@@ -456,62 +428,6 @@ pub fn register(s: &mut Session) {
         .flag(f("query", "q", ArgType::Bool, "Query mode."))
         .undoable(false),
     );
-    reg(
-        s,
-        Cmd::new("optionVar", "Named preference values kept between sessions. -iv, -fv, -sv set; -q reads; -ex tests; -rm removes.", |_s, a| {
-            with_ui(|u| {
-                load_option_vars(u);
-                let mut changed = false;
-                let pair = |v: &Value| -> Option<(String, Value)> {
-                    let arr = v.as_array()?;
-                    Some((arr.first()?.as_str()?.to_string(), arr.get(1)?.clone()))
-                };
-                for flag in ["intValue", "floatValue", "stringValue"] {
-                    if let Some((k, v)) = a.get(flag).and_then(pair) {
-                        u.option_vars.insert(k, v);
-                        changed = true;
-                    }
-                }
-                if let Some((k, v)) = a.get("stringValueAppend").and_then(pair) {
-                    let e = u.option_vars.entry(k).or_insert(json!([]));
-                    if !e.is_array() {
-                        *e = json!([e.clone()]);
-                    }
-                    e.as_array_mut().unwrap().push(v);
-                    changed = true;
-                }
-                if let Some(k) = a.get("remove").and_then(Value::as_str) {
-                    u.option_vars.remove(k);
-                    changed = true;
-                }
-                if changed {
-                    save_option_vars(u);
-                    return Ok(Value::Null);
-                }
-                if let Some(k) = a.get("exists").and_then(Value::as_str) {
-                    return Ok(json!(u.option_vars.contains_key(k)));
-                }
-                if a.bool("list") {
-                    return Ok(json!(u.option_vars.keys().cloned().collect::<Vec<_>>()));
-                }
-                if let Some(k) = a.pos_str(0) {
-                    return Ok(u.option_vars.get(k).cloned().unwrap_or(json!(0)));
-                }
-                Ok(Value::Null)
-            })
-        })
-        .positional("name")
-        .undoable(false)
-        .flag(f("query", "q", ArgType::Bool, "Read the value named."))
-        .flag(f("intValue", "iv", ArgType::Any, "Name and integer value.").multi(2))
-        .flag(f("floatValue", "fv", ArgType::Any, "Name and float value.").multi(2))
-        .flag(f("stringValue", "sv", ArgType::Any, "Name and string value.").multi(2))
-        .flag(f("stringValueAppend", "sva", ArgType::Any, "Name and a string to add to its array.").multi(2))
-        .flag(f("exists", "ex", ArgType::String, "Whether the name is set."))
-        .flag(f("remove", "rm", ArgType::String, "Remove the name."))
-        .flag(f("list", "l", ArgType::Bool, "Every name.")),
-    );
-
     reg(s, run_time_command());
 
     reg(

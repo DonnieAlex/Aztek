@@ -222,9 +222,8 @@ QList<Theme> builtins() {
         t.padding = 4;
         l << t;
     }
-    // Martino: Softimage XSI, matched to its screens: warm grey panels and lists, soft raised buttons a shade lighter
-    // with rounded corners (lit white when on), blue-grey section and panel title bars with black bold type, dark
-    // rounded entry fields with light type, a white bar with black type for what is picked, Tahoma.
+    // Martino: warm grey panels and lists, soft raised buttons a shade lighter with rounded corners (lit white when on),
+    // blue-grey section and panel title bars with black bold type, dark rounded entry fields with light type, a white bar with black type for what is picked, Tahoma.
     {
         Theme t = hand("martino", "Martino",
                        {{"window", "#aca8a7"}, {"chrome", "#a7a3a2"}, {"base", "#aca8a7"}, {"alt", "#a6a2a1"}, {"menu", "#cccbc9"}, {"button", "#b6b3b1"}, {"hover", "#c6c3c1"},
@@ -367,10 +366,9 @@ QList<Theme> builtins() {
         t.padding = 2;
         l << t;
     }
-    // Wavefront: the workstation desktop the first release of the reference ran on: light grey, deep bevels, upright
-    // Helvetica.
+    // Workstation: the light grey workstation desktop of the early 1990s: deep bevels, upright Helvetica.
     {
-        Theme t = hand("workstation", "Wavefront",
+        Theme t = hand("workstation", "Workstation",
                        {{"window", "#c2c2c2"}, {"chrome", "#b2b2b2"}, {"base", "#dedede"}, {"alt", "#d4d4d4"}, {"menu", "#cacaca"}, {"button", "#c6c6c6"}, {"hover", "#d2d2d2"},
                         {"hi", "#52709f"}, {"text", "#000000"}, {"bright", "#000000"}, {"dim", "#383838"}, {"disabled", "#7c7c7c"}, {"border", "#3c3c3c"}, {"handle", "#c6c6c6"},
                         {"light", "#f4f4f4"}, {"shadow", "#6c6c6c"}, {"field", "#e4e4e4"}, {"fieldtext", "#000000"}});
@@ -387,7 +385,7 @@ QList<Theme> builtins() {
     }
     // Light grey with mid grey fields and darker section bars, the reference's look on the workstations of the 2000s.
     {
-        Theme t = hand("poweranimator", "Hourihan",
+        Theme t = hand("hourihan", "Hourihan",
                        {{"window", "#c6c6c6"}, {"chrome", "#b6b6b6"}, {"base", "#d8d8d8"}, {"alt", "#cfcfcf"}, {"menu", "#cccccc"}, {"button", "#c6c6c6"}, {"hover", "#d4d4d4"},
                         {"hi", "#56739f"}, {"text", "#000000"}, {"bright", "#000000"}, {"dim", "#303030"}, {"disabled", "#7a7a7a"}, {"border", "#3c3c3c"}, {"handle", "#c6c6c6"},
                         {"light", "#f2f2f2"}, {"shadow", "#727272"}, {"field", "#a9a9a9"}, {"fieldtext", "#000000"}, {"section", "#a2a2a2"}, {"sectiontext", "#000000"}});
@@ -404,7 +402,7 @@ QList<Theme> builtins() {
     // The animation package of the late 1990s in its own dark scheme: slate panels, white section bars with black
     // text, black for what is on, a fixed-width face.
     {
-        Theme t = hand("alias", "Alias",
+        Theme t = hand("terminus", "Terminus",
                        {{"window", "#5b5d6b"}, {"chrome", "#4f515e"}, {"base", "#434551"}, {"alt", "#555764"}, {"menu", "#666875"}, {"button", "#6c6e7b"}, {"hover", "#7b7d8b"},
                         {"hi", "#000000"}, {"hitext", "#ffffff"}, {"text", "#ffffff"}, {"bright", "#ffffff"}, {"dim", "#cfd0d8"}, {"disabled", "#9a9ca8"}, {"border", "#1c1d24"},
                         {"handle", "#b3b0a8"}, {"light", "#9294a2"}, {"shadow", "#2a2b33"}, {"field", "#4b4d5a"}, {"fieldtext", "#ffffff"}, {"section", "#ffffff"},
@@ -567,7 +565,7 @@ QList<Theme> builtins() {
         {"violet", {"chunky", "thick", "inverse"}},      {"martino", {"soft", "line", "gradient"}},      {"dracula", {"pill", "rounded", "tab"}},
         {"solarized-dark", {"auto", "bevel", "accent"}}, {"graphite", {"soft", "shadow", "gradient"}},   {"nord", {"underline", "none", "underline"}},
         {"slate", {"glossy", "shadow", "inverse"}},      {"pewter", {"auto", "bevel", "gradient"}},      {"workstation", {"auto", "bevel", "auto"}},
-        {"poweranimator", {"auto", "groove", "gradient"}}, {"alias", {"auto", "line", "inverse"}},       {"desktop98", {"auto", "bevel", "auto"}},
+        {"hourihan", {"auto", "groove", "gradient"}},     {"terminus", {"auto", "line", "inverse"}},          {"desktop98", {"auto", "bevel", "auto"}},
         {"sky", {"outline", "rounded", "accent"}},       {"solarized-light", {"inset", "line", "tab"}},  {"paper", {"chunky", "shadow", "underline"}},
         {"lilac", {"pill", "rounded", "gradient"}},      {"shaq", {"auto", "line", "auto"}},             {"classic98", {"auto", "rounded", "auto"}},
         {"ash", {"pill", "rounded", "tab"}},             {"macos", {"auto", "rounded", "auto"}}};
@@ -1384,7 +1382,12 @@ Theme theme(const QString& id) {
     return l.front();
 }
 
-QString current_theme() { return QSettings().value("prefs/theme", "classic").toString(); }
+QString current_theme() {
+    // Ids saved by earlier builds.
+    static const QHash<QString, QString> renamed{{"alias", "terminus"}, {"poweranimator", "hourihan"}};
+    const QString id = QSettings().value("prefs/theme", "classic").toString();
+    return renamed.value(id, id);
+}
 
 QString themes_folder() { return prefs_root() + "/themes"; }
 

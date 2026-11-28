@@ -2536,6 +2536,16 @@ impl Viewport {
         e.bvh.as_ref()
     }
 
+    /// The object under the pointer for the right-click marking menu.
+    pub fn marking_menu_target(&mut self, g: &mut Graph, px: DVec2) -> Option<NodeId> {
+        let items = gather(g);
+        if let Some(id) = self.pick_rig(g, px) {
+            return Some(id);
+        }
+        let items = self.filter_items(g, items);
+        self.raycast(&items, px).map(|(i, _, _)| items[i].xf)
+    }
+
     /// The nearest mesh hit under a viewport pixel: (item index, face, world point).
     pub fn raycast(&mut self, items: &[DrawItem], px: DVec2) -> Option<(usize, Index, DVec3)> {
         self.raycast_faces(items, px, true)

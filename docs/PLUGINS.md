@@ -5,7 +5,7 @@ Aztek loads two kinds of plug-in:
 - Python plug-ins (`.py`), as they are.
 - Compiled plug-ins (`.so`, `.dll`, `.bundle`) built with Aztek's plug-in kit.
 
-A compiled plug-in built for the reference can't load: it links the reference's own libraries, which Aztek does not have. The Plug-in Manager lists such a file as "Compiled for Maya" and leaves it alone. With its source, it can be rebuilt for Aztek, usually with no change to the code.
+A compiled plug-in built for the reference can't load: it links the reference's own libraries, which Aztek does not have. The Plug-in Manager lists such a file as "Compiled for the reference" and leaves it alone. With its source, it can be rebuilt for Aztek, usually with no change to the code.
 
 ## Plug-ins that come with Aztek
 
@@ -106,6 +106,10 @@ loadPlugin "/path/to/build/myPlugin.so";
 ```
 
 A class or method the kit does not have yet fails the build and names it. Report it at https://github.com/srlegrand/Aztek/issues with the name.
+
+The audit against the reference's OpenMaya module, with every missing class, method and constant and the compliance
+plan and estimate, is in [openmaya_1_0/README.md](openmaya_1_0/README.md). The module class lists, the Python 1.0
+name audit, the dependency order and the subagent rules are in [openmaya_work/README.md](openmaya_work/README.md).
 
 Samples: `devkit/samples` (`helloCmd`, `scaleNode`, `rippleDeformer`).
 

@@ -5,6 +5,7 @@
 //! state echoes commands called from Python; MEL echoes its top-level statements regardless, and calls inside procedures
 //! are not echoed. help -doc fails, since no documentation ships with the application.
 
+use aztek_scene::harold::compat;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 
@@ -810,15 +811,15 @@ pub fn register(s: &mut Session) {
             let get = |s: &Session, k: &str, d: &str| s.option_vars.get(k).and_then(Value::as_str).unwrap_or(d).to_string();
             if a.bool("query") {
                 let q = a.get("queried").map(|v| v.to_string()).unwrap_or_default();
-                return Ok(json!(if q.contains("fallback") { get(s, "preferredRendererFallback", "arnold") } else { get(s, "preferredRenderer", "arnold") }));
+                return Ok(json!(if q.contains("fallback") { get(s, "preferredRendererFallback", compat::RENDERER) } else { get(s, "preferredRenderer", compat::RENDERER) }));
             }
             if let Some(f) = a.get("fallback").and_then(Value::as_str) {
                 s.option_vars.insert("preferredRendererFallback".into(), json!(f));
             }
             if a.bool("makeCurrent") {
-                let cur = s.run("getAttr", json!({"args": ["defaultRenderGlobals.currentRenderer"]})).ok().and_then(|v| v.as_str().map(str::to_string)).unwrap_or_else(|| "arnold".into());
-                s.option_vars.insert("preferredRenderer".into(), json!(cur));
-            } else if let Some(n) = a.pos_str(0) {
+                let cur = s.run("getAttr", json!({"args": ["defaultRenderGlobals.currentRenderer"]})).ok().and_then(|v| v.as_str().map(str::to_string)).unwrap_or_else(|| compat::RENDERER.into());
+                s.option_vars.insert("preferredRenderer".into(), json!(compat::renderer(&cur)));
+            } else if let Some(n) = a.pos_str(0).map(compat::renderer) {
                 if !RENDERERS.with(|r| r.borrow().contains_key(n)) {
                     fail!("preferredRenderer: {n} is not a registered renderer.");
                 }
@@ -1013,17 +1014,18 @@ struct RepeatQueue {
 thread_local! {
     static REPEAT: RefCell<RepeatQueue> = const { RefCell::new(RepeatQueue { items: Vec::new(), limit: 30 }) };
     static RENDERERS: RefCell<std::collections::BTreeMap<String, RendererEntry>> = RefCell::new(builtin_renderers());
-    static RENDERER_ORDER: RefCell<Vec<String>> = RefCell::new(vec!["arnold".to_string()]);
+    static RENDERER_ORDER: RefCell<Vec<String>> = RefCell::new(vec![compat::RENDERER.to_string()]);
 }
 
-/// Harold, under the name the reference's Arnold has, so scenes and scripts that name it find it.
+/// Harold. The reference's renderer's name finds it too (compat::renderer), so scenes and scripts that name that one
+/// get Harold.
 fn builtin_renderers() -> std::collections::BTreeMap<String, RendererEntry> {
     let mut m = std::collections::BTreeMap::new();
     let mut e = RendererEntry::default();
     e.props.insert("rendererUIName".into(), json!("Harold"));
     e.props.insert("supportColorManagement".into(), json!(true));
-    e.globals = vec!["defaultRenderGlobals".into(), "defaultResolution".into(), "defaultArnoldRenderOptions".into()];
-    m.insert("arnold".to_string(), e);
+    e.globals = vec!["defaultRenderGlobals".into(), "defaultResolution".into(), aztek_scene::harold::settings::OPTIONS.into()];
+    m.insert(compat::RENDERER.to_string(), e);
     m
 }
 
@@ -1043,7 +1045,7 @@ fn renderer_cmd() -> Cmd {
         "renderer",
         "The registry of renderers: renderer name registers one (or edits it) with its procedures and settings, -q reads them; -ex whether it is registered, -ava the names of all, -gn its globals nodes, -gtl -gtc -gtu its Render Settings tabs, -unr removes it.",
         |_s, a| {
-            let name = a.pos_str(0).map(str::to_string);
+            let name = a.pos_str(0).map(|n| compat::renderer(n).to_string());
             let q = a.bool("query");
             let asked_flag = a.get("queried").and_then(Value::as_array).and_then(|v| v.first()).and_then(Value::as_str).map(str::to_string);
             let wants = |k: &str| a.bool(k) || asked_flag.as_deref() == Some(k);

@@ -264,7 +264,7 @@ fn harold_lights_read_for_the_realtime_renderer() {
     assert!((env.color[0] - 0.5).abs() < 1e-6 && (env.color[1] - 1.0).abs() < 1e-6 && (env.color[2] - 2.0).abs() < 1e-6);
     assert!(aztek_scene::lights::scene_light(&mut s.graph, id).is_none());
 
-    // The other Arnold lights are the legacy kinds the realtime shader already reads.
+    // The other ai lights are the legacy kinds the realtime shader already reads.
     for (ty, kind) in [("aiAreaLight", aztek_scene::lights::Kind::Area), ("aiMeshLight", aztek_scene::lights::Kind::Area), ("aiPhotometricLight", aztek_scene::lights::Kind::Spot)] {
         let tr = run(&mut s, "shadingNode", json!({"args": [ty], "asLight": true}));
         let sh = run(&mut s, "listRelatives", json!({"args": [tr], "shapes": true}))[0].as_str().unwrap().to_string();
@@ -290,4 +290,23 @@ fn a_photometric_light_reads_its_ies_profile() {
     assert!((ies.at(glam::Vec3::new(0.0, 0.0, -1.0)) - 1.0).abs() < 1e-4);
     assert!((ies.at(glam::Vec3::new(1.0, 0.0, 0.0)) - 0.0).abs() < 1e-4);
     let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn shading_node_parent_puts_a_light_or_place3d_texture_under_a_transform() {
+    // The reference's documentation of shadingNode -parent: "Specify the parent in the DAG under which the new node belongs."
+    let mut s = session();
+    run(&mut s, "createNode", json!({"args": ["transform"], "name": "rig"}));
+    let tr = run(&mut s, "shadingNode", json!({"args": ["pointLight"], "asLight": true, "parent": "rig"}));
+    assert_eq!(tr, "pointLight1");
+    assert_eq!(run(&mut s, "listRelatives", json!({"args": ["pointLight1"], "parent": true})), json!(["rig"]));
+    assert_eq!(run(&mut s, "listRelatives", json!({"args": ["pointLight1"], "shapes": true})), json!(["pointLightShape1"]));
+    run(&mut s, "shadingNode", json!({"args": ["place3dTexture"], "asUtility": true, "parent": "rig"}));
+    assert_eq!(run(&mut s, "listRelatives", json!({"args": ["place3dTexture1"], "parent": true})), json!(["rig"]));
+    // Without the flag, a light goes at the world's top.
+    run(&mut s, "shadingNode", json!({"args": ["spotLight"], "asLight": true}));
+    assert_eq!(run(&mut s, "listRelatives", json!({"args": ["spotLight1"], "parent": true})), json!([]));
+    // A parent that isn't there is an error, and makes nothing.
+    assert!(s.run("shadingNode", json!({"args": ["pointLight"], "asLight": true, "parent": "nothing"})).is_err());
+    assert_eq!(run(&mut s, "objExists", json!({"args": ["pointLight2"]})), false);
 }

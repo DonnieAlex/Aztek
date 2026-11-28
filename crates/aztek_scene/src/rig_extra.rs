@@ -1,5 +1,5 @@
 //! Rigging commands the other modules leave out: combinationShape, flexors (flexor, copyFlexor, jointLattice, boneLattice),
-//! skeletonEmbed, characterize and the HumanIK helpers, the IK settings, instanceable, effector, relationship,
+//! skeletonEmbed, characterize and the Humanoid IK helpers, the IK settings, instanceable, effector, relationship,
 //! xformConstraint, weightsColor and keying per-point blend shape weights.
 //!
 //! Differs from the reference. A lattice flexor's node bulges the lattice only: its lattice and base follow the joints through
@@ -865,7 +865,7 @@ fn skeleton_embed(s: &mut Session, a: &Args) -> CmdResult {
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
-// characterize and the HumanIK helpers
+// characterize and the Humanoid IK helpers
 
 const FBIK_NOT_HERE: &[&str] = &["activatePivot", "addAuxEffector", "addFloorContactPlane", "addMissingEffectors", "changePivotPlacement", "placeNewPivot", "effectors", "fkSkeleton", "stancePose", "attributeFromHIKProperty", "attributeFromHIKPropertyMode"];
 

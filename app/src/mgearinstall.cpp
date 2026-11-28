@@ -105,7 +105,7 @@ void found(QWidget* w, const QJsonObject& rel) {
     QString text = QString("mGear %1, built for Aztek, goes into the modules folder of your user folder:\n%2")
                        .arg(rel["version"].toString(), modules);
     if (!have.isEmpty()) text += QString("\n\nIt replaces mGear %1 installed there.").arg(have["version"].toString());
-    text += "\n\nA Maya build of mGear in the same folder is left as it is; Aztek uses this one.";
+    text += "\n\nA build of mGear for the reference in the same folder is left as it is; Aztek uses this one.";
     if (QMessageBox::question(w, kTitle, text, QMessageBox::Ok | QMessageBox::Cancel, QMessageBox::Ok) != QMessageBox::Ok) return;
     download(w, rel);
 }

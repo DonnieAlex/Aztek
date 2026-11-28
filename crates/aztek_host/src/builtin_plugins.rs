@@ -124,7 +124,7 @@ pub const BUILTINS: &[Builtin] = &[
     },
     Builtin {
         name: "mayaHIK",
-        doc: "HumanIK, as the reference's mayaHIK plug-in (#167): the character definitions, the full body solve, retargeting between characters, the control rig and the bakes, with the hik commands the HumanIK window and scripts use.",
+        doc: "Humanoid IK, as the reference's mayaHIK plug-in (#167): the character definitions, the full body solve, retargeting between characters, the control rig and the bakes, with the hik commands the Humanoid IK window and scripts use.",
         commands: aztek_scene::hik_rig::NAMES,
         register: |s| aztek_scene::hik::register(&mut s.commands),
         more: none,

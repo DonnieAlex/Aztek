@@ -394,7 +394,7 @@ pub struct SceneLight {
     pub volume_ambient: bool,
     /// Whether the renderer should cast shadows from it (useRayTraceShadows, or Harold's aiCastShadows).
     pub cast_shadows: bool,
-    /// Arnold's exposure, in stops: the viewport and the renderer both multiply colour times 2^exposure.
+    /// Exposure in stops, as the reference's renderer has it: the viewport and the renderer both multiply colour times 2^exposure.
     pub exposure: f64,
     /// An IES profile for a photometric light.
     pub ies: Option<Arc<Ies>>,
@@ -428,12 +428,12 @@ pub fn scene_light(g: &mut Graph, shape: NodeId) -> Option<SceneLight> {
     let color = read_c(g, shape, "color") * read_f(g, shape, "intensity", 1.0);
     let flag = |g: &mut Graph, n: &str| read_f(g, shape, n, 1.0) != 0.0;
     let world = g.node(shape)?.data().matrix(DagNode::WORLD_MATRIX);
-    // Harold's lights keep Arnold's names for the settings the two share.
+    // Harold's lights keep the reference renderer's attribute names for the settings the two share.
     let harold = ty.starts_with("ai") && ty != "aiSkyDomeLight";
     let (decay, cone_deg, penumbra_deg, dropoff) = if ty == "aiPhotometricLight" {
         (2, 180.0, 0.0, 0.0)
     } else if ty == "aiAreaLight" {
-        // Arnold's quad light falls off with the square of distance unless aiDecayType turns it off, as Harold lights it.
+        // The reference renderer's quad light falls off with the square of distance unless aiDecayType turns it off, as Harold lights it.
         (if read_f(g, shape, "aiDecayType", 1.0) as i64 == 0 { 0 } else { 2 }, 40.0, 0.0, 0.0)
     } else if harold {
         (read_f(g, shape, "decayRate", 0.0) as i32, read_f(g, shape, "coneAngle", 40_f64.to_radians()).to_degrees(), read_f(g, shape, "penumbraAngle", 0.0).to_degrees(), read_f(g, shape, "dropoff", 0.0))

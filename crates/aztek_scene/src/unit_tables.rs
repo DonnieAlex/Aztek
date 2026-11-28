@@ -31,7 +31,7 @@ fn is_primitive(ty: &str) -> bool {
         || matches!(ty, "makeNurbSphere" | "makeNurbCone" | "makeNurbCylinder" | "makeNurbTorus" | "makeNurbPlane" | "makeNurbCube" | "makeNurbCircle" | "makeNurbsSquare")
 }
 
-/// HumanIK's joint-state attrs keep the values their solver works in, and only pass through files.
+/// Humanoid IK's joint-state attrs keep the values their solver works in, and only pass through files.
 fn is_hik(ty: &str) -> bool {
     ty.starts_with("HIK") || ty.starts_with("hik") || ty == "CustomRigRetargeterNode"
 }

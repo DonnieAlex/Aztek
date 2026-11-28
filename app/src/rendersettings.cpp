@@ -1,5 +1,5 @@
 // Render Settings: the Common tab (file output, cameras, image size) on defaultRenderGlobals and defaultResolution,
-// the Harold tab on defaultArnoldRenderOptions, its filter and driver, and the AOVs tab on aiAOV nodes. Every control
+// the Harold tab on defaultHaroldRenderOptions, its filter and driver, and the AOVs tab on aiAOV nodes. Every control
 // reads with getAttr and writes with setAttr, so each change is undoable and shows in the history.
 #include "renderui.h"
 #include "host.h"
@@ -32,9 +32,9 @@ namespace {
 
 const char* kGlobals = "defaultRenderGlobals";
 const char* kRes = "defaultResolution";
-const char* kOpt = "defaultArnoldRenderOptions";
-const char* kFilter = "defaultArnoldFilter";
-const char* kDriver = "defaultArnoldDriver";
+const char* kOpt = "defaultHaroldRenderOptions";
+const char* kFilter = "defaultHaroldFilter";
+const char* kDriver = "defaultHaroldDriver";
 
 // The AOVs Harold makes, in the order the list shows them.
 const char* const kAovNames[] = {"RGBA", "direct", "indirect", "diffuse", "diffuse_direct", "diffuse_indirect", "specular", "specular_direct", "specular_indirect",

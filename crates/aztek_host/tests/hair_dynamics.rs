@@ -1,4 +1,4 @@
-//! Dynamic hair (XJEN step 8, nHair): makeCurvesDynamic puts curves on follicles of a hair system, which moves them
+//! Dynamic hair (XJEN step 8): makeCurvesDynamic puts curves on follicles of a hair system, which moves them
 //! a frame at a time.
 
 use aztek_host::Core;

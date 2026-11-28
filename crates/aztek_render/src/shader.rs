@@ -69,7 +69,7 @@ impl Default for ShadeCtx {
     }
 }
 
-/// Maya's place2dTexture: frame then tiling.
+/// The reference's place2dTexture: frame then tiling.
 #[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug)]
 pub struct Place2d {
     pub coverage: Vec2,
@@ -245,7 +245,7 @@ pub enum Sampler {
     FlippedNormal,
 }
 
-/// A layered texture's blend modes, Maya's numbering.
+/// A layered texture's blend modes, the reference's numbering.
 #[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Blend {
     None,
@@ -273,7 +273,7 @@ impl Blend {
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub enum Node {
     Constant(Vec4),
-    /// An image: Maya's file node and aiImage.
+    /// An image: the reference's file node and aiImage.
     File { tex: std::sync::Arc<crate::texture::TexHandle>, place: Place2d, uv: Option<Input>, default: Vec3, gain: Vec3, offset: Vec3, alpha_gain: f32, alpha_offset: f32, invert: bool, alpha_is_luminance: bool, exposure: f32 },
     /// A place2dTexture alone: its UV in x and y.
     Place { place: Place2d, uv: Option<Input> },
@@ -714,7 +714,7 @@ pub struct Standard {
     pub opacity: Input,
     pub thin_walled: bool,
     pub normal: NormalMod,
-    /// Arnold's: caustics off cuts specular paths after a diffuse bounce.
+    /// As the reference's renderer: caustics off cuts specular paths after a diffuse bounce.
     pub caustics: bool,
     pub internal_reflections: bool,
     pub exit_to_background: bool,
@@ -725,7 +725,7 @@ pub struct Standard {
     pub hair: Option<HairInputs>,
 }
 
-/// aiStandardHair's inputs, by Arnold's names.
+/// aiStandardHair's inputs, by its attribute names.
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct HairInputs {
     pub base: Input,
@@ -741,7 +741,7 @@ pub struct HairInputs {
     pub transmission_tint: Input,
     pub emission: Input,
     pub emission_color: Input,
-    /// Arnold's extra_depth: bounces through hair allowed past the specular depth, so light hair keeps its brightness.
+    /// aiStandardHair's extraDepth: bounces through hair allowed past the specular depth, so light hair keeps its brightness.
     #[serde(default = "default_extra_depth")]
     pub extra_depth: u32,
 }

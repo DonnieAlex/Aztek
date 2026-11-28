@@ -1,7 +1,7 @@
-//! Hair scattering, for Arnold's aiStandardHair: the fibre as a rough dielectric cylinder with a tilted cuticle and
+//! Hair scattering, for aiStandardHair: the fibre as a rough dielectric cylinder with a tilted cuticle and
 //! pigment inside. Light reflects off the surface (R), passes through (TT), reflects once inside (TRT) and more; each is
 //! a longitudinal lobe times an azimuthal one, after d'Eon et al. 2011 and Chiang et al. 2016, in the form the PBRT book
-//! publishes. Melanin sets the absorption, as Arnold's control does.
+//! publishes. Melanin sets the absorption, as the reference renderer's control does.
 //!
 //! The local frame has x along the fibre, z the normal facing the ray and y across the fibre; `h` is where across the
 //! width the ray met it, -1 to 1.
@@ -23,7 +23,7 @@ pub struct HairLobe {
     sin2k: [f32; 3],
     cos2k: [f32; 3],
     gamma_o: f32,
-    /// Arnold's tints on the first reflection and on what passes through.
+    /// The tints on the first reflection and on what passes through.
     pub r_tint: Vec3,
     pub tt_tint: Vec3,
     pub trt_tint: Vec3,
@@ -50,7 +50,7 @@ pub struct HairParams {
 
 impl Default for HairParams {
     fn default() -> Self {
-        // Arnold's documented defaults (aiStandardHair).
+        // aiStandardHair's documented defaults.
         HairParams {
             melanin: 1.0,
             melanin_redness: 0.5,
@@ -105,7 +105,7 @@ impl HairLobe {
             sin2k[i] = 2.0 * cos2k[i - 1] * sin2k[i - 1];
             cos2k[i] = sqr(cos2k[i - 1]) - sqr(sin2k[i - 1]);
         }
-        // Arnold's melanin runs 0 to 1; a black fibre is about 8 units of eumelanin.
+        // Melanin runs 0 to 1 in the reference's renderer; a black fibre is about 8 units of eumelanin.
         let total = 8.0 * p.melanin.clamp(0.0, 1.0).powf(1.5);
         let red = p.melanin_redness.clamp(0.0, 1.0);
         let sigma_a = sigma_from_melanin(total * (1.0 - red), total * red) + sigma_from_color(p.base_color.clamp(Vec3::splat(1e-3), Vec3::ONE), beta_n);

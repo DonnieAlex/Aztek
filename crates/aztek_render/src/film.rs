@@ -32,7 +32,7 @@ impl AovKind {
     }
 }
 
-/// The AOV names Harold knows, Arnold's names, for the Render Settings list.
+/// The AOV names Harold knows, the same as the reference renderer's, for the Render Settings list.
 pub const AOV_NAMES: &[&str] = &[
     "RGBA", "direct", "indirect", "diffuse", "diffuse_direct", "diffuse_indirect", "specular", "specular_direct", "specular_indirect", "coat", "coat_direct", "coat_indirect", "sheen", "sheen_direct", "sheen_indirect", "sss",
     "sss_direct", "sss_indirect", "transmission", "transmission_direct", "transmission_indirect", "emission", "background", "volume", "albedo", "diffuse_albedo", "N", "P", "Z", "ID", "object_id", "material_id", "shadow_matte", "A",

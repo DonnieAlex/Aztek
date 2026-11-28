@@ -219,6 +219,9 @@ static QList<QLineEdit*> g_channel_fields;
 static QString g_channel_anchor;
 // attr to whole plug for the picked channels under INPUTS.
 static QHash<QString, QString> g_input_plugs;
+// A lead input channel's plug to the same channel on the matching input nodes of the other selected objects. The
+// match is by input stack index, node type and attribute name, as the reference does.
+static QHash<QString, QStringList> g_input_nodes;
 
 QStringList selected_channels() {
     return g_channel_sel;
@@ -226,8 +229,30 @@ QStringList selected_channels() {
 
 QStringList selected_input_plugs() {
     QStringList out;
-    for (const QString& a : g_channel_sel)
-        if (g_input_plugs.contains(a)) out << g_input_plugs[a];
+    auto add = [&](const QString& plug) {
+        QString attr = plug.section('.', -1);
+        QStringList nodes = g_input_nodes.value(plug);
+        if (nodes.isEmpty()) nodes << plug.section('.', 0, -2);
+        for (const QString& n : nodes) {
+            QString p = n + "." + attr;
+            if (!out.contains(p)) out << p;
+        }
+    };
+    // Read the labels, not only g_input_plugs: a drag over the names picks a run without a press on each label.
+    for (QLabel* l : g_channel_labels) {
+        if (!g_channel_sel.contains(l->property("attr").toString())) continue;
+        QVariant input = l->property("inputPlug");
+        if (input.isValid()) add(input.toString());
+    }
+    // A script's channelBox -select pick may have no label for the input yet.
+    for (const QString& a : g_channel_sel) {
+        if (!g_input_plugs.contains(a)) continue;
+        QString plug = g_input_plugs[a];
+        bool seen = false;
+        for (QLabel* l : g_channel_labels)
+            seen = seen || (l->property("attr").toString() == a && l->property("inputPlug").isValid());
+        if (!seen) add(plug);
+    }
     return out;
 }
 
@@ -383,18 +408,21 @@ protected:
         if (e->button() != Qt::LeftButton) return QLabel::mousePressEvent(e);
         QString a = property("attr").toString();
         pick_channel(a, e->modifiers(), false);
-        if (property("inputPlug").isValid()) {
+        if (property("inputPlug").isValid())
             g_input_plugs[a] = property("inputPlug").toString();
-            // The channel's handle lights up, and a middle drag takes it.
-            QString plug = property("inputPlug").toString();
-            // Settings > No or Invisible Manipulators keep the handle out of the view; the middle drag still works.
-            if (cb_setting("manipulators", 2).toInt() == 2) {
-                query("uiShowManip", plug.section('.', 0, -2));
-                query("uiShowManipAttr", plug.section('.', -1));
-            }
-        }
-        else g_input_plugs.remove(a);
+        else
+            g_input_plugs.remove(a);
         restyle_channel_labels();
+    }
+    void mouseReleaseEvent(QMouseEvent* e) override {
+        QLabel::mouseReleaseEvent(e);
+        if (e->button() != Qt::LeftButton || !property("inputPlug").isValid()) return;
+        // Showing the handle is deferred to the release. Doing it on the press changed the tool under the mouse and
+        // stopped a drag down the input names after the first label, the same reason the attribute is lit here.
+        QString plug = property("inputPlug").toString();
+        if (cb_setting("manipulators", 2).toInt() == 2)
+            query("uiShowManip", plug.section('.', 0, -2));
+        query("uiShowManipAttr", plug.section('.', -1));
     }
 };
 
@@ -411,14 +439,17 @@ void commit_channels(QLabel* edited, const QString& plug, const QString& text) {
     } else {
         chans << QJsonObject::fromVariantMap(edited->property("channel").toMap());
     }
-    QStringList nodes{node};
-    if (edited->property("main").toBool()) {
-        nodes.clear();
-        for (const QJsonValue& v : state()["selection"].toArray()) {
-            QString n = v.toString().section('.', 0, 0);
-            if (!nodes.contains(n)) nodes << n;
+    QStringList nodes = edited->property("parallelNodes").toStringList();
+    if (nodes.isEmpty()) {
+        nodes << node;
+        if (edited->property("main").toBool()) {
+            nodes.clear();
+            for (const QJsonValue& v : state()["selection"].toArray()) {
+                QString n = v.toString().section('.', 0, 0);
+                if (!nodes.contains(n)) nodes << n;
+            }
+            if (nodes.isEmpty()) nodes << node;
         }
-        if (nodes.isEmpty()) nodes << node;
     }
     QString t = text.trimmed();
     QString op;
@@ -444,6 +475,24 @@ void commit_channels(QLabel* edited, const QString& plug, const QString& text) {
     if (many) exec_quiet("undoInfo", QJsonObject{{"closeChunk", true}});
 }
 
+// A value chosen from a row's dropdown. A main row's value goes to every selected object, as typed values do; a
+// shape's or an input's row changes only that node. Visibility and the enums use this path.
+void set_channel_value(QLineEdit* edit, const QString& plug, const QJsonObject& ch, const QJsonValue& value) {
+    QString attr = ch["attr"].toString();
+    QString type = ch["type"].toString();
+    QStringList nodes = edit->property("parallelNodes").toStringList();
+    if (nodes.isEmpty() && edit->property("main").toBool()) {
+        for (const QJsonValue& v : state()["selection"].toArray()) {
+            QString n = v.toString().section('.', 0, 0);
+            if (!nodes.contains(n)) nodes << n;
+        }
+    }
+    if (nodes.isEmpty()) nodes << plug.section('.', 0, 0);
+    if (nodes.size() > 1) exec_quiet("undoInfo", QJsonObject{{"openChunk", true}});
+    for (const QString& n : nodes) set_attr(n + "." + attr, value, type);
+    if (nodes.size() > 1) exec_quiet("undoInfo", QJsonObject{{"closeChunk", true}});
+}
+
 void fill_channels_menu(QMenu* m, bool titled);
 
 // A channel row: right-aligned name, value field. Enter commits a setAttr.
@@ -454,13 +503,19 @@ QWidget* channel_row(const QJsonObject& ch, QWidget* parent, int label_width) {
     h->setSpacing(4);
     const int names = cb_setting("names", 0).toInt();
     const QString shown = names == 1 ? ch["attr"].toString() : names == 2 ? ch["short"].toString(ch["attr"].toString()) : ch["nice"].toString();
+    QStringList parallel;
     auto* label = new ChannelLabel(shown, row);
     label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
     label->setFixedWidth(label_width);
     label->setToolTip(ch["plug"].toString());
     label->setObjectName("channelName");
     label->setProperty("attr", ch["attr"].toString());
-    if (parent->property("inInputs").toBool()) label->setProperty("inputPlug", ch["plug"].toString());
+    if (parent->property("inInputs").toBool()) {
+        QString plug = ch["plug"].toString();
+        label->setProperty("inputPlug", plug);
+        parallel = g_input_nodes.value(plug);
+        if (!parallel.isEmpty()) label->setProperty("parallelNodes", parallel);
+    }
     label->setProperty("picked", g_channel_sel.contains(ch["attr"].toString()));
     // The node the row belongs to, and whether it is the selected objects' own channel (the value goes to every
     // selected object) or a shape's or an input's (the value goes to that node).
@@ -483,6 +538,8 @@ QWidget* channel_row(const QJsonObject& ch, QWidget* parent, int label_width) {
     auto* edit = new QLineEdit(value_text(ch), row);
     edit->setProperty("attr", ch["attr"].toString());
     edit->setProperty("picked", g_channel_sel.contains(ch["attr"].toString()));
+    edit->setProperty("main", label->property("main"));
+    if (!parallel.isEmpty()) edit->setProperty("parallelNodes", parallel);
     g_channel_fields << edit;
     static auto* clicks = new ChannelValueClicks(qApp);
     edit->installEventFilter(clicks);
@@ -536,7 +593,7 @@ QWidget* channel_row(const QJsonObject& ch, QWidget* parent, int label_width) {
                 if (edit->property("choiceVersion").toULongLong() != aztek_version()) return;
                 edit->setProperty("editing", false);
                 QPointer<QLineEdit> current(edit);
-                set_attr(plug, type == "bool" ? QJsonValue(i != 0) : QJsonValue(i), type);
+                set_channel_value(edit, plug, ch, type == "bool" ? QJsonValue(i != 0) : QJsonValue(i));
                 if (!current) return;
                 QJsonObject updated = ch;
                 updated["value"] = ask("getAttr", args(QJsonArray{plug}));
@@ -1101,7 +1158,34 @@ void ChannelBox::refresh() {
         return;
     }
     const QJsonArray objects = cb["objects"].toArray();
-    const bool only_lead = QSettings().value("channelBox/showType", "all").toString() == "select";
+    // Under INPUTS, the reference edits the same input channel on every selected object whose input at the same stack
+    // index has the same node type and the same attribute. Build that list once for the lead's rows.
+    g_input_nodes.clear();
+    if (!objects.isEmpty()) {
+        const QJsonObject lead = objects.last().toObject();
+        const QJsonArray lead_inputs = lead["inputs"].toArray();
+        for (int i = 0; i < lead_inputs.size(); ++i) {
+            const QJsonObject input = lead_inputs.at(i).toObject();
+            const QString type = input["type"].toString();
+            const QString input_path = input["path"].toString();
+            for (const QJsonValue& cv : input["channels"].toArray()) {
+                const QJsonObject channel = cv.toObject();
+                const QString attr = channel["attr"].toString();
+                QStringList nodes{input_path};
+                for (int j = 0; j + 1 < objects.size(); ++j) {
+                    const QJsonArray others = objects.at(j).toObject()["inputs"].toArray();
+                    if (i >= others.size()) continue;
+                    const QJsonObject other = others.at(i).toObject();
+                    if (other["type"].toString() != type) continue;
+                    bool has = false;
+                    for (const QJsonValue& ov : other["channels"].toArray())
+                        has = has || ov.toObject()["attr"].toString() == attr;
+                    if (has) nodes << other["path"].toString();
+                }
+                g_input_nodes[channel["plug"].toString()] = nodes;
+            }
+        }
+    }
     // One label column for the whole box: every attribute label, in the object and in its shapes, inputs and outputs,
     // ends at the same edge as the reference's.
     int label_width = 60;
@@ -1121,19 +1205,29 @@ void ChannelBox::refresh() {
             for (const QJsonValue& v : objects) scan_node(v.toObject());
         if (options_.contains("labelWidth")) label_width = qMax(10, options_["labelWidth"].toInt());
     }
-    // One block per selected object, lead last, as the reference stacks them.
-    auto add_object = [&](const QJsonObject& o) {
-        // Object name, editable to rename.
+    // One block for the selection. With more than one object the reference shows the lead's block only, its name
+    // followed by "..." as a sign that the same channels are edited on every selected object. The lead is the last
+    // selected object, as the reference names it.
+    auto add_object = [&](const QJsonObject& o, bool multiple) {
+        // Object name, editable to rename. The "..." is the multiple-selection mark, not part of the name.
         // Settings > Show Namespace off drops the namespace from the name shown.
         const QString full = o["name"].toString();
-        auto* name = new QLineEdit(cb_setting("namespace", true).toBool() ? full : full.section(':', -1), body_);
+        const QString shown = (cb_setting("namespace", true).toBool() ? full : full.section(':', -1)) + (multiple ? "..." : "");
+        auto* name = new QLineEdit(shown, body_);
         name->setObjectName("channelHeader");
         const QString path = o["path"].toString();
         connect(name, &QLineEdit::textEdited, name, [name] { name->setProperty("editing", true); });
-        connect(name, &QLineEdit::editingFinished, name, [name, path] {
+        connect(name, &QLineEdit::editingFinished, name, [name, path, shown, multiple] {
             if (!name->property("editing").toBool()) return;
             name->setProperty("editing", false);
-            exec("rename", args(QJsonArray{path, name->text().trimmed()}));
+            QString renamed = name->text().trimmed();
+            if (multiple && renamed.endsWith("...")) renamed.chop(3);
+            renamed = renamed.trimmed();
+            if (renamed.isEmpty()) {
+                name->setText(shown);
+                return;
+            }
+            exec("rename", args(QJsonArray{path, renamed}));
         });
         name->setProperty("node", path);
         lay->addWidget(name);
@@ -1156,13 +1250,9 @@ void ChannelBox::refresh() {
         add_nodes(lay, "OUTPUTS", o["outputs"].toArray(), label_width);
     };
     if (!objects.isEmpty()) {
-        const int first = only_lead ? qMax(0, objects.size() - 1) : 0;
-        for (int i = first; i < objects.size(); ++i) {
-            if (i > first) lay->addSpacing(8);
-            add_object(objects[i].toObject());
-        }
+        add_object(objects.last().toObject(), objects.size() > 1);
     } else {
-        add_object(cb);
+        add_object(cb, false);
     }
     lay->addStretch(1);
     scroll_->setWidget(body_);

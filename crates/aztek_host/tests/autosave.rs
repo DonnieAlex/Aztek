@@ -16,6 +16,7 @@ fn performs_numbered_copies_and_keeps_the_limit() {
     std::env::set_var("AZTEK_PREFS", tmp.join("prefs"));
     let dir = tmp.join("saves").to_string_lossy().replace('\\', "/");
     let mut c = Core::new();
+    c.use_prefs();
     mel(&mut c, &format!("autoSave -enable true -interval 30 -destination 1 -folder \"{dir}\" -limitBackups true -maxBackups 2;"));
     assert_eq!(mel(&mut c, "autoSave -q -enable;"), json!(true));
     assert_eq!(mel(&mut c, "autoSave -q -interval;"), json!(30.0));
@@ -37,8 +38,10 @@ fn performs_numbered_copies_and_keeps_the_limit() {
     // The copy holds the scene.
     let text = std::fs::read_to_string(format!("{dir}/shot.0003.ma")).unwrap();
     assert!(text.contains("pSphere1") && text.contains("pCube1"));
-    // Settings outlive the session.
+    // Settings outlive the session, as the application's startup reads them.
     let mut d = Core::new();
+    d.use_prefs();
     assert_eq!(mel(&mut d, "autoSave -q -maxBackups;"), json!(2));
+    aztek_host::ui_cmds::set_keeps_prefs(false);
     let _ = std::fs::remove_dir_all(&tmp);
 }

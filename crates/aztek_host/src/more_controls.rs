@@ -654,8 +654,8 @@ fn f(name: &str, short: &str, ty: ArgType) -> FlagDef {
 /// The older browser's file types, as fileDialog2 filters.
 fn type_filter(t: &str) -> Option<&'static str> {
     Some(match t {
-        "mayaAscii" => "Maya ASCII (*.ma)",
-        "mayaBinary" => "Maya Binary (*.mb)",
+        "mayaAscii" => "mayaAscii (*.ma)",
+        "mayaBinary" => "mayaBinary (*.mb)",
         "mel" => "MEL (*.mel)",
         "OBJ" => "OBJ (*.obj)",
         "plug-in" => "Plug-ins (*.so *.dll *.bundle *.mll *.py)",

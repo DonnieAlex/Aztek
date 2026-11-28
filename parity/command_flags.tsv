@@ -32694,8 +32694,8 @@ shadingNode	icm	done	auto
 shadingNode	isColorManaged	done	auto
 shadingNode	n	done	auto
 shadingNode	name	done	auto
-shadingNode	p	missing	
-shadingNode	parent	missing	
+shadingNode	p	done	auto
+shadingNode	parent	done	auto
 shadingNode	s	done	auto
 shadingNode	shared	done	auto
 shadingNode	skipSelect	done	auto
@@ -39536,12 +39536,12 @@ volumeBind	q	missing
 volumeBind	query	missing	
 vortex	att	done	auto
 vortex	attenuation	done	auto
-vortex	ax	missing	
-vortex	axisX	missing	
-vortex	axisY	missing	
-vortex	axisZ	missing	
-vortex	ay	missing	
-vortex	az	missing	
+vortex	ax	done	auto
+vortex	axisX	done	auto
+vortex	axisY	done	auto
+vortex	axisZ	done	auto
+vortex	ay	done	auto
+vortex	az	done	auto
 vortex	e	done	auto
 vortex	edit	done	auto
 vortex	m	done	auto

@@ -1,0 +1,272 @@
+class	cpp_status	python_status	ref_methods	cpp_missing	python_missing
+MAddRemoveAttrEdit	missing class	missing class	6	0	0
+MAngle	present	present	20	3	6
+MArgDatabase	present	present	6	0	1
+MArgList	present	present	21	1	1
+MArgParser	present	present	27	3	9
+MArrayDataBuilder	present	missing class	12	2	0
+MArrayDataHandle	present	present	16	0	6
+MAtomic	missing class	missing class	8	0	0
+MAttributeIndex	missing class	missing class	19	0	0
+MAttributePattern	missing class	missing class	13	0	0
+MAttributePatternArray	missing class	missing class	19	0	0
+MAttributeSpec	missing class	missing class	10	0	0
+MAttributeSpecArray	missing class	missing class	19	0	0
+MAutoCLEvent	present	missing class	14	7	0
+MAutoCLKernel	present	missing class	14	7	0
+MAutoCLMem	present	missing class	14	6	0
+MBoundingBox	present	present	14	1	0
+MCacheConfigRuleRegistry	missing class	missing class	5	0	0
+MCacheFormatDescription	missing class	missing class	18	0	0
+MCallbackIdArray	missing class	present	20	0	4
+MCameraMessage	missing class	missing class	3	0	0
+MCameraSetMessage	missing class	missing class	3	0	0
+MColor	present	present	16	5	1
+MColorArray	present	present	20	16	4
+MCommandMessage	missing class	missing class	5	0	0
+MCommandResult	missing class	present	6	0	0
+MCommonSystemUtils	missing class	missing class	4	0	0
+MComputation	missing class	missing class	12	0	0
+MConditionMessage	missing class	missing class	4	0	0
+MConnectDisconnectAttrEdit	missing class	missing class	7	0	0
+MContainerMessage	missing class	missing class	3	0	0
+MCurveAttribute	missing class	missing class	19	0	0
+MCustomEvaluatorClusterNode	missing class	missing class	7	0	0
+MDAGDrawOverrideInfo	missing class	missing class	0	0	0
+MDGContext	present	present	9	3	3
+MDGContextGuard	missing class	missing class	2	0	0
+MDGMessage	present	present	9	0	0
+MDGModifier	present	present	36	9	11
+MDagMessage	present	present	21	0	0
+MDagModifier	present	present	5	0	0
+MDagPath	present	present	36	6	5
+MDagPathArray	present	present	19	15	4
+MDataBlock	present	present	11	1	1
+MDataHandle	present	present	96	25	44
+MDistance	present	present	24	6	6
+MDoubleArray	missing class	present	20	0	4
+MEdit	missing class	missing class	10	0	0
+MEulerRotation	present	present	32	10	0
+MEvaluationGraph	missing class	missing class	6	0	0
+MEvaluationManager	missing class	missing class	4	0	0
+MEvaluationNode	present	missing class	15	10	0
+MEvaluationNodeIterator	missing class	missing class	8	0	0
+MEventMessage	present	present	3	0	0
+MExternalContentInfoTable	missing class	missing class	7	0	0
+MExternalContentLocationTable	missing class	missing class	6	0	0
+MFcurveEdit	missing class	missing class	4	0	0
+MFileIO	missing class	missing class	66	0	0
+MFileObject	present	present	31	7	12
+MFloatArray	missing class	present	20	0	4
+MFloatMatrix	present	present	24	12	0
+MFloatPoint	present	present	22	10	1
+MFloatPointArray	present	present	20	16	4
+MFloatVector	present	present	24	4	0
+MFloatVectorArray	present	present	20	16	4
+MFn	present	present	1	1	0
+MFnAmbientLight	missing class	missing class	11	0	0
+MFnAnisotropyShader	missing class	missing class	21	0	0
+MFnAreaLight	missing class	missing class	5	0	0
+MFnArrayAttrsData	missing class	missing class	17	0	0
+MFnAssembly	missing class	missing class	31	0	0
+MFnAttribute	present	present	59	19	14
+MFnBase	present	present	8	2	0
+MFnBlinnShader	missing class	missing class	9	0	0
+MFnCamera	present	missing class	137	126	0
+MFnCameraSet	missing class	missing class	21	0	0
+MFnComponent	present	present	14	4	4
+MFnComponentListData	missing class	missing class	11	0	0
+MFnCompoundAttribute	present	present	10	1	0
+MFnContainerNode	missing class	missing class	15	0	0
+MFnDagNode	present	present	53	22	22
+MFnData	present	present	4	0	1
+MFnDependencyNode	present	present	69	42	44
+MFnDirectionalLight	missing class	missing class	9	0	0
+MFnDoubleArrayData	present	missing class	10	0	0
+MFnDoubleIndexedComponent	missing class	present	11	0	2
+MFnEnumAttribute	present	present	13	0	4
+MFnExpression	missing class	missing class	15	0	0
+MFnFalloffData	missing class	missing class	6	0	0
+MFnFloatArrayData	present	missing class	10	1	0
+MFnFloatVectorArrayData	missing class	missing class	10	0	0
+MFnGenericAttribute	present	present	11	3	6
+MFnGeometryData	present	present	32	27	25
+MFnIntArrayData	present	missing class	10	0	0
+MFnLambertShader	missing class	missing class	27	0	0
+MFnLatticeData	missing class	missing class	6	0	0
+MFnLayeredShader	missing class	missing class	17	0	0
+MFnLight	missing class	missing class	25	0	0
+MFnLightDataAttribute	missing class	missing class	8	0	0
+MFnMatrixArrayData	missing class	missing class	10	0	0
+MFnMatrixAttribute	present	present	7	1	1
+MFnMatrixData	present	present	9	0	1
+MFnMesh	present	present	214	182	153
+MFnMeshData	present	missing class	5	0	0
+MFnMessageAttribute	present	present	5	0	0
+MFnNonAmbientLight	missing class	missing class	6	0	0
+MFnNonExtendedLight	missing class	missing class	22	0	0
+MFnNumericAttribute	present	present	24	0	8
+MFnNumericData	present	present	26	0	19
+MFnNurbsCurve	present	present	43	23	16
+MFnNurbsCurveData	present	missing class	5	1	0
+MFnNurbsSurface	present	present	86	57	59
+MFnNurbsSurfaceData	missing class	missing class	5	0	0
+MFnPartition	missing class	missing class	8	0	0
+MFnPhongEShader	missing class	missing class	11	0	0
+MFnPhongShader	missing class	missing class	7	0	0
+MFnPlugin	present	present	70	42	50
+MFnPluginData	present	present	8	0	1
+MFnPointArrayData	present	missing class	10	1	0
+MFnPointLight	missing class	missing class	5	0	0
+MFnReference	missing class	missing class	18	0	0
+MFnReflectShader	missing class	missing class	12	0	0
+MFnSet	missing class	present	19	0	5
+MFnSingleIndexedComponent	present	present	12	1	1
+MFnSphereData	missing class	missing class	7	0	0
+MFnSpotLight	missing class	missing class	21	0	0
+MFnStandardSurfaceShader	missing class	missing class	83	0	0
+MFnStringArrayData	present	missing class	10	1	0
+MFnStringData	present	present	7	0	0
+MFnSubd	missing class	missing class	80	0	0
+MFnSubdData	missing class	missing class	5	0	0
+MFnSubdNames	missing class	missing class	25	0	0
+MFnToolContext	missing class	missing class	6	0	0
+MFnTransform	present	present	43	13	10
+MFnTripleIndexedComponent	missing class	missing class	11	0	0
+MFnTypedAttribute	present	present	8	0	2
+MFnUInt64ArrayData	missing class	missing class	10	0	0
+MFnUint64SingleIndexedComponent	missing class	missing class	11	0	0
+MFnUintArrayData	missing class	missing class	10	0	0
+MFnUnitAttribute	present	present	20	7	5
+MFnVectorArrayData	present	missing class	10	1	0
+MFnVolumeLight	missing class	missing class	19	0	0
+MGlobal	present	present	92	60	63
+MGraphNodeIterator	missing class	missing class	6	0	0
+MIffFile	missing class	missing class	15	0	0
+MIffTag	missing class	missing class	3	0	0
+MImage	missing class	missing class	29	0	0
+MImageFileInfo	missing class	missing class	10	0	0
+MInt64Array	missing class	missing class	20	0	0
+MIntArray	missing class	present	20	0	4
+MItCurveCV	missing class	missing class	14	0	0
+MItDag	present	present	20	4	3
+MItDependencyGraph	present	present	38	26	23
+MItDependencyNodes	missing class	present	8	0	0
+MItEdits	missing class	missing class	16	0	0
+MItGeometry	present	present	18	1	2
+MItInstancer	missing class	missing class	15	0	0
+MItMeshEdge	present	present	27	7	5
+MItMeshFaceVertex	missing class	present	26	0	8
+MItMeshPolygon	present	present	65	29	25
+MItMeshVertex	present	present	38	19	10
+MItSelectionList	present	present	13	0	0
+MItSubdEdge	missing class	missing class	13	0	0
+MItSubdFace	missing class	missing class	10	0	0
+MItSubdVertex	missing class	missing class	10	0	0
+MItSurfaceCV	missing class	missing class	17	0	0
+MIteratorType	missing class	missing class	9	0	0
+MLockMessage	missing class	missing class	4	0	0
+MMatrix	present	present	25	2	0
+MMatrixArray	present	present	19	15	4
+MMeshIntersector	present	missing class	6	0	0
+MMeshSmoothOptions	missing class	missing class	27	0	0
+MMessage	present	present	8	0	3
+MModelMessage	missing class	missing class	6	0	0
+MMutexLock	missing class	missing class	5	0	0
+MNamespace	missing class	missing class	18	0	0
+MNodeClass	missing class	missing class	15	0	0
+MNodeMessage	present	present	11	0	0
+MNurbsIntersector	missing class	missing class	8	0	0
+MObject	present	present	9	0	0
+MObjectArray	present	present	20	16	4
+MObjectHandle	present	present	11	2	2
+MObjectSetMessage	missing class	missing class	2	0	0
+MOpenCLBuffer	missing class	missing class	8	0	0
+MOpenCLInfo	present	missing class	10	3	0
+MPaintMessage	missing class	missing class	2	0	0
+MParentingEdit	missing class	missing class	6	0	0
+MPlane	missing class	present	6	0	0
+MPlug	present	present	90	17	18
+MPlugArray	present	present	20	16	4
+MPluginCallableInfo	missing class	missing class	0	0	0
+MPoint	present	present	21	0	0
+MPointArray	present	present	20	16	4
+MPointOnMesh	present	missing class	6	0	0
+MPolyMessage	missing class	missing class	6	0	0
+MProfiler	missing class	missing class	33	0	0
+MProfilingScope	missing class	missing class	3	0	0
+MPxAnimCurveInterpolator	missing class	missing class	4	0	0
+MPxAssembly	missing class	missing class	52	0	0
+MPxAttributePatternFactory	missing class	missing class	6	0	0
+MPxBakeEngine	missing class	missing class	5	0	0
+MPxCacheConfigRuleFilter	missing class	missing class	3	0	0
+MPxCacheFormat	missing class	missing class	37	0	0
+MPxCameraSet	missing class	missing class	4	0	0
+MPxCommand	present	missing class	26	2	0
+MPxComponentShape	missing class	missing class	7	0	0
+MPxCustomEvaluator	missing class	missing class	18	0	0
+MPxData	present	missing class	9	0	0
+MPxEditData	missing class	missing class	5	0	0
+MPxFileResolver	missing class	missing class	13	0	0
+MPxFileTranslator	missing class	missing class	13	0	0
+MPxGeometryData	missing class	missing class	12	0	0
+MPxGeometryIterator	missing class	missing class	21	0	0
+MPxImageFile	missing class	missing class	6	0	0
+MPxImagePlane	missing class	missing class	9	0	0
+MPxMaterialInformation	missing class	missing class	7	0	0
+MPxMayaAsciiFilter	missing class	missing class	6	0	0
+MPxMayaAsciiFilterOutput	missing class	missing class	1	0	0
+MPxMotionPathNode	missing class	missing class	11	0	0
+MPxMultiPolyTweakUVCommand	missing class	missing class	6	0	0
+MPxNode	present	missing class	49	26	0
+MPxObjectSet	missing class	missing class	5	0	0
+MPxPolyTrg	missing class	missing class	7	0	0
+MPxPolyTweakUVCommand	missing class	missing class	5	0	0
+MPxRepresentation	missing class	missing class	8	0	0
+MPxSurfaceShape	present	missing class	41	18	0
+MPxTopologyEvaluator	missing class	missing class	9	0	0
+MPxTransform	present	missing class	53	35	0
+MPxTransformPreRotation	missing class	missing class	4	0	0
+MPxTransformationMatrix	present	missing class	50	8	0
+MPxTransformationMatrixPreRotation	missing class	missing class	3	0	0
+MQuaternion	present	present	30	4	3
+MRampAttribute	present	present	25	9	3
+MRichSelection	missing class	missing class	9	0	0
+MSceneMessage	present	present	9	0	0
+MScriptUtil	missing class	present	103	0	15
+MSelectionList	present	present	19	3	1
+MSetAttrEdit	missing class	missing class	4	0	0
+MSharedPtr< T >	missing class	missing class	7	0	0
+MSpinLock	missing class	missing class	5	0	0
+MStatus	present	present	13	3	3
+MStreamUtils	missing class	missing class	12	0	0
+MString	present	present	40	2	25
+MStringArray	present	present	20	16	5
+MStringResource	missing class	missing class	4	0	0
+MStringResourceId	missing class	missing class	5	0	0
+MSyntax	present	present	18	0	4
+MTemplateAction< ActionClass, CommandName, CommandSyntax >	missing class	missing class	5	0	0
+MTemplateCommand< CommandClass, CommandName, CommandSyntax >	missing class	missing class	1	0	0
+MTemplateCreateNodeCommand< CommandClass, CommandName, NodeName >	missing class	missing class	3	0	0
+MTesselationParams	missing class	missing class	30	0	0
+MThreadAsync	missing class	missing class	4	0	0
+MThreadPool	present	missing class	6	0	0
+MThreadUtils	present	missing class	3	2	0
+MTime	present	present	29	5	5
+MTimeArray	present	present	20	16	4
+MTimer	missing class	missing class	9	0	0
+MTimerMessage	missing class	missing class	4	0	0
+MTopologyClusterNode	missing class	missing class	4	0	0
+MTransformationMatrix	present	present	44	9	4
+MTrimBoundaryArray	missing class	missing class	18	0	0
+MTypeId	present	present	7	0	0
+MURI	missing class	missing class	44	0	0
+MUint64Array	missing class	missing class	20	0	0
+MUintArray	missing class	present	20	0	4
+MUniqueString	missing class	missing class	12	0	0
+MUserEventMessage	missing class	missing class	6	0	0
+MUuid	present	present	12	1	1
+MVector	present	present	26	0	0
+MVectorArray	present	present	20	16	4
+MWeight	missing class	missing class	8	0	0
+MaterialInputData	missing class	missing class	0	0	0

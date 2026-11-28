@@ -1745,10 +1745,10 @@ const QUIET_TYPES: &[&str] = &[
     "blindDataTemplate",
 ];
 
-/// A renderer's nodes, which rendering being out of scope leaves behind on saving: RenderMan's, Arnold's, and the plug-ins' display helpers.
+/// A renderer's nodes, which rendering being out of scope leaves behind on saving: RenderMan's, the ai types the reference's renderer adds that Harold has no node for, and the plug-ins' display helpers.
 fn is_render_type(ty: &str) -> bool {
-    let arnold = ty.strip_prefix("ai").is_some_and(|r| r.starts_with(|c: char| c.is_ascii_uppercase()));
-    arnold || ty.starts_with("rman") || ty.starts_with("Pxr") || ty.starts_with("d_") || matches!(ty, "displayPoints" | "stereoRigCamera" | "stereoRigTransform")
+    let ai = ty.strip_prefix("ai").is_some_and(|r| r.starts_with(|c: char| c.is_ascii_uppercase()));
+    ai || ty.starts_with("rman") || ty.starts_with("Pxr") || ty.starts_with("d_") || matches!(ty, "displayPoints" | "stereoRigCamera" | "stereoRigTransform")
 }
 
 const DEFAULT_CAMERAS: &[&str] = &["persp", "top", "front", "side", "perspShape", "topShape", "frontShape", "sideShape"];
@@ -5498,7 +5498,7 @@ impl Writer<'_> {
             if !a.has(flags::INPUT) || !a.has(flags::STORABLE) || !wanted(i, a) {
                 continue;
             }
-            // A HumanIK node's vectors go by axis: the reference's files name .HipsTx and never .HipsT.
+            // A Humanoid IK node's vectors go by axis: the reference's files name .HipsTx and never .HipsT.
             if t.name.starts_with("HIK") && a.ty == PlugType::Vec3 {
                 let (value, rest) = (n.value(i).as_vec3(), a.default_value.as_vec3());
                 for c in 0..3 {
@@ -6031,7 +6031,7 @@ pub fn write_text(s: &mut Session, file_name: &str, only: Option<&[NodeId]>) -> 
         w.s.graph.close_chunk();
         w.s.graph.evaluate();
     }
-    (w.out, w.warnings)
+    (crate::harold::compat::to_file_names(&w.out), w.warnings)
 }
 
 /// An animCurve's lines: its node, tangents and keys, and its infinities.

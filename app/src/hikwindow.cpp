@@ -1,4 +1,4 @@
-// Humanoid IK, laid out as the reference's HumanIK panel (#168): the menu button, Character and Source, a row of tool
+// Humanoid IK, laid out as the reference's Humanoid IK panel (#168): the menu button, Character and Source, a row of tool
 // buttons, then the Skeleton, Definition, Controls and Properties tabs. Definition and Controls draw the body, with views
 // of the hands, feet, spine, clavicles, neck and roll bones to go into; under Definition the status and the picked
 // joint's values. It reads hikInfo and acts through the hik commands. The figures are drawn here, Aztek's own.
@@ -392,9 +392,9 @@ QWidget* section(const QString& title, QWidget* body) {
     return w;
 }
 
-class HumanIK : public Panel {
+class HumanoidIkPanel : public Panel {
 public:
-    explicit HumanIK(QWidget* parent) : Panel(parent) {
+    explicit HumanoidIkPanel(QWidget* parent) : Panel(parent) {
         auto* v = new QVBoxLayout(this);
         v->setContentsMargins(4, 4, 4, 4);
         v->setSpacing(4);
@@ -633,7 +633,7 @@ private:
             ++row;
             return out;
         };
-        node_ = line("HumanIK node", 1)[0];
+        node_ = line("Humanoid IK node", 1)[0];
         bone_ = line("Bone", 1)[0];
         scene_sel_ = line("Scene Selection", 1)[0];
         const QStringList three = {"Translate", "Rotate", "Scale", "Pre-rotate", "Post-rotate", "Min rot limit", "Max rot limit", "Parent offset R"};
@@ -665,7 +665,7 @@ private:
         order_->setText(j.isEmpty() ? QString() : orders.value(ask("getAttr", QJsonObject{{"args", QJsonArray{j + ".rotateOrder"}}}).toInt()));
     }
 
-    // Controls: the control rig's figure, sticks for the bones and circles for the effectors, and the HumanIK Controls frame.
+    // Controls: the control rig's figure, sticks for the bones and circles for the effectors, and the Humanoid IK Controls frame.
     QWidget* build_controls() {
         auto* w = new QWidget;
         auto* v = new QVBoxLayout(w);
@@ -696,7 +696,7 @@ private:
         connect(blend_t_, &QSlider::sliderReleased, this, [this] {
             if (!ik_.isEmpty()) exec("setAttr", QJsonObject{{"args", QJsonArray{ik_ + ".ikBlend", blend_t_->value() / 100.0}}});
         });
-        v->addWidget(section("HumanIK Controls", frame));
+        v->addWidget(section("Humanoid IK Controls", frame));
         return w;
     }
     // A click on the control rig figure: the effector for a hand or foot, else the bone's own control; a finger's stick
@@ -882,7 +882,7 @@ private:
 } // namespace
 
 QWidget* human_ik_panel(QWidget* parent) {
-    return new HumanIK(parent);
+    return new HumanoidIkPanel(parent);
 }
 
 } // namespace az

@@ -847,7 +847,7 @@ public:
         form->addRow("Size", size);
         format_ = new QComboBox(this);
         format_->addItems({"exr", "png", "tif", "jpg", "tga"});
-        QString fmt = ask("getAttr", one("defaultArnoldDriver.ai_translator")).toString();
+        QString fmt = ask("getAttr", one("defaultHaroldDriver.ai_translator")).toString();
         if (format_->findText(fmt) >= 0) format_->setCurrentText(fmt);
         form->addRow("Format", format_);
         dir_ = new QLineEdit(this);
@@ -1074,7 +1074,7 @@ void create_mesh_light() {
 void create_atmosphere() {
     QString n = exec("createNode", one("aiAtmosphereVolume")).toString();
     if (n.isEmpty()) return;
-    exec("connectAttr", QJsonObject{{"args", QJsonArray{n + ".message", "defaultArnoldRenderOptions.atmosphere[0]"}}, {"force", true}});
+    exec("connectAttr", QJsonObject{{"args", QJsonArray{n + ".message", "defaultHaroldRenderOptions.atmosphere[0]"}}, {"force", true}});
     exec("select", one(n));
 }
 

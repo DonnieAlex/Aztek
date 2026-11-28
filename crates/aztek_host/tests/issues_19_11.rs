@@ -26,7 +26,7 @@ fn mismatched_shiboken_is_an_import_error() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// #167: HumanIK is the mayaHIK plug-in, loaded at start: pluginInfo lists its commands and nodes, unloading takes the
+/// #167: Humanoid IK is the mayaHIK plug-in, loaded at start: pluginInfo lists its commands and nodes, unloading takes the
 /// commands away and loading puts them back.
 #[test]
 fn humanik_is_the_mayahik_plugin() {

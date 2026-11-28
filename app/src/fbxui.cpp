@@ -1,6 +1,6 @@
 // The FBX Import and FBX Export options windows. Sections and labels follow the reference's FBX plug-in; each control
-// runs that setting's command, and the Current Preset menu runs FBXResetImport/FBXResetExport (Autodesk Media &
-// Entertainment) or the MotionBuilder preset.
+// runs that setting's command, and the Current Preset menu runs FBXResetImport/FBXResetExport (Media &
+// Entertainment) or the motion capture preset.
 
 #include "fbxui.h"
 
@@ -67,7 +67,7 @@ public:
 
         auto* presets = section("Presets");
         preset_ = new QComboBox(this);
-        preset_->addItems({"Autodesk Media & Entertainment", "Autodesk MotionBuilder", "User defined"});
+        preset_->addItems({"Media & Entertainment", "Motion capture", "User defined"});
         preset_->setCurrentIndex(QSettings().value(QString(kGroup) + (import ? "/importPreset" : "/exportPreset"), 0).toInt());
         connect(preset_, QOverload<int>::of(&QComboBox::activated), this, [this](int k) { pick_preset(k); });
         presets->addRow("Current Preset", preset_);
@@ -83,7 +83,7 @@ public:
 
     void finish() { body_->addStretch(1); }
 
-    // Back to the Autodesk Media & Entertainment preset.
+    // Back to the Media & Entertainment preset.
     void reset() { pick_preset(0); }
 
     QCheckBox* check(QFormLayout* f, const QString& label, const QString& cmd) {
@@ -232,7 +232,7 @@ FbxPanel fbx_import_panel(QWidget* parent) {
     d.check(deformed, "Pre-Normalize Weights", "FBXImportPreNormalizeWeights");
     auto* cons = d.section("Constraints", anim);
     d.check(cons, "Constraints", "FBXImportConstraints");
-    d.choice(cons, "Skeleton Definitions", "FBXImportSkeletonType", {"None", "FBIK", "HumanIK"}, {"none", "fbik", "humanik"});
+    d.choice(cons, "Skeleton Definitions", "FBXImportSkeletonType", {"None", "FBIK", "Humanoid IK"}, {"none", "fbik", "humanik"});
     auto* other = d.section("Cameras, Lights and Audio", include);
     d.check(other, "Cameras", "FBXImportCameras");
     d.check(other, "Lights", "FBXImportLights");

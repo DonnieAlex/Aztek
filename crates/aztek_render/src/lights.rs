@@ -179,7 +179,7 @@ pub enum Shape {
     },
     /// Emitting triangles of an instance, chosen by area.
     Mesh { inst: u32, tris: Vec<u32>, cdf: Vec<f32>, area: f32 },
-    /// Maya's ambient light: light from all around unshadowed, and the shade part from its position.
+    /// The reference's ambient light: light from all around unshadowed, and the shade part from its position.
     Ambient { pos: Vec3, shade: f32 },
     /// The reference's volume light: light inside a box, sphere, cylinder or cone (shape 0 to 3) in the unit space of
     /// `to_unit`, fading from the middle to the boundary; coming from the centre (mode 0), towards it (1) or down the
@@ -206,7 +206,7 @@ pub struct Light {
     pub max_bounces: u32,
     /// Which light group AOV gets its light.
     pub group: u16,
-    /// Seen directly by camera rays (domes are; area lights are not, as Arnold's default).
+    /// Seen directly by camera rays (domes are; area lights are not, by default).
     pub camera: f32,
     pub ies: Option<Arc<Ies>>,
     /// Decay exponent: 2 physical, 0 none.
@@ -419,7 +419,7 @@ impl Light {
                 let f = Frame::from_n(*dir);
                 let wi = f.to_world(uniform_cone(u, *cos_half));
                 let solid = TAU * (1.0 - cos_half);
-                // Irradiance from the cone equals the light's intensity, as Arnold's distant light.
+                // Irradiance from the cone equals the light's intensity, as the reference renderer's distant light.
                 none(wi, f32::INFINITY, self.color / solid, 1.0 / solid, false)
             }
             Shape::Quad { corner, u: eu, v: ev, n: ln, two_sided, spread } => {
@@ -705,7 +705,7 @@ pub fn volume_reach(u: Vec3, shape: i32) -> f32 {
     }
 }
 
-/// Arnold's quad light spread: 1 is diffuse, smaller focuses the light along the normal.
+/// Quad light spread, as the reference's renderer has it: 1 is diffuse, smaller focuses the light along the normal.
 fn spread_falloff(cos_l: f32, spread: f32) -> f32 {
     if spread >= 1.0 {
         return 1.0;

@@ -1,4 +1,4 @@
-//! The nodes of HumanIK with the attribute names the reference's files use. A joint's `.ch` goes to a character's slot; `HIKSK2State` reads a
+//! The nodes of Humanoid IK with the attribute names the reference's files use. A joint's `.ch` goes to a character's slot; `HIKSK2State` reads a
 //! source's joints into a character state; `HIKRetargeterNode` turns it into the target's; `HIKSolverNode` passes it on or holds the
 //! stance; `HIKState2SK` puts out each joint's channels. States and definitions travel as data, as they do in the reference.
 //!
@@ -301,13 +301,13 @@ impl NodeBehavior for Holder {
 }
 
 fn data_in(name: &str) -> AttrDef {
-    let mut a = data_attr(name, name, "A HumanIK state or definition.");
+    let mut a = data_attr(name, name, "A Humanoid IK state or definition.");
     a.flags = flags::INPUT | flags::HIDDEN;
     a
 }
 
 fn data_out(name: &str) -> AttrDef {
-    AttrDef { name: name.into(), short_name: name.into(), ty: PlugType::Data, default_value: PlugValue::Data(None), flags: flags::OUTPUT | flags::HIDDEN, doc: "A HumanIK state or definition.".into(), ..Default::default() }
+    AttrDef { name: name.into(), short_name: name.into(), ty: PlugType::Data, default_value: PlugValue::Data(None), flags: flags::OUTPUT | flags::HIDDEN, doc: "A Humanoid IK state or definition.".into(), ..Default::default() }
 }
 
 fn message(name: &str, short: &str) -> AttrDef {
@@ -372,7 +372,7 @@ pub fn register_types() {
         for (n, def) in property_list() {
             p.push(AttrDef { name: n.clone(), short_name: n.clone(), ty: PlugType::Float, default_value: PlugValue::Float(*def), flags: IN_STORE | flags::KEYABLE, doc: String::new(), ..Default::default() });
         }
-        reg("HIKProperty2State", "A character's HumanIK properties.", p, Arc::new(|| Box::new(Properties)));
+        reg("HIKProperty2State", "A character's Humanoid IK properties.", p, Arc::new(|| Box::new(Properties)));
 
         for (name, doc) in [
             ("HIKEffector2State", "A control rig's effectors as a state. Held for files."),

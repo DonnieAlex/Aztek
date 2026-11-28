@@ -625,7 +625,7 @@ pub(crate) fn read_group(c: &mut Ctx, prim: &Prim, parent: NodeId) -> Result<Nod
 
 const LIGHTS: [&str; 6] = ["SphereLight", "DistantLight", "RectLight", "DiskLight", "CylinderLight", "DomeLight"];
 
-/// Whether a prim holds only settings that aren't read as nodes (render settings, Arnold's options): a Scope of
+/// Whether a prim holds only settings that aren't read as nodes (render settings, the reference renderer's options): a Scope of
 /// them makes no empty group.
 fn only_settings(prim: &Prim) -> bool {
     let kids = prim.children().unwrap_or_default();
@@ -682,9 +682,9 @@ fn lux_string(prim: &Prim, name: &str) -> Option<String> {
     None
 }
 
-/// A UsdLux light (Arnold's are UsdLux too) as the light the reference's USD plug-in makes of it: SphereLight a point
+/// A UsdLux light (the reference renderer's are UsdLux too) as the light the reference's USD plug-in makes of it: SphereLight a point
 /// light (a spot light with a shaping cone), DistantLight a directional light, RectLight an area light, DiskLight and
-/// CylinderLight Arnold area lights, DomeLight an Arnold sky dome with its texture. Intensity, exposure, colour, colour
+/// CylinderLight aiAreaLights, DomeLight an aiSkyDomeLight with its texture. Intensity, exposure, colour, colour
 /// temperature, normalize, radius and angle, sizes as the transform's scale.
 fn read_light(c: &mut Ctx, prim: &Prim, tr: NodeId, ty: &str) -> Result<(), String> {
     let cone = f64_of(prim, "inputs:shaping:cone:angle", None).or_else(|| f64_of(prim, "shaping:cone:angle", None));
@@ -760,7 +760,7 @@ fn read_light(c: &mut Ctx, prim: &Prim, tr: NodeId, ty: &str) -> Result<(), Stri
         }
         "CylinderLight" => {
             set_attr(g, sh, "aiTranslator", PlugValue::Int(2));
-            // USD's cylinder runs along X, Arnold's along Y: turned a quarter about Z.
+            // USD's cylinder runs along X, aiAreaLight's along Y: turned a quarter about Z.
             let (r, l) = (lux_f64(prim, "radius").unwrap_or(0.5), lux_f64(prim, "length").unwrap_or(1.0));
             if let Some(p) = plug_of(g, tr, "rotate") {
                 let now = g.value(&p).ok().map_or(DVec3::ZERO, |v| if let PlugValue::Vec3(x) = v { x } else { DVec3::ZERO });
@@ -794,7 +794,7 @@ fn read_light(c: &mut Ctx, prim: &Prim, tr: NodeId, ty: &str) -> Result<(), Stri
 /// Reads a prim and what's below it.
 pub(crate) fn read_prim(c: &mut Ctx, prim: &Prim, parent: NodeId, proto: Option<(String, String)>) -> Result<Option<NodeId>, String> {
     let ty = prim.type_name().map_err(|e| e.to_string())?.map_or(String::new(), |t| t.as_str().to_string());
-    // Render settings and Arnold's own prims (its options, drivers, filters, node graphs) are settings, not nodes in the
+    // Render settings and the reference renderer's own prims (its options, drivers, filters, node graphs) are settings, not nodes in the
     // outliner; the options' background is read with the shading.
     if SKIP_SUBTREE.contains(&ty.as_str()) || (ty.starts_with("Arnold") && !ty.starts_with("ArnoldProcedural")) {
         return Ok(None);

@@ -134,7 +134,7 @@ const OLD_SHORT: &[(&str, &str)] = &[
     ("transmissionDispersion", "tdis"),
 ];
 
-/// The standard surface's attributes, camelCase (Maya's standardSurface) or snake_case (aiStandardSurface).
+/// The standard surface's attributes, camelCase (the reference's standardSurface) or snake_case (aiStandardSurface).
 pub fn standard_attrs(snake: bool) -> Vec<AttrDef> {
     let mut out = Vec::new();
     for &(camel, short, sn, colour, d) in STANDARD {
@@ -225,7 +225,7 @@ fn ai_standard_out(d: &mut NodeData) {
     put(d, "outTransparency", DVec3::ONE - o);
 }
 
-/// aiStandardHair's attributes, with Arnold's documented defaults (unverified against a capture of the reference's).
+/// aiStandardHair's attributes, with the reference renderer's documented defaults (unverified against a capture of the reference's).
 fn hair_attrs() -> Vec<AttrDef> {
     vec![
         ranged(f("base", "base", 1.0), 0.0, 1.0),
@@ -333,7 +333,7 @@ fn mia_attrs() -> Vec<AttrDef> {
     ]
 }
 
-/// Render settings nodes and Arnold's lights, which files name and Aztek keeps.
+/// Render settings nodes and the ai lights, which files name and Aztek keeps.
 fn settings_table() -> Vec<(&'static str, &'static str, Vec<AttrDef>)> {
     let filters = ["blackman_harris", "box", "catrom", "closest", "cone", "cook", "cubic", "disk", "farthest", "gaussian", "heatmap", "mitnet", "sinc", "triangle", "variance", "video"];
     let _ = filters;
@@ -342,7 +342,7 @@ fn settings_table() -> Vec<(&'static str, &'static str, Vec<AttrDef>)> {
             "renderGlobals",
             "Render settings every scene has, as defaultRenderGlobals: output name, format, frames, which renderer.",
             vec![
-                s("currentRenderer", "ren", "arnold"),
+                s("currentRenderer", "ren", crate::harold::compat::RENDERER),
                 s("imageFilePrefix", "ifp", ""),
                 i("imageFormat", "outf", 51),
                 s("imfPluginKey", "imfkey", "exr"),
@@ -453,7 +453,7 @@ fn settings_table() -> Vec<(&'static str, &'static str, Vec<AttrDef>)> {
     ]
 }
 
-/// What Arnold reads on a NURBS curve to render it as a strand: whether to, its width, how finely it is sampled, the
+/// What Harold reads on a NURBS curve to render it as a strand: whether to, its width, how finely it is sampled, the
 /// shader it takes and how it is drawn across. Names as files hold them (unverified against a capture).
 pub fn curve_render_attrs() -> Vec<AttrDef> {
     vec![
@@ -476,8 +476,8 @@ pub const SHAPE_RENDER_NAMES: &[&str] = &[
     "aiDispHeight", "aiDispZeroValue", "aiDispPadding", "aiDispAutobump", "aiTraceSets", "aiSssSetname", "aiExportTangents", "aiExportColors", "aiExportRefPoints", "aiExportRefNormals", "aiMotionVectorSource",
 ];
 
-/// What renders need on a mesh or NURBS surface: Maya's render stats and the subdivision and visibility settings files
-/// hold for Arnold. Added at the end of each type's attributes.
+/// What renders need on a mesh or NURBS surface: the reference's render stats and the subdivision and visibility settings files
+/// hold for the reference's renderer. Added at the end of each type's attributes.
 pub fn shape_render_attrs() -> Vec<AttrDef> {
     vec![
         b("castsShadows", "csh", true),
@@ -516,7 +516,7 @@ pub fn shape_render_attrs() -> Vec<AttrDef> {
     ]
 }
 
-/// What renders read on every light, beside Maya's own attributes.
+/// What renders read on every light, beside the reference's own attributes.
 pub fn light_render_attrs() -> Vec<AttrDef> {
     vec![
         fs("aiExposure", "ai_exposure", 0.0),
@@ -545,7 +545,7 @@ pub fn light_render_attrs() -> Vec<AttrDef> {
     ]
 }
 
-/// Arnold's lights: (name, doc, own attributes). Their base is renderLight.
+/// The ai lights: (name, doc, own attributes). Their base is renderLight.
 pub fn ai_lights() -> Vec<(&'static str, &'static str, Vec<AttrDef>)> {
     vec![
         ("aiSkyDomeLight", "Light from a sphere around the scene: a colour or an HDR image, importance sampled.", vec![e("format", "format", 2, &["mirrored_ball", "angular", "latlong"]), f("camera", "camera", 1.0), f("skyRadius", "sky_radius", 1000.0), f("aiPortalMode", "portal_mode", 0.0), base("inMesh", "inMesh", PlugType::Mesh, PlugValue::Mesh(None), flags::INPUT | flags::HIDDEN)]),
@@ -590,14 +590,16 @@ pub fn classification(ty: &str) -> Option<&'static str> {
 }
 
 /// Default nodes rendering keeps in every scene, created once with the scene's other defaults.
-pub const DEFAULT_NODES: &[(&str, &str)] = &[("defaultRenderGlobals", "renderGlobals"), ("defaultResolution", "resolution"), ("defaultArnoldRenderOptions", "aiOptions"), ("defaultArnoldFilter", "aiAOVFilter"), ("defaultArnoldDriver", "aiAOVDriver"), ("defaultArnoldDisplayDriver", "aiAOVDriver")];
+pub const DEFAULT_NODES: &[(&str, &str)] = &[("defaultRenderGlobals", "renderGlobals"), ("defaultResolution", "resolution"), ("defaultHaroldRenderOptions", "aiOptions"), ("defaultHaroldFilter", "aiAOVFilter"), ("defaultHaroldDriver", "aiAOVDriver"), ("defaultHaroldDisplayDriver", "aiAOVDriver")];
 
-/// Written with createNode -s, as Maya writes nodes a plug-in shares between scenes.
+/// Written with createNode -s, as the reference writes nodes a plug-in shares between scenes.
 pub fn is_shared_node(name: &str) -> bool {
-    name.starts_with("defaultArnold") && is_default_node(name)
+    let name = crate::harold::compat::node_name(name);
+    name.starts_with("defaultHarold") && is_default_node(&name)
 }
 
 pub fn is_default_node(name: &str) -> bool {
+    let name = crate::harold::compat::node_name(name);
     DEFAULT_NODES.iter().any(|d| d.0 == name)
 }
 

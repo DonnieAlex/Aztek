@@ -445,7 +445,7 @@ const ShowKind kShowKinds[] = {
     {"IkHandles", "ikHandles", true}, {"Characters", "characters", false}, {"Clips", "clips", false}, {"Sets", "sets", true},
     {"Lights", "lights", true}, {"Optical FX", "opticalFx", false}, {"Lights and Light Sets", "lightsAndSets", true}, {"Light Sets", "lightSets", false},
     {"Lights: Illum. Linked Objects", "illumLinked", false}, {"Lights: Illum. by Default", "illumDefault", false}, {"Not In Render Layers", "notInLayers", false},
-    {"In Render Layers", "inLayers", false}, {"Not In Selected Render Layers", "notInSelLayers", false}, {"In Selected Render Layers", "inSelLayers", false}, {"MASH", "mash", false}};
+    {"In Render Layers", "inLayers", false}, {"Not In Selected Render Layers", "notInSelLayers", false}, {"In Selected Render Layers", "inSelLayers", false}, {"Motion Graphics", "mash", false}};
 const char* kShowAttrs[][2] = {{"Hidden", "hidden"}, {"Driven by Anim Curve", "animCurve"}, {"Driven by Expression", "expression"}, {"Driven by Driven Key", "drivenKey"},
                                {"Keyable", "keyable"}, {"Scale", "scale"}, {"Rotate", "rotate"}, {"Translate", "translate"}, {"Scale Rotate Translate", "srt"}, {"User Defined", "userDefined"}};
 

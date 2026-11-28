@@ -78,4 +78,4 @@ To try it on one issue: label it `auto`, or run the workflow by hand with its nu
 in Actions.
 
 Pull requests the bot opens don't start the Build workflow (GitHub doesn't run workflows on what the workflow token
-does); the bot's job has run the tests already, and merging builds and releases as any push to `main` does.
+does); the bot's job has run the tests already, and merging builds as any push to `main` does.
